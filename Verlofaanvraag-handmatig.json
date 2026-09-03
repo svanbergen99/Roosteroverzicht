@@ -1,9 +1,52 @@
 {
   "schemaVersion": 1,
   "vakantie": {
+    "meivakantie": {
+      "startdatum": "2026-04-20",
+      "eindedatum": "2026-05-03",
+      "weeknummer": "17-18",
+      "inleverDeadline": "2026-01-31",
+      "terugkoppelingWFM": "2026-02-13"
+    },
+    "zomervakantie": {
+      "startdatum": "2026-07-13",
+      "eindedatum": "2026-08-30",
+      "weeknummer": "29-35",
+      "inleverDeadline": "2025-12-27",
+      "terugkoppelingWFM": "2026-01-09"
+    },
     "kerstvakantie": {
-      "inleverDeadline": "2026-09-19"
+      "startdatum": "2026-12-21",
+      "eindedatum": "2027-01-03",
+      "weeknummer": "52-53",
+      "inleverDeadline": "2026-09-12",
+      "terugkoppelingWFM": "2026-09-25"
     }
   },
-  "officieelGesloten": {}
+  "officieelGesloten": {
+    "nieuwjaarsdag": {
+      "naam": "Nieuwjaarsdag",
+      "datums": ["2026-01-01"]
+    },
+    "pasen": {
+      "naam": "Pasen (eerste en tweede paasdag)",
+      "datums": ["2026-04-05", "2026-04-06"]
+    },
+    "koningsdag": {
+      "naam": "Koningsdag",
+      "datums": ["2026-04-27"]
+    },
+    "hemelvaartsdag": {
+      "naam": "Hemelvaartsdag",
+      "datums": ["2026-05-14"]
+    },
+    "pinksteren": {
+      "naam": "Pinksteren (eerste en tweede pinksterdag)",
+      "datums": ["2026-05-24", "2026-05-25"]
+    },
+    "kerstmis": {
+      "naam": "Kerstmis (eerste en tweede kerstdag)",
+      "datums": ["2026-12-25", "2026-12-26"]
+    }
+  }
 }
