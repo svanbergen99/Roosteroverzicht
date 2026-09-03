@@ -90,6 +90,17 @@
     if (overlay?.dataset.scene === SCENE_TYPE) overlay.remove();
   }
 
+  // Handmatig gekozen Verjaardag gebruikt hetzelfde partikeleffect als voorheen,
+  // maar toont daarnaast de vaste verjaardagstaart onderaan totdat een ander
+  // effect of "Effect stoppen" wordt gekozen.
+  document.addEventListener("click", (event) => {
+    const item = event.target.closest?.("[data-effect]");
+    if (!item) return;
+    const effect = String(item.dataset.effect || "");
+    if (effect === SCENE_TYPE) showBirthdayScene(false);
+    else hideBirthdayScene();
+  });
+
   // Bewust niet automatisch uitgevoerd. Later kan de roosterlogin dit aanroepen
   // wanneer de ingelogde collega op die datum jarig is.
   window.RoosterBirthdayScene = Object.freeze({
