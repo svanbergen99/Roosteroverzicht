@@ -16,56 +16,56 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install ffmpeg
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg fonts-dejavu-core
+          sudo apt-get install -y ffmpeg
 
-      - name: Create clean Easter ending
+      - name: Render approved Easter ending
         shell: bash
         run: |
           set -euo pipefail
           INPUT="Happy Eastern.mp4"
+          ENDCARD="/tmp/easter-endcard.jpg"
           test -s "$INPUT"
+          test -s ".github/easter-endcard.b64"
+          base64 --decode ".github/easter-endcard.b64" > "$ENDCARD"
+          test -s "$ENDCARD"
 
-          FONT="/usr/share/fonts/truetype/dejavu/DejaVuSerif-Italic.ttf"
-          if [ ! -f "$FONT" ]; then
-            FONT="/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"
-          fi
-          printf "%s" "collega's" > /tmp/collegas.txt
-
-          # Pak het laatste schone beeld precies rond het openen van het ei.
-          ffmpeg -y -ss 8.95 -i "$INPUT" -frames:v 1 /tmp/easter-clean.png
-
-          # Maak een rustige eindscene: zelfde beeld, subtiele zoom en tekst die uit de gloed verschijnt.
+          # Maak van het goedgekeurde eindbeeld een korte videosectie.
           ffmpeg -y \
-            -loop 1 -t 2.9 -i /tmp/easter-clean.png \
-            -f lavfi -t 2.9 -i anullsrc=channel_layout=stereo:sample_rate=48000 \
-            -vf "scale=360:640:force_original_aspect_ratio=increase,crop=360:640,zoompan=z='min(zoom+0.00045,1.025)':d=73:s=360x640:fps=25,drawtext=fontfile='${FONT}':text='Fijne Pasen':fontcolor=white:fontsize=42:x=(w-text_w)/2:y=100:borderw=2:bordercolor=0xD99B27AA:shadowcolor=0x6B3B00BB:shadowx=2:shadowy=3:alpha='if(lt(t,0.25),0,if(lt(t,0.95),(t-0.25)/0.70,1))',drawtext=fontfile='${FONT}':textfile=/tmp/collegas.txt:fontcolor=white:fontsize=28:x=(w-text_w)/2:y=156:borderw=1:bordercolor=0xD99B27AA:shadowcolor=0x6B3B00BB:shadowx=2:shadowy=2:alpha='if(lt(t,0.60),0,if(lt(t,1.25),(t-0.60)/0.65,1))',format=yuv420p" \
-            -c:v libx264 -preset medium -crf 18 -r 25 \
-            -c:a aac -b:a 96k -ar 48000 \
-            /tmp/easter-end.mp4
-
-          # Houd de originele video alleen tot vlak voordat de promotionele eindkaart begint.
-          ffmpeg -y -i "$INPUT" -t 9.1 \
-            -vf "scale=360:640:force_original_aspect_ratio=increase,crop=360:640,format=yuv420p" \
-            -af "afade=t=out:st=8.3:d=0.8" \
-            -c:v libx264 -preset medium -crf 18 -r 25 \
+            -loop 1 -framerate 25 -i "$ENDCARD" \
+            -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=48000 \
+            -t 2.8 -shortest \
+            -vf "scale=360:640:force_original_aspect_ratio=increase,crop=360:640,setsar=1,format=yuv420p" \
+            -r 25 -c:v libx264 -preset veryfast -crf 18 \
             -c:a aac -b:a 128k -ar 48000 \
-            /tmp/easter-main.mp4
+            /tmp/easter-endcard.mp4
 
-          # Voeg beide delen samen tot één normale MP4.
-          ffmpeg -y -i /tmp/easter-main.mp4 -i /tmp/easter-end.mp4 \
-            -filter_complex "[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]" \
-            -map "[v]" -map "[a]" \
-            -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -r 25 \
+          # Laat de sierlijke tekst precies tijdens het openen van het ei in beeld vloeien.
+          # Het promotionele originele einde wordt niet meer zichtbaar.
+          ffmpeg -y \
+            -i "$INPUT" -i /tmp/easter-endcard.mp4 \
+            -filter_complex "[0:v]trim=start=0:end=9.2,setpts=PTS-STARTPTS,fps=25,settb=AVTB[vmain];[1:v]trim=duration=2.8,setpts=PTS-STARTPTS,fps=25,settb=AVTB[vend];[vmain][vend]xfade=transition=fade:duration=0.5:offset=8.7,format=yuv420p[vout];[0:a]atrim=start=0:end=9.2,asetpts=PTS-STARTPTS[amain];[1:a]atrim=duration=2.8,asetpts=PTS-STARTPTS[aend];[amain][aend]acrossfade=d=0.5:c1=tri:c2=tri[aout]" \
+            -map "[vout]" -map "[aout]" -t 11.5 \
+            -c:v libx264 -preset veryfast -crf 18 -r 25 \
             -c:a aac -b:a 128k -ar 48000 -movflags +faststart \
             /tmp/Happy_Eastern_final.mp4
 
+          DURATION="$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 /tmp/Happy_Eastern_final.mp4)"
+          echo "Final duration: ${DURATION} seconds"
+          python3 - "$DURATION" <<'PY'
+          import sys
+          duration = float(sys.argv[1])
+          if not 11.0 <= duration <= 12.0:
+              raise SystemExit(f"Unexpected final duration: {duration}")
+          PY
+
           mv /tmp/Happy_Eastern_final.mp4 "$INPUT"
-          ffprobe -v error -show_entries format=duration -of default=nw=1 "$INPUT"
 
       - name: Commit final MP4
         shell: bash
@@ -78,5 +78,16 @@ jobs:
             echo "Geen wijziging om te committen."
             exit 0
           fi
-          git commit -m "Clean Easter video ending"
-          git push
+          git commit -m "Replace Easter promotional ending"
+
+          for attempt in 1 2 3; do
+            echo "Push attempt ${attempt}"
+            git fetch origin main
+            git rebase origin/main
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Kon de gerenderde MP4 niet naar main pushen."
+          exit 1
