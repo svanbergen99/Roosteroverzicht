@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20260903-64";
+  const VERSION = "20260903-66";
   const app = document.getElementById("app");
   const searchCard = document.querySelector(".search-card");
   const detachedAuthTrigger = document.getElementById("continueButton");
@@ -76,18 +76,18 @@
   }
 
   function ensureQuickActions() {
-    const salary = document.getElementById("publicSalarySection");
-    if (!salary) return null;
-
     let row = document.getElementById("publicPortalQuickActions");
     if (!row) {
       row = document.createElement("section");
       row.id = "publicPortalQuickActions";
-      row.className = "public-portal-quick-actions";
-      salary.before(row);
-      row.appendChild(salary);
-    } else if (salary.parentElement !== row) {
-      row.prepend(salary);
+      row.className = "public-portal-quick-actions roster-only-start";
+
+      const salary = document.getElementById("publicSalarySection");
+      if (salary?.parentElement === app) salary.before(row);
+      else if (searchCard?.parentElement === app) searchCard.before(row);
+      else app.prepend(row);
+    } else {
+      row.classList.add("roster-only-start");
     }
 
     rosterButton = document.getElementById("publicRosterButton");
@@ -96,12 +96,12 @@
       rosterButton.id = "publicRosterButton";
       rosterButton.className = "today-workers-button public-roster-button";
       rosterButton.type = "button";
+      rosterButton.setAttribute("aria-label", "Rooster openen");
       rosterButton.innerHTML = `
         <span class="public-roster-button-main">
           <span class="public-roster-button-icon" aria-hidden="true">▦</span>
           <span class="public-roster-button-copy">
             <strong>Rooster</strong>
-            <small>Team, naam en wachtwoord</small>
           </span>
         </span>
         <span class="public-roster-arrow" aria-hidden="true">›</span>`;
