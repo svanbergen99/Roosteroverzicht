@@ -1,6 +1,6 @@
-/* De seizoens- en feestdagachtergrond blijft rustig; de helderheid is live instelbaar. */
+/* De seizoens- en feestdagachtergrond start altijd op 100% helderheid; de gebruiker kan dit live aanpassen. */
 body {
-  --background-overlay-alpha: .82;
+  --background-overlay-alpha: 0;
   background-color: #0d121a !important;
   background-image:
     linear-gradient(rgba(8, 12, 18, var(--background-overlay-alpha)), rgba(8, 12, 18, var(--background-overlay-alpha))),
@@ -8,7 +8,7 @@ body {
 }
 
 html[data-theme="dark"] body {
-  --background-overlay-alpha: .84;
+  --background-overlay-alpha: 0;
   background-color: #0d121a !important;
   background-image:
     linear-gradient(rgba(8, 12, 18, var(--background-overlay-alpha)), rgba(8, 12, 18, var(--background-overlay-alpha))),
