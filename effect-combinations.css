@@ -1,0 +1,10 @@
+#videoLibraryPlayerSection:fullscreen > #combinedPetalEffectOverlay,
+#videoLibraryPlayerSection:-webkit-full-screen > #combinedPetalEffectOverlay {
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 10560 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  pointer-events: none !important;
+}
