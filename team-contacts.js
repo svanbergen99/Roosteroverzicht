@@ -25,6 +25,7 @@
       .replaceAll("'", "&#039;");
   }
 
+  // Zelfde volgorde-onafhankelijke naamkoppeling als de rest van het rooster.
   function nameSignature(value) {
     return String(value || "")
       .toLocaleLowerCase("nl-NL")
@@ -32,7 +33,10 @@
       .replace(/\p{M}/gu, "")
       .replace(/[^\p{L}\p{N}]+/gu, " ")
       .trim()
-      .replace(/\s+/g, " ");
+      .split(/\s+/)
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, "nl"))
+      .join("|");
   }
 
   function emailFromName(name) {
@@ -75,11 +79,9 @@
     const employee = (roster.employees || []).find((item) => nameSignature(item?.name) === signature);
     if (!employee) return "Rooster niet gevonden";
 
+    // De zwarte hoofdwerktijd is leidend. De interne dagstatus bepaalt dit niet.
     const ranges = (employee.schedules || [])
-      .filter((schedule) =>
-        String(schedule?.date || "").slice(0, 10) === today &&
-        String(schedule?.status || "").trim().toLocaleLowerCase("nl-NL") === "work"
-      )
+      .filter((schedule) => String(schedule?.date || "").slice(0, 10) === today)
       .map((schedule) => ({ start: formatTime(schedule.start), end: formatTime(schedule.end) }))
       .filter((schedule) => schedule.start && schedule.end)
       .sort((a, b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end));
