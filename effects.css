@@ -105,6 +105,11 @@
   color: #7c2d38;
 }
 
+/* Payday moet visueel hard binnenkomen, maar zonder de letterlijke tekst "BAM". */
+#paydayEffectOverlay .payday-bam {
+  display: none !important;
+}
+
 @media (max-width: 620px) {
   .today-workers-action {
     display: grid;
