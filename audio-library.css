@@ -1,0 +1,37 @@
+/* Algemene audiobibliotheek binnen de vaste Audio-dropdown. */
+.audio-library-section {
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid var(--line);
+}
+
+.audio-library-heading {
+  padding: 7px 9px 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .01em;
+}
+
+.audio-library-group + .audio-library-group {
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid var(--line);
+}
+
+.audio-library-category {
+  padding: 5px 9px 3px;
+  color: var(--accent-dark);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.audio-library-item .payday-preview-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-theme="dark"] .audio-library-category {
+  color: #f0b5e8;
+}
