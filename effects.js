@@ -13,8 +13,7 @@
     { id: "autumn", label: "Herfstbladeren", icon: "🍂" },
     { id: "halloween", label: "Halloween", icon: "🦇" },
     { id: "sinterklaas", label: "Sinterklaas", icon: "🎁" },
-    { id: "christmas", label: "Kerstmis", icon: "🎄" },
-    { id: "eid", label: "Suikerfeest", icon: "🌙" }
+    { id: "christmas", label: "Kerstmis", icon: "🎄" }
   ];
 
   const COLORS = ["#ff4d6d", "#ff9f1c", "#ffd60a", "#2ec4b6", "#00b4d8", "#4361ee", "#8b5cf6", "#ec4899"];
@@ -24,7 +23,6 @@
   const CHRISTMAS = ["#d90429", "#2b9348", "#ffd166", "#ffffff"];
   const HALLOWEEN = ["#ff7b00", "#ff9f1c", "#7b2cbf", "#3c096c", "#111827"];
   const SINTERKLAAS = ["#b91c1c", "#dc2626", "#f6c453", "#ffffff"];
-  const EID = ["#0f766e", "#14b8a6", "#f4c95d", "#fff4c2", "#ffffff"];
 
   const MOBILE = () => window.innerWidth < 680;
   const CAP = () => MOBILE() ? 220 : 360;
@@ -344,14 +342,6 @@
         addEmitter(1100, 6500, () => snow(MOBILE() ? 22 : 36, "front"), false);
         addEmitter(1650, 6000, () => fallingEmoji(MOBILE() ? 12 : 20, ["🎄", "🔔", "🎁", "⭐"], { yMin: -120, yMax: -20, sizeMin: 30, sizeMax: 52 }), false);
         duration = 9000;
-        break;
-      case "eid":
-        sceneGlow = { colors: ["#ccfbf1", "#fef3c7", "#ecfeff"], strength: .075 };
-        vectorStars(MOBILE() ? 110 : 190, ["#ffffff", "#f4c95d", "#99f6e4"], { vyMin: 30, vyMax: 72, sizeMin: 4, sizeMax: 13 });
-        fallingEmoji(MOBILE() ? 58 : 98, ["🌙", "⭐", "✨", "🌟"], { sizeMin: 26, sizeMax: 52, vyMin: 42, vyMax: 88 });
-        confettiRain(MOBILE() ? 65 : 110, EID, .35);
-        addEmitter(1250, 6200, () => vectorStars(MOBILE() ? 22 : 38, ["#ffffff", "#f4c95d", "#99f6e4"], { yMin: -120, yMax: -10, vyMin: 35, vyMax: 68 }), false);
-        duration = 8500;
         break;
       default:
         return 0;
