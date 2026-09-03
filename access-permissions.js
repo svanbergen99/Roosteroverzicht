@@ -16,10 +16,12 @@
     }),
     Object.freeze({
       loginHash: "73704b531ac77d446ab4f8aee0a09acef8c67171ba24a1693e2af36ca7cacabf",
+      rosterHash: "cf5c01e0acb499db8c5d5f9b4080704da318ea136bf79e88ddd6f83be11f59af",
       scope: "all"
     }),
     Object.freeze({
       loginHash: "85ee877a32d85a6178900edb730f4fad69d85d9e33ccb42f9ddd61e6d75d9f4b",
+      rosterHash: "a7ffc85872e37953f7de3e543491f7a570a47bdd94760c0700c78493a6b6e78b",
       scope: "all"
     })
   ]);
