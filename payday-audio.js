@@ -2,23 +2,9 @@
   "use strict";
 
   const TRACKS = Object.freeze([
-    "mixkit-magical-coin-win-1936.wav",
-    "mixkit-clinking-coins-1993.wav"
+    "mixkit-magical-coin-win-1936.mp3",
+    "mixkit-clinking-coins-1993.mp3"
   ]);
-
-  let currentAudio = null;
-  let sequenceId = 0;
-
-  function stopAudio() {
-    sequenceId += 1;
-    if (currentAudio) {
-      try {
-        currentAudio.pause();
-        currentAudio.currentTime = 0;
-      } catch (_) {}
-    }
-    currentAudio = null;
-  }
 
   function makeAudio(src) {
     const audio = new Audio(src);
@@ -26,43 +12,45 @@
     return audio;
   }
 
-  function playSequence() {
+  const players = TRACKS.map(makeAudio);
+  players.forEach((audio) => {
+    try { audio.load(); } catch (_) {}
+  });
+
+  function stopAudio() {
+    for (const audio of players) {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch (_) {}
+    }
+  }
+
+  function playTogether() {
     stopAudio();
-    const runId = sequenceId;
-    const first = makeAudio(TRACKS[0]);
-    const second = makeAudio(TRACKS[1]);
+    for (const audio of players) {
+      try { audio.currentTime = 0; } catch (_) {}
+    }
 
-    // Tweede track alvast laten bufferen zodat hij direct na de eerste kan starten.
-    try { second.load(); } catch (_) {}
-
-    currentAudio = first;
-    first.addEventListener("ended", () => {
-      if (runId !== sequenceId) return;
-      currentAudio = second;
-      second.currentTime = 0;
-      second.play().catch(() => {});
-    }, { once: true });
-
-    second.addEventListener("ended", () => {
-      if (runId === sequenceId) currentAudio = null;
-    }, { once: true });
-
-    first.currentTime = 0;
-    first.play().catch(() => {});
+    // Beide vooraf geladen MP3-tracks worden in dezelfde klikactie gestart,
+    // zodat ze zo gelijk mogelijk vanaf 0:00 over elkaar heen spelen.
+    for (const audio of players) {
+      audio.play().catch(() => {});
+    }
   }
 
   document.addEventListener("click", (event) => {
     if (event.target.closest?.("#paydayEffectMenuItem")) {
-      playSequence();
+      playTogether();
       return;
     }
 
-    // Een ander effect of 'Effect stoppen' stopt ook de Payday-audio.
+    // Een ander effect of 'Effect stoppen' stopt beide Payday-tracks.
     if (event.target.closest?.("[data-effect]")) stopAudio();
   }, true);
 
   window.RoosterPaydayAudio = Object.freeze({
-    play: playSequence,
+    play: playTogether,
     stop: stopAudio
   });
 })();
