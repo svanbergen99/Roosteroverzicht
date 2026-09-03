@@ -72,9 +72,10 @@
     const easterSunday = easter(year);
     return [
       {
-        id: `nieuwjaar-${year}`,
+        id: `oud-en-nieuw-${year}`,
         dates: [utcDateKey(year, 0, 1)],
-        videoPatterns: [/nieuwjaar/i, /new[-_ ]?year/i]
+        fixedDate: true,
+        videoPatterns: [/oud.?en.?nieuw/i, /nieuwjaar/i, /new[-_ ]?year/i, /oudjaar/i, /new[-_ ]?years?[-_ ]?eve/i]
       },
       {
         id: `valentijn-${year}`,
@@ -115,11 +116,6 @@
         id: `kerst-${year}`,
         dates: [utcDateKey(year, 11, 25), utcDateKey(year, 11, 26)],
         videoPatterns: [/Christmas\.mp4$/i, /christmas|kerst|xmas/i]
-      },
-      {
-        id: `oudjaar-${year}`,
-        dates: [utcDateKey(year, 11, 31)],
-        videoPatterns: [/oudjaar|new[-_ ]?years?[-_ ]?eve/i]
       }
     ];
   }
@@ -170,6 +166,8 @@
   }
 
   function triggerDates(event, roster) {
+    if (event.fixedDate) return new Set(event.dates);
+
     const dates = [...event.dates].sort();
     const closed = new Map(dates.map((date) => [date, hasOfficialClosedDate(roster, date)]));
     const triggers = new Set();
@@ -189,6 +187,7 @@
   }
 
   function candidateToday(event, today) {
+    if (event.fixedDate) return event.dates.includes(today);
     return event.dates.some((date) => date === today || shiftDateKey(date, -1) === today);
   }
 
