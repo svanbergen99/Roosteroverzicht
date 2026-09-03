@@ -70,14 +70,9 @@
     return null;
   }
 
-  function isExplicitNonWorkingSchedule(schedule) {
-    const status = String(schedule?.status || "").trim().toLowerCase();
-    if (!status) return false;
-    return /^(?:time[_ -]?off|day[_ -]?off|off|leave|absence|absent|verlof|afwezig|vrij)$/.test(status);
-  }
-
+  // De zichtbare hoofdwerktijd (de zwarte balk in het rooster) is leidend.
+  // Interne statusvelden mogen een geldige start- en eindtijd niet uitsluiten.
   function isTimedPresenceSchedule(schedule) {
-    if (isExplicitNonWorkingSchedule(schedule)) return false;
     return Boolean(formatTime(schedule?.start) && formatTime(schedule?.end));
   }
 
@@ -91,10 +86,12 @@
       : (date === yesterday && overnight && nowMinutes < endMinutes);
   }
 
+  // Alleen een herkenbare verlof-/afwezigheidsnaam mag de hoofdwerktijd tijdelijk onderbreken.
+  // Technische activity.type-waarden worden bewust niet gebruikt, omdat o.a. FD-activiteiten
+  // intern anders gecodeerd kunnen zijn terwijl de collega volgens de zwarte balk gewoon werkt.
   function isTimeOffActivity(activity) {
-    const type = String(activity?.type || "").trim().toLowerCase();
     const name = String(activity?.name || activity?.label || "").trim().toLowerCase();
-    return type === "time_off" || type === "day_off" || /^(?:verlof|afwezig)\b/.test(name);
+    return /^(?:verlof|afwezig)\b/.test(name);
   }
 
   function hasActiveTimeOff(schedule, today, yesterday, nowMinutes) {
