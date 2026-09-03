@@ -1,29 +1,83 @@
 (() => {
   "use strict";
 
-  let currentAudio = null;
   let libraryLoaded = false;
   let observer = null;
+  let libraryData = { files: [], mixes: [] };
+  const activeAudios = new Map();
+  const volumeState = new Map();
 
-  function stopLibraryAudio() {
-    if (!currentAudio) return;
-    try {
-      currentAudio.pause();
-      currentAudio.currentTime = 0;
-    } catch (_) {}
-    currentAudio = null;
+  function clampVolume(value, fallback = 100) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return fallback;
+    return Math.max(0, Math.min(100, Math.round(number)));
   }
 
-  function playFile(file) {
+  function trackKey(mixId, file) {
+    return `${mixId}::${file}`;
+  }
+
+  function getVolume(key, fallback = 100) {
+    if (!volumeState.has(key)) volumeState.set(key, clampVolume(fallback));
+    return volumeState.get(key);
+  }
+
+  function stopLibraryAudio() {
+    for (const audio of activeAudios.values()) {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch (_) {}
+    }
+    activeAudios.clear();
+  }
+
+  function stopCompetingAudio() {
     stopLibraryAudio();
     try { window.RoosterPaydaySoundPreview?.stop?.(); } catch (_) {}
+    try { window.RoosterPaydayAudio?.stop?.(); } catch (_) {}
+  }
+
+  function fileInfo(file) {
+    return libraryData.files.find((item) => item?.file === file) || { file, label: file, category: "Overig" };
+  }
+
+  function registerAudio(key, audio) {
+    activeAudios.set(key, audio);
+    audio.addEventListener("ended", () => {
+      if (activeAudios.get(key) === audio) activeAudios.delete(key);
+    }, { once: true });
+  }
+
+  function playSolo(file, key, fallbackVolume = 100) {
+    stopCompetingAudio();
+    if (!file) return;
     const audio = new Audio(file);
     audio.preload = "auto";
-    currentAudio = audio;
-    audio.addEventListener("ended", () => {
-      if (currentAudio === audio) currentAudio = null;
-    }, { once: true });
+    audio.volume = getVolume(key, fallbackVolume) / 100;
+    registerAudio(key, audio);
     audio.play().catch(() => {});
+  }
+
+  function playMix(mixId) {
+    const mix = libraryData.mixes.find((item) => item?.id === mixId);
+    if (!mix || !Array.isArray(mix.tracks) || !mix.tracks.length) return;
+
+    stopCompetingAudio();
+    const prepared = [];
+    for (const track of mix.tracks) {
+      if (!track?.file) continue;
+      const key = trackKey(mix.id, track.file);
+      const audio = new Audio(track.file);
+      audio.preload = "auto";
+      audio.currentTime = 0;
+      audio.volume = getVolume(key, track.volume) / 100;
+      registerAudio(key, audio);
+      prepared.push(audio);
+    }
+
+    // Start de tracks in dezelfde event-loop zodat ze praktisch gelijktijdig beginnen.
+    for (const audio of prepared) audio.play().catch(() => {});
   }
 
   function escapeHtml(value) {
@@ -44,34 +98,93 @@
     if (/pasen/.test(key)) return "🐣";
     if (/nieuwjaar|oudjaar/.test(key)) return "🎆";
     if (/verjaardag/.test(key)) return "🎂";
+    if (/moederdag/.test(key)) return "🌷";
+    if (/vaderdag/.test(key)) return "👔";
     if (/koningsdag|oranje/.test(key)) return "🧡";
     if (/valentijn/.test(key)) return "❤";
     if (/suikerfeest|eid/.test(key)) return "🌙";
     return "🔊";
   }
 
-  function makeLibraryHtml(files) {
+  function volumeHtml(key, value) {
+    const safeKey = escapeHtml(key);
+    const safeValue = clampVolume(value);
+    return `
+      <div class="audio-track-volume">
+        <span>Volume</span>
+        <input type="range" min="0" max="100" step="1" value="${safeValue}" data-audio-volume="${safeKey}" aria-label="Volume ${safeValue} procent">
+        <output data-audio-volume-output="${safeKey}">${safeValue}%</output>
+      </div>`;
+  }
+
+  function mixHtml(mix) {
+    const tracks = Array.isArray(mix.tracks) ? mix.tracks : [];
+    return `
+      <div class="audio-mix-card">
+        <button class="audio-mix-play" type="button" data-audio-mix="${escapeHtml(mix.id)}">
+          <span aria-hidden="true">▶</span>
+          <span><strong>${escapeHtml(mix.label || `${mix.category} combinatie`)}</strong><small>Speel gekoppelde bestanden tegelijk</small></span>
+        </button>
+        <div class="audio-mix-tracks">
+          ${tracks.map((track) => {
+            const info = fileInfo(track.file);
+            const key = trackKey(mix.id, track.file);
+            const volume = getVolume(key, track.volume);
+            return `
+              <div class="audio-mix-track">
+                <div class="audio-track-head">
+                  <button class="audio-track-solo" type="button" data-audio-solo-file="${escapeHtml(track.file)}" data-audio-solo-key="${escapeHtml(key)}" data-audio-solo-volume="${volume}" title="Alleen dit bestand afspelen">▶</button>
+                  <span class="audio-track-copy"><strong>${escapeHtml(info.label || track.file)}</strong><small>${escapeHtml(track.file)}</small></span>
+                </div>
+                ${volumeHtml(key, volume)}
+              </div>`;
+          }).join("")}
+        </div>
+      </div>`;
+  }
+
+  function singleHtml(item) {
+    const key = trackKey("single", item.file);
+    const volume = getVolume(key, item.volume ?? 100);
+    return `
+      <div class="audio-single-card">
+        <div class="audio-track-head">
+          <button class="audio-track-solo" type="button" data-audio-solo-file="${escapeHtml(item.file)}" data-audio-solo-key="${escapeHtml(key)}" data-audio-solo-volume="${volume}">▶</button>
+          <span class="audio-track-copy"><strong>${escapeHtml(item.label || item.file)}</strong><small>${escapeHtml(item.file)}</small></span>
+        </div>
+        ${volumeHtml(key, volume)}
+      </div>`;
+  }
+
+  function makeLibraryHtml() {
     const groups = new Map();
-    for (const item of files || []) {
-      if (!item?.file) continue;
-      const category = String(item.category || "Overig").trim() || "Overig";
-      if (!groups.has(category)) groups.set(category, []);
-      groups.get(category).push(item);
+    const mixedFiles = new Set();
+
+    for (const mix of libraryData.mixes) {
+      const category = String(mix?.category || "Overig").trim() || "Overig";
+      if (!groups.has(category)) groups.set(category, { mixes: [], singles: [] });
+      groups.get(category).mixes.push(mix);
+      for (const track of mix?.tracks || []) if (track?.file) mixedFiles.add(track.file);
     }
 
-    return [...groups.entries()].map(([category, items]) => `
-      <section class="audio-library-group">
-        <div class="audio-library-category">${categoryIcon(category)} ${escapeHtml(category)}</div>
-        ${items.map((item) => `
-          <button class="payday-preview-item audio-library-item" type="button" role="menuitem" data-audio-library-file="${escapeHtml(item.file)}">
-            <span class="payday-preview-icon" aria-hidden="true">▶</span>
-            <span class="payday-preview-copy">
-              <strong>${escapeHtml(item.label || item.file)}</strong>
-              <small>${escapeHtml(item.file)}</small>
-            </span>
-            <span class="payday-preview-play" aria-hidden="true">♫</span>
-          </button>`).join("")}
-      </section>`).join("");
+    for (const item of libraryData.files) {
+      if (!item?.file || mixedFiles.has(item.file)) continue;
+      const category = String(item.category || "Overig").trim() || "Overig";
+      if (!groups.has(category)) groups.set(category, { mixes: [], singles: [] });
+      groups.get(category).singles.push(item);
+    }
+
+    const preferred = ["Payday", "Halloween", "Kerst", "Nieuwjaar", "Verjaardag", "Moederdag", "Vaderdag", "Valentijn", "Pasen", "Koningsdag", "Sinterklaas", "Suikerfeest / Eid", "Overig"];
+    const order = new Map(preferred.map((name, index) => [name, index]));
+
+    return [...groups.entries()]
+      .sort((a, b) => (order.get(a[0]) ?? 999) - (order.get(b[0]) ?? 999) || a[0].localeCompare(b[0], "nl"))
+      .map(([category, group]) => `
+        <section class="audio-library-group">
+          <div class="audio-library-category">${categoryIcon(category)} ${escapeHtml(category)}</div>
+          ${group.mixes.map(mixHtml).join("")}
+          ${group.singles.map(singleHtml).join("")}
+        </section>`).join("");
   }
 
   async function loadLibrary() {
@@ -81,11 +194,14 @@
 
     libraryLoaded = true;
     try {
-      const response = await fetch("audio-library.json", { cache: "no-store" });
+      const response = await fetch(`audio-library.json?t=${Date.now()}`, { cache: "no-store" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
-      const files = Array.isArray(data?.files) ? data.files : [];
-      if (!files.length) return;
+      libraryData = {
+        files: Array.isArray(data?.files) ? data.files : [],
+        mixes: Array.isArray(data?.mixes) ? data.mixes : []
+      };
+      if (!libraryData.files.length && !libraryData.mixes.length) return;
 
       let library = document.getElementById("audioLibrarySection");
       if (!library) {
@@ -97,8 +213,8 @@
         else menu.appendChild(library);
       }
       library.innerHTML = `
-        <div class="audio-library-heading">MP3-bibliotheek</div>
-        ${makeLibraryHtml(files)}`;
+        <div class="audio-library-heading">MP3-bibliotheek · combinaties + live volume</div>
+        ${makeLibraryHtml()}`;
     } catch (error) {
       libraryLoaded = false;
       console.warn("Audiobibliotheek kon niet worden geladen.", error);
@@ -112,27 +228,16 @@
   function relabelInterface() {
     const button = document.getElementById("paydayPreviewButton");
     const heading = document.querySelector("#paydayPreviewMenu .payday-preview-heading");
-
     if (button && button.dataset.audioLibraryRelabeled !== "1") {
       button.innerHTML = `Audio <span aria-hidden="true">▾</span>`;
       button.dataset.audioLibraryRelabeled = "1";
     }
     setTextIfNeeded(heading, "Beluister audiofragmenten");
-
-    const mixkit = document.querySelector('[data-payday-preview="mixkit"]');
-    if (mixkit) {
-      setTextIfNeeded(mixkit.querySelector("strong"), "Payday - beide MP3's tegelijk");
-      setTextIfNeeded(mixkit.querySelector("small"), "Magical Coin Win + Clinking Coins");
-    }
   }
 
   function ensureInterface() {
     const menu = document.getElementById("paydayPreviewMenu");
     if (!menu) return false;
-
-    // De preview-interface wordt maar één keer opgebouwd. Daarna is observeren
-    // niet meer nodig en voorkomen we een MutationObserver die zijn eigen
-    // DOM-wijzigingen opnieuw blijft verwerken.
     observer?.disconnect();
     observer = null;
     relabelInterface();
@@ -141,28 +246,52 @@
   }
 
   document.addEventListener("click", (event) => {
-    const fileButton = event.target.closest?.("[data-audio-library-file]");
-    if (fileButton) {
+    const mixButton = event.target.closest?.("[data-audio-mix]");
+    if (mixButton) {
       event.preventDefault();
       event.stopPropagation();
-      playFile(fileButton.dataset.audioLibraryFile || "");
+      playMix(mixButton.dataset.audioMix || "");
+      return;
+    }
+
+    const soloButton = event.target.closest?.("[data-audio-solo-file]");
+    if (soloButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      playSolo(
+        soloButton.dataset.audioSoloFile || "",
+        soloButton.dataset.audioSoloKey || trackKey("single", soloButton.dataset.audioSoloFile || ""),
+        clampVolume(soloButton.dataset.audioSoloVolume, 100)
+      );
       return;
     }
 
     if (event.target.closest?.("[data-payday-preview]")) stopLibraryAudio();
   }, true);
 
+  document.addEventListener("input", (event) => {
+    const slider = event.target.closest?.("[data-audio-volume]");
+    if (!slider) return;
+    const key = slider.dataset.audioVolume || "";
+    const value = clampVolume(slider.value);
+    volumeState.set(key, value);
+    slider.setAttribute("aria-label", `Volume ${value} procent`);
+    const output = document.querySelector(`[data-audio-volume-output="${CSS.escape(key)}"]`);
+    if (output) output.textContent = `${value}%`;
+    const audio = activeAudios.get(key);
+    if (audio) audio.volume = value / 100;
+  }, true);
+
   observer = new MutationObserver(() => ensureInterface());
   observer.observe(document.documentElement, { childList: true, subtree: true });
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", ensureInterface, { once: true });
-  } else {
-    ensureInterface();
-  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", ensureInterface, { once: true });
+  else ensureInterface();
 
   window.RoosterAudioLibrary = Object.freeze({
     stop: stopLibraryAudio,
-    play: playFile
+    playMix,
+    play: (file) => playSolo(file, trackKey("single", file), 100),
+    volumes: () => Object.fromEntries(volumeState)
   });
 })();
