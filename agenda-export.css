@@ -70,6 +70,45 @@
 .agenda-help-actions .secondary { background: #fff; color: var(--accent-dark); border: 1px solid #cfc4ce; }
 .agenda-help-actions .secondary:hover { background: var(--soft-accent); }
 body.agenda-help-open { overflow: hidden; }
+
+/* Welkomstscherm: alleen de Verder-knop tonen, direct onder de tekst in KCD.jpg. */
+#welcomeOverlay .welcome-card {
+  position: relative;
+}
+#welcomeOverlay .welcome-content {
+  position: absolute;
+  left: 80%;
+  top: 78%;
+  width: min(170px, 22%);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  box-shadow: none;
+  transform: translate(-50%, -50%);
+}
+#welcomeOverlay .welcome-content h1 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+#welcomeOverlay #continueButton {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 11px;
+  box-shadow: 0 5px 16px rgba(84, 36, 80, .22);
+  font-size: 14px;
+}
+
 @media (max-width: 620px) {
   .roster-tools { align-items: stretch; }
   .roster-tools > * { flex: 1 1 100%; }
@@ -78,4 +117,14 @@ body.agenda-help-open { overflow: hidden; }
   .agenda-help-card { padding: 21px; }
   .agenda-help-actions { display: grid; grid-template-columns: 1fr; }
   .agenda-help-actions button { width: 100%; }
+
+  #welcomeOverlay .welcome-content {
+    left: 80%;
+    top: 79%;
+    width: min(145px, 25%);
+  }
+  #welcomeOverlay #continueButton {
+    padding: 8px 10px;
+    font-size: 12.5px;
+  }
 }
