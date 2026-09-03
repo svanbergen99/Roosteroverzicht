@@ -169,8 +169,7 @@
     { id: "autumn", label: "Herfstbladeren" },
     { id: "halloween", label: "Halloween" },
     { id: "sinterklaas", label: "Sinterklaas" },
-    { id: "christmas-snow", label: "Kerst & Sneeuw" },
-    { id: "eid", label: "Suikerfeest" }
+    { id: "christmas-snow", label: "Kerst & Sneeuw" }
   ];
 
   window.RoosterEffectCombinations = Object.freeze({
