@@ -119,12 +119,14 @@
       : (date === yesterday && overnight && nowMinutes < endMinutes);
   }
 
-  // Alleen een herkenbare verlof-/afwezigheidsnaam mag de hoofdwerktijd onderbreken.
-  // Technische activity.type-waarden worden bewust niet gebruikt, omdat o.a. FD-activiteiten
+  // Herkenbare niet-werkactiviteiten onderbreken de zwarte hoofdbalk.
+  // Prefixherkenning vangt o.a. Verlof Bijzonder, Verlof door Traffic,
+  // Afwezig Lang, Afwezig Kort, Ziek, Ziekte en Ziekmelding.
+  // Technische activity.type-waarden worden bewust niet gebruikt, omdat FD-activiteiten
   // intern anders gecodeerd kunnen zijn terwijl de collega volgens de zwarte balk gewoon werkt.
   function isTimeOffActivity(activity) {
     const name = String(activity?.name || activity?.label || "").trim().toLowerCase();
-    return /^(?:verlof|afwezig)\b/.test(name);
+    return /^(?:verlof|afwezig|ziek)/.test(name);
   }
 
   function hasActiveTimeOff(schedule, today, yesterday, nowMinutes) {
@@ -138,8 +140,8 @@
     });
   }
 
-  // Trek verlof/afwezigheid af van de zwarte hoofdbalk. Volledig verlof geeft geen werkblok terug;
-  // gedeeltelijk verlof laat alleen de werkelijk resterende werkblokken zien.
+  // Trek Verlof/Afwezig/Ziek af van de zwarte hoofdbalk. Een volledige afwezigheid geeft
+  // geen werkblok terug; een gedeeltelijke afwezigheid laat alleen de resterende werkblokken zien.
   function presenceRangesForSchedule(schedule) {
     const start = minutesOf(schedule?.start);
     const rawEnd = minutesOf(schedule?.end);
