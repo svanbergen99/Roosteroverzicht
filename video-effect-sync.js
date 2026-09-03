@@ -18,7 +18,7 @@
     if (/valentijn|valentine|romantic|love/.test(text)) return "hearts-petals";
     if (/halloween|witch|spooky|creepy/.test(text)) return "halloween";
     if (/birthday|verjaardag/.test(text)) return "birthday";
-    if (/new[-_ ]?year|nieuwjaar|oudjaar/.test(text)) return "fireworks";
+    if (/oud.?en.?nieuw|new[-_ ]?year|nieuwjaar|oudjaar/.test(text)) return "fireworks";
     return "";
   }
 
