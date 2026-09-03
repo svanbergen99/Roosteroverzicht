@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20260904-110";
+  const VERSION = "20260904-111";
   const FILE_MONTHS = ["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
   const MONTH_FILE_RE = /^Roosterindex_(Januari|Februari|Maart|April|Mei|Juni|Juli|Augustus|September|Oktober|November|December)\.json$/i;
 
@@ -119,6 +119,7 @@
   loadStyle("roster-start-access.css");
   loadStyle("roster-action-row.css");
   loadStyle("public-portal.css");
+  loadStyle("start-weather.css");
 
   loadScript("access-permissions.js");
   loadScript("permission-auth.js");
@@ -151,5 +152,6 @@
   loadScript("video-auto-close.js");
   loadScript("roster-start-access.js");
   loadScript("public-portal.js");
+  loadScript("start-weather.js");
   loadScript("roster-home-button.js");
 })();
