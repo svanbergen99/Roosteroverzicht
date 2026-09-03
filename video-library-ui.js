@@ -46,7 +46,6 @@
     if (/pasen|easter|bunny/.test(key)) return "Pasen";
     if (/koningsdag|king.?s?[-_ ]?day|oranje/.test(key)) return "Koningsdag";
     if (/sinterklaas|sint[-_ ]?nicolaas|st[-_ ]?nicholas/.test(key)) return "Sinterklaas";
-    if (/suikerfeest|eid|ramadan/.test(key)) return "Suikerfeest / Eid";
     if (/payday|salaris|coin|coins|cash|money/.test(key)) return "Payday";
     return "Overig";
   }
@@ -62,7 +61,6 @@
     if (category === "Pasen") return "🐣";
     if (category === "Koningsdag") return "🧡";
     if (category === "Sinterklaas") return "🎁";
-    if (category === "Suikerfeest / Eid") return "🌙";
     if (category === "Payday") return "💶";
     return "🎬";
   }
@@ -114,7 +112,7 @@
     const preferredOrder = [
       "Payday", "Halloween", "Kerst", "Nieuwjaar", "Oudjaar", "Verjaardag",
       "Moederdag", "Vaderdag", "Valentijn", "Pasen", "Koningsdag",
-      "Sinterklaas", "Suikerfeest / Eid", "Overig"
+      "Sinterklaas", "Overig"
     ];
     const orderIndex = new Map(preferredOrder.map((name, index) => [name, index]));
     const entries = [...groups.entries()].sort((a, b) => {
