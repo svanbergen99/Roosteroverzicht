@@ -1,33 +1,19 @@
 .public-portal-quick-actions {
-  width: min(820px, 100%);
+  width: min(420px, 100%);
   margin: 0 auto 16px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-rows: auto auto;
-  gap: 12px;
-  align-items: start;
+  display: block;
 }
 
-.public-portal-quick-actions .public-salary-section {
-  display: contents;
-}
-
-.public-portal-quick-actions .public-salary-button {
-  grid-column: 1;
-  grid-row: 1;
-  height: 100%;
-  margin: 0;
-}
-
-.public-portal-quick-actions .public-salary-panel {
-  grid-column: 1 / -1;
-  grid-row: 2;
-  width: 100%;
+/* De openbare startpagina toont bewust alleen de beveiligde Rooster-knop. */
+body.public-portal-mode #publicSalarySection,
+body.public-portal-mode #externalSitesSection,
+body.public-portal-mode .external-sites-card,
+body.public-portal-mode #themeCustomizerShell,
+body.public-portal-mode .theme-side-buttons {
+  display: none !important;
 }
 
 .public-roster-button {
-  grid-column: 2;
-  grid-row: 1;
   width: 100%;
   min-height: 66px;
   display: flex;
@@ -60,20 +46,12 @@
 
 .public-roster-button-copy {
   display: grid;
-  gap: 3px;
   min-width: 0;
 }
 
 .public-roster-button-copy strong {
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1.2;
-}
-
-.public-roster-button-copy small {
-  color: var(--muted);
-  font-size: 12.5px;
-  font-weight: 700;
-  line-height: 1.3;
 }
 
 .public-roster-arrow {
@@ -82,8 +60,14 @@
   line-height: 1;
 }
 
-body.roster-access-active .public-portal-quick-actions {
-  margin-bottom: 16px;
+/* Na succesvolle toegang verdwijnt ook de openbare knop; dan blijft alleen het rooster over. */
+body.roster-access-active #publicPortalQuickActions,
+body.roster-access-active #publicSalarySection,
+body.roster-access-active #externalSitesSection,
+body.roster-access-active .external-sites-card,
+body.roster-access-active #themeCustomizerShell,
+body.roster-access-active .theme-side-buttons {
+  display: none !important;
 }
 
 /* Volgende dienst staat als duidelijke informatiebalk boven het rooster. */
@@ -139,27 +123,13 @@ html[data-theme="dark"] .next-shift-bar {
 
 @media (max-width: 620px) {
   .public-portal-quick-actions {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto;
-    gap: 10px;
+    width: 100%;
     margin-bottom: 12px;
   }
 
-  .public-portal-quick-actions .public-salary-button {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
   .public-roster-button {
-    grid-column: 1;
-    grid-row: 2;
     min-height: 62px;
     padding: 11px 13px;
-  }
-
-  .public-portal-quick-actions .public-salary-panel {
-    grid-column: 1;
-    grid-row: 3;
   }
 
   .public-roster-button-icon {
