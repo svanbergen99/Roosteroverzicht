@@ -80,12 +80,15 @@
     if (label && label.textContent !== "Payday") label.textContent = "Payday";
   }
 
-  // Handmatig Payday: start het vuurwerk via de video-bypass zodat het ook
-  // buiten Nieuwjaar is toegestaan, en zet daarna de Payday-onderscène ervoor.
+  // Laat eerst de normale Payday-knop zijn eigen geldanimatie opbouwen. Daarna
+  // start het vuurwerk via de bypass en zetten we de Payday-onderscène terug,
+  // zodat geen van beide door de andere start wordt overschreven.
   document.addEventListener("click", (event) => {
     if (!event.target.closest?.("[data-payday-effect]")) return;
-    window.RoosterHolidayEffects?.playForVideo?.("fireworks");
-    showPaydayScene();
+    window.setTimeout(() => {
+      window.RoosterHolidayEffects?.playForVideo?.("fireworks");
+      showPaydayScene();
+    }, 0);
   }, true);
 
   patchPaydayLabel();
