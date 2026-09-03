@@ -1,0 +1,42 @@
+/* Rooster-actierij: alle hoofdacties horen visueel bij elkaar. */
+.today-workers-action {
+  display: grid !important;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-template-columns: none !important;
+  align-items: stretch;
+  gap: 8px !important;
+}
+
+.today-workers-action > .today-workers-button {
+  width: 100% !important;
+  min-width: 0;
+  min-height: 46px;
+  margin: 0 !important;
+  padding: 9px 8px;
+  line-height: 1.15;
+  white-space: normal;
+}
+
+.today-workers-action > .roster-home-button {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 46px;
+  margin: 0 !important;
+}
+
+@media (max-width: 620px) {
+  .today-workers-action {
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 470px) {
+  .today-workers-action {
+    grid-template-columns: 1fr !important;
+  }
+}
