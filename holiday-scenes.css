@@ -53,23 +53,24 @@
   animation: none !important;
 }
 
+/* Ook op kleinere vensters blijft ieder vast onder-effect zichtbaar. Om het
+   rooster niet te bedekken gebruiken we daar alleen de rechter onderscène. */
 @media (max-width: 1180px) {
-  .holiday-scene-overlay { display: none; }
-
-  /* De verjaardagstaart is een bewust vast onderbalk-effect en blijft daarom
-     ook zichtbaar wanneer het browservenster smaller is. */
-  .holiday-scene-overlay[data-scene="birthday"] {
+  .holiday-scene-overlay {
     display: block;
   }
-  .holiday-scene-overlay[data-scene="birthday"] .holiday-scene-side-left {
+
+  .holiday-scene-overlay .holiday-scene-side-left {
     display: none;
   }
-  .holiday-scene-overlay[data-scene="birthday"] .holiday-scene-side-right {
+
+  .holiday-scene-overlay .holiday-scene-side-right {
     display: block;
     width: min(390px, 46vw);
     height: min(29vh, 230px);
   }
-  .holiday-scene-overlay[data-scene="birthday"] .holiday-scene-static-stage {
+
+  .holiday-scene-overlay .holiday-scene-static-stage {
     left: -90px;
     width: min(440px, 52vw);
     min-width: 320px;
@@ -77,11 +78,12 @@
 }
 
 @media (max-width: 620px) {
-  .holiday-scene-overlay[data-scene="birthday"] .holiday-scene-side-right {
+  .holiday-scene-overlay .holiday-scene-side-right {
     width: min(300px, 58vw);
     height: min(24vh, 185px);
   }
-  .holiday-scene-overlay[data-scene="birthday"] .holiday-scene-static-stage {
+
+  .holiday-scene-overlay .holiday-scene-static-stage {
     left: -105px;
     width: 330px;
     min-width: 330px;
