@@ -60,7 +60,8 @@
   function fullscreenHost() {
     const section = document.getElementById("videoLibraryPlayerSection");
     const active = document.fullscreenElement || document.webkitFullscreenElement;
-    return section && active === section ? section : document.body;
+    const fallback = section?.classList.contains("video-library-auto-fullscreen-fallback");
+    return section && (active === section || fallback) ? section : document.body;
   }
 
   function keepOverlayInCorrectHost() {
@@ -111,7 +112,7 @@
       return;
     }
     if (normalized === "christmas-snow") {
-      // Het bestaande kersteffect bevat al kerstsymbolen én meerdere sneeuwlagen.
+      // Het bestaande kersteffect bevat kerstsymbolen en meerdere sneeuwlagen.
       originalStart("christmas");
       return;
     }
@@ -150,8 +151,26 @@
     snow?.remove();
   }
 
+  // effects.js heeft zelf een interne menu-handler. Voor de twee samengestelde
+  // keuzes onderscheppen we de klik vóór die handler, anders zou effects.js de
+  // onbekende ids 'hearts-petals' en 'christmas-snow' rechtstreeks proberen te
+  // starten en gebeurt er niets.
   document.addEventListener("click", (event) => {
-    if (event.target.closest?.("[data-effect]")) manualStartUntil = performance.now() + 300;
+    const item = event.target.closest?.("[data-effect]");
+    if (!item) return;
+
+    manualStartUntil = performance.now() + 300;
+    const selected = normalize(item.dataset.effect);
+    if (selected !== "hearts-petals" && selected !== "christmas-snow") return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    const menu = document.getElementById("effectsMenu");
+    const button = document.getElementById("effectsButton");
+    if (menu) menu.hidden = true;
+    button?.setAttribute("aria-expanded", "false");
+    combinedStart(selected);
   }, true);
 
   document.addEventListener("fullscreenchange", keepOverlayInCorrectHost);
