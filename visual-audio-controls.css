@@ -23,11 +23,57 @@
   font-weight: 800;
 }
 
-/* Handmatige effecten zijn vervallen; feestdageffecten worden automatisch gestart. */
-.effects-menu-wrap,
-#effectsButton,
-#effectsMenu {
+/* De handmatige effectenknop is tijdens de ontwikkelfase weer zichtbaar en staat
+   direct onder Achtergrond Helderheid in dezelfde vaste rechterkolom. */
+.background-brightness-shell .brightness-effects-wrap {
+  position: relative;
+  display: block !important;
+  width: 100%;
+}
+
+.background-brightness-shell .brightness-effects-wrap #effectsButton {
+  display: block !important;
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 9px 13px;
+  border: 1px solid #cfc4ce;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .94);
+  color: var(--accent-dark);
+  box-shadow: 0 5px 18px rgba(15, 23, 42, .12);
+  backdrop-filter: blur(6px);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.background-brightness-shell .brightness-effects-wrap #effectsButton:hover,
+.background-brightness-shell .brightness-effects-wrap #effectsButton[aria-expanded="true"] {
+  background: var(--soft-accent);
+  border-color: #bca9ba;
+}
+
+.background-brightness-shell .brightness-effects-wrap #effectsMenu {
+  display: block;
+  top: calc(100% + 8px);
+  right: 0;
+  left: auto;
+}
+
+.background-brightness-shell .brightness-effects-wrap #effectsMenu[hidden] {
   display: none !important;
+}
+
+html[data-theme="dark"] .background-brightness-shell .brightness-effects-wrap #effectsButton {
+  border-color: #465263;
+  background: rgba(23, 30, 41, .95);
+  color: #f0b5e8;
+  box-shadow: 0 5px 18px rgba(0, 0, 0, .32);
+}
+
+html[data-theme="dark"] .background-brightness-shell .brightness-effects-wrap #effectsButton:hover,
+html[data-theme="dark"] .background-brightness-shell .brightness-effects-wrap #effectsButton[aria-expanded="true"] {
+  background: #302633;
 }
 
 /* Het themapaneel opent links van de vaste rechterknop. */
