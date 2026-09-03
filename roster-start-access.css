@@ -58,12 +58,14 @@ body.public-portal-mode .theme-side-buttons {
   line-height: 1;
 }
 
-.kcd-intranet-section {
+.kcd-intranet-section,
+.public-effects-section {
   width: min(420px, 100%);
   margin: 0 auto 18px;
 }
 
-.kcd-intranet-title {
+.kcd-intranet-title,
+.public-effects-title {
   margin: 0 0 9px;
   padding: 0 2px;
   color: var(--accent-dark);
@@ -143,8 +145,27 @@ body.public-portal-mode .theme-side-buttons {
   font-size: 15px;
 }
 
+.public-effects-section .effects-menu-wrap,
+.public-effects-section .effects-button {
+  width: 100%;
+}
+
+.public-effects-section .effects-button {
+  min-height: 58px;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.public-effects-section .effects-menu {
+  left: 0;
+  right: 0;
+  width: 100%;
+}
+
 html[data-theme="dark"] .kcd-intranet-title,
-html[data-theme="dark"] .kcd-intranet-link {
+html[data-theme="dark"] .kcd-intranet-link,
+html[data-theme="dark"] .public-effects-title {
   color: #f0b5e8;
 }
 
@@ -166,6 +187,7 @@ html[data-theme="dark"] .kcd-intranet-category {
 /* Na succesvolle toegang verdwijnen de openbare knoppen; dan blijft alleen het rooster over. */
 body.roster-access-active #publicPortalQuickActions,
 body.roster-access-active #kcdIntranetSection,
+body.roster-access-active #publicEffectsSection,
 body.roster-access-active #publicSalarySection,
 body.roster-access-active #externalSitesSection,
 body.roster-access-active .external-sites-card,
@@ -227,7 +249,8 @@ html[data-theme="dark"] .next-shift-bar {
 
 @media (max-width: 620px) {
   .public-portal-quick-actions,
-  .kcd-intranet-section {
+  .kcd-intranet-section,
+  .public-effects-section {
     width: 100%;
   }
 
@@ -235,7 +258,8 @@ html[data-theme="dark"] .next-shift-bar {
     margin-bottom: 12px;
   }
 
-  .kcd-intranet-section {
+  .kcd-intranet-section,
+  .public-effects-section {
     margin-bottom: 14px;
   }
 
