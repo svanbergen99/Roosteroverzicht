@@ -31,7 +31,7 @@
       "file": "freesound_community-audience-merry-xmas-46708.mp3"
     },
     {
-      "category": "Nieuwjaar / Oudjaar",
+      "category": "Nieuwjaar",
       "label": "New Year Fireworks",
       "file": "dbsound-new-year-fireworks-246020.mp3"
     },
@@ -69,6 +69,113 @@
       "category": "Valentijn",
       "label": "Romantic Keys",
       "file": "samuelfjohanns-romantic-keys-153559.mp3"
+    }
+  ],
+  "mixes": [
+    {
+      "id": "payday",
+      "category": "Payday",
+      "label": "Payday combinatie",
+      "tracks": [
+        {
+          "file": "mixkit-magical-coin-win-1936.mp3",
+          "volume": 80
+        },
+        {
+          "file": "mixkit-clinking-coins-1993.mp3",
+          "volume": 80
+        }
+      ]
+    },
+    {
+      "id": "halloween",
+      "category": "Halloween",
+      "label": "Halloween combinatie",
+      "tracks": [
+        {
+          "file": "freesound_community-happy-halloween-cute-voices-97839.mp3",
+          "volume": 90
+        },
+        {
+          "file": "alesiadavina-halloween-witch-sound-creepy-laughter-9-vol-001-159177.mp3",
+          "volume": 25
+        }
+      ]
+    },
+    {
+      "id": "kerst",
+      "category": "Kerst",
+      "label": "Kerst combinatie",
+      "tracks": [
+        {
+          "file": "audioatlant-christmas-holiday-short-1-450314.mp3",
+          "volume": 55
+        },
+        {
+          "file": "freesound_community-audience-merry-xmas-46708.mp3",
+          "volume": 90
+        }
+      ]
+    },
+    {
+      "id": "nieuwjaar",
+      "category": "Nieuwjaar",
+      "label": "Nieuwjaar combinatie",
+      "tracks": [
+        {
+          "file": "u_7rd4ftk9lb-happy-new-year-386552.mp3",
+          "volume": 90
+        },
+        {
+          "file": "dbsound-new-year-fireworks-246020.mp3",
+          "volume": 35
+        }
+      ]
+    },
+    {
+      "id": "verjaardag",
+      "category": "Verjaardag",
+      "label": "Verjaardag combinatie",
+      "tracks": [
+        {
+          "file": "oceanframemusic-free-birthday-music-474555.mp3",
+          "volume": 45
+        },
+        {
+          "file": "universfield-happy-birthday-cheer-242244.mp3",
+          "volume": 90
+        }
+      ]
+    },
+    {
+      "id": "moederdag",
+      "category": "Moederdag",
+      "label": "Moederdag combinatie",
+      "tracks": [
+        {
+          "file": "faespencer-happy-motherx27s-day-femalespoken-207324.mp3",
+          "volume": 90
+        },
+        {
+          "file": "pero-sa-Father-Mother-day-580408.mp3",
+          "volume": 45
+        }
+      ]
+    },
+    {
+      "id": "vaderdag",
+      "category": "Vaderdag",
+      "label": "Vaderdag combinatie",
+      "tracks": [
+        {
+          "file": "flutie8211-happy-fatherx27s-day-greeting-female-545359.mp3",
+          "volume": 90
+        },
+        {
+          "file": "pero-sa-Father-Mother-day-580408.mp3",
+          "volume": 45
+        }
+      ]
     }
   ]
 }
