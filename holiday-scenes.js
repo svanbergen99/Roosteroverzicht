@@ -8,8 +8,7 @@
     easter: 8500,
     halloween: 8400,
     sinterklaas: 8500,
-    christmas: 9000,
-    eid: 8500
+    christmas: 9000
   };
 
   let hideTimer = 0;
@@ -109,15 +108,6 @@
       <g transform="translate(660 238)"><rect x="0" y="0" width="130" height="34" fill="#ae1c28"/><rect x="0" y="34" width="130" height="34" fill="#ffffff"/><rect x="0" y="68" width="130" height="34" fill="#21468b"/></g>
     `, "scene-orange"),
 
-    eid: () => svg(`
-      <defs><linearGradient id="eidGround" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#134e4a"/><stop offset="1" stop-color="#042f2e"/></linearGradient></defs>
-      <path d="M0 264H1200V300H0Z" fill="url(#eidGround)" opacity=".95"/>
-      <g transform="translate(760 100)" fill="#0f766e" stroke="#f4c95d" stroke-width="4"><rect x="60" y="90" width="280" height="85" rx="8"/><path d="M95 90Q130 20 165 90M235 90Q270 10 305 90"/><rect x="82" y="38" width="18" height="137"/><path d="M91 8l18 30H73Z" fill="#f4c95d"/><rect x="323" y="45" width="18" height="130"/><path d="M332 15l18 30h-36Z" fill="#f4c95d"/></g>
-      <g class="scene-lantern-sway" transform="translate(675 82)"><path d="M0-55v35" stroke="#f4c95d" stroke-width="4"/><rect x="-22" y="-20" width="44" height="64" rx="10" fill="#f4c95d" stroke="#fff4c2" stroke-width="4"/><path d="M-16-8h32M-16 30h32" stroke="#0f766e" stroke-width="4"/></g>
-      <path d="M1085 65a48 48 0 1 0 38 78 42 42 0 1 1-38-78z" fill="#f4c95d" class="scene-star-twinkle"/>
-      <g fill="#fff4c2" class="scene-star-twinkle"><circle cx="1030" cy="85" r="5"/><circle cx="1145" cy="115" r="4"/><circle cx="700" cy="55" r="4"/></g>
-    `, "scene-eid"),
-
     fireworks: () => svg(`
       <defs><linearGradient id="city" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#334155"/><stop offset="1" stop-color="#0f172a"/></linearGradient></defs>
       <path d="M0 300V235H75V190H138V242H205V165H278V222H342V197H401V246H480V180H555V238H642V204H712V250H780V170H860V225H930V194H1000V240H1080V185H1145V225H1200V300Z" fill="url(#city)" opacity=".94"/>
@@ -139,7 +129,6 @@
     Koningsdag: "orange",
     Moederdag: "hearts",
     Vaderdag: "hearts",
-    Suikerfeest: "eid",
     Halloween: "halloween",
     Sinterklaas: "sinterklaas",
     Kerst: "christmas",
