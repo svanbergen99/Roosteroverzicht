@@ -3,8 +3,8 @@
 
   const RETURN_KEY = "rooster-return-to-start";
   const app = document.getElementById("app");
-  const searchCard = document.querySelector(".search-card");
-  if (!app) return;
+  const action = document.querySelector(".today-workers-action");
+  if (!app || !action) return;
 
   function stopActiveMedia() {
     try { window.RoosterPaydaySoundPreview?.stop?.(); } catch (_) {}
@@ -22,20 +22,19 @@
 
   function ensureButton() {
     let button = document.getElementById("rosterHomeButton");
-    if (button) return button;
+    if (!button) {
+      button = document.createElement("button");
+      button.id = "rosterHomeButton";
+      button.className = "today-workers-button roster-home-button";
+      button.type = "button";
+      button.textContent = "Startpagina";
+      button.setAttribute("aria-label", "Terug naar startpagina");
+      button.addEventListener("click", returnToStartPage);
+    }
 
-    button = document.createElement("button");
-    button.id = "rosterHomeButton";
-    button.className = "today-workers-button roster-home-button";
-    button.type = "button";
-    button.setAttribute("aria-label", "Terug naar startpagina");
-    button.innerHTML = `
-      <span class="roster-home-icon" aria-hidden="true">⌂</span>
-      <span>Startpagina</span>`;
-    button.addEventListener("click", returnToStartPage);
-
-    if (searchCard?.parentElement === app) searchCard.before(button);
-    else app.prepend(button);
+    // De knop hoort bij dezelfde rooster-actierij als Mijn rooster,
+    // Wie werkt vandaag, Wie werkt nu en Bereken je pauze.
+    if (button.parentElement !== action) action.appendChild(button);
     return button;
   }
 
