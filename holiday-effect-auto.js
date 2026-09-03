@@ -25,11 +25,12 @@
     const theme = document.body.dataset.backgroundTheme || "";
     const expectedEffect = THEME_EFFECTS[theme] || "";
 
-    // Geen handmatige of niet-passende effecten meer: alleen het effect van de
-    // automatisch gekozen feestdag-afbeelding mag worden afgespeeld.
-    if (!expectedEffect || type !== expectedEffect) return;
+    // Verjaardag blijft bewust los beschikbaar voor de toekomstige koppeling
+    // aan de ingelogde collega. Alle overige effecten mogen alleen bij de
+    // automatisch gekozen feestdag-afbeelding horen.
+    if (type !== "birthday" && (!expectedEffect || type !== expectedEffect)) return;
 
-    const playKey = `${theme}|${type}`;
+    const playKey = type === "birthday" ? "birthday" : `${theme}|${type}`;
     if (playKey === lastPlayedKey) return;
     lastPlayedKey = playKey;
     originalStart(type);
@@ -38,6 +39,9 @@
   window.RoosterHolidayEffects = Object.freeze({
     effectForCurrentTheme() {
       return THEME_EFFECTS[document.body.dataset.backgroundTheme || ""] || "";
+    },
+    playBirthday() {
+      window.RoosterBirthdayScene?.show?.(true);
     }
   });
 })();
