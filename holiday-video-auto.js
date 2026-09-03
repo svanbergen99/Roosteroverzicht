@@ -4,14 +4,6 @@
   const TIME_ZONE = "Europe/Amsterdam";
   const TREE_URL = "https://api.github.com/repos/svanbergen99/Roosteroverzicht/git/trees/main?recursive=1";
   const PLAYED_PREFIX = "roosteroverzicht.autoHolidayVideo.v1.";
-  const EID = {
-    2026: "2026-03-20",
-    2027: "2027-03-10",
-    2028: "2028-02-27",
-    2029: "2029-02-15",
-    2030: "2030-02-05",
-    2031: "2031-01-25"
-  };
 
   let treePromise = null;
   let running = false;
@@ -78,7 +70,6 @@
 
   function eventsForYear(year) {
     const easterSunday = easter(year);
-    const eid = EID[year] || "";
     return [
       {
         id: `nieuwjaar-${year}`,
@@ -110,11 +101,6 @@
         dates: [nthSunday(year, 5, 3)],
         videoPatterns: [/vaderdag|father.?s?[-_ ]?day/i]
       },
-      ...(eid ? [{
-        id: `suikerfeest-${year}`,
-        dates: [eid],
-        videoPatterns: [/Suikerfeest\.mp4$/i, /suikerfeest|eid/i]
-      }] : []),
       {
         id: `halloween-${year}`,
         dates: [utcDateKey(year, 9, 31)],
