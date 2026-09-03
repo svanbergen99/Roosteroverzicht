@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20260903-70";
+  const VERSION = "20260903-71";
   const app = document.getElementById("app");
   const searchCard = document.querySelector(".search-card");
   const detachedAuthTrigger = document.getElementById("continueButton");
@@ -49,7 +49,7 @@
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href = `${href}?v=${VERSION}`;
-    link.dataset.roosterPrivateAsset = "true";
+    link.dataset.rosterPrivateAsset = "true";
     document.head.appendChild(link);
   }
 
@@ -59,7 +59,7 @@
       const script = document.createElement("script");
       script.src = `${src}?v=${VERSION}`;
       script.async = false;
-      script.dataset.roosterPrivateAsset = "true";
+      script.dataset.rosterPrivateAsset = "true";
       script.addEventListener("load", resolve, { once: true });
       script.addEventListener("error", () => reject(new Error(`Kon ${src} niet laden.`)), { once: true });
       document.body.appendChild(script);
