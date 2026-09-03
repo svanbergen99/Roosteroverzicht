@@ -3,6 +3,7 @@
 
   let currentAudio = null;
   let libraryLoaded = false;
+  let observer = null;
 
   function stopLibraryAudio() {
     if (!currentAudio) return;
@@ -99,28 +100,41 @@
         <div class="audio-library-heading">MP3-bibliotheek</div>
         ${makeLibraryHtml(files)}`;
     } catch (error) {
+      libraryLoaded = false;
       console.warn("Audiobibliotheek kon niet worden geladen.", error);
     }
+  }
+
+  function setTextIfNeeded(element, value) {
+    if (element && element.textContent !== value) element.textContent = value;
   }
 
   function relabelInterface() {
     const button = document.getElementById("paydayPreviewButton");
     const heading = document.querySelector("#paydayPreviewMenu .payday-preview-heading");
-    if (button) button.innerHTML = `Audio <span aria-hidden="true">▾</span>`;
-    if (heading) heading.textContent = "Beluister audiofragmenten";
+
+    if (button && button.dataset.audioLibraryRelabeled !== "1") {
+      button.innerHTML = `Audio <span aria-hidden="true">▾</span>`;
+      button.dataset.audioLibraryRelabeled = "1";
+    }
+    setTextIfNeeded(heading, "Beluister audiofragmenten");
 
     const mixkit = document.querySelector('[data-payday-preview="mixkit"]');
     if (mixkit) {
-      const strong = mixkit.querySelector("strong");
-      const small = mixkit.querySelector("small");
-      if (strong) strong.textContent = "Payday - beide MP3's tegelijk";
-      if (small) small.textContent = "Magical Coin Win + Clinking Coins";
+      setTextIfNeeded(mixkit.querySelector("strong"), "Payday - beide MP3's tegelijk");
+      setTextIfNeeded(mixkit.querySelector("small"), "Magical Coin Win + Clinking Coins");
     }
   }
 
   function ensureInterface() {
     const menu = document.getElementById("paydayPreviewMenu");
     if (!menu) return false;
+
+    // De preview-interface wordt maar één keer opgebouwd. Daarna is observeren
+    // niet meer nodig en voorkomen we een MutationObserver die zijn eigen
+    // DOM-wijzigingen opnieuw blijft verwerken.
+    observer?.disconnect();
+    observer = null;
     relabelInterface();
     loadLibrary();
     return true;
@@ -138,7 +152,7 @@
     if (event.target.closest?.("[data-payday-preview]")) stopLibraryAudio();
   }, true);
 
-  const observer = new MutationObserver(() => ensureInterface());
+  observer = new MutationObserver(() => ensureInterface());
   observer.observe(document.documentElement, { childList: true, subtree: true });
 
   if (document.readyState === "loading") {
