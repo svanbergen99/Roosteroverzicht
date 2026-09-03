@@ -83,6 +83,11 @@
     return Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
   }
 
+  function timeFromMinutes(value) {
+    const normalized = ((Number(value) % 1440) + 1440) % 1440;
+    return `${String(Math.floor(normalized / 60)).padStart(2, "0")}:${String(normalized % 60).padStart(2, "0")}`;
+  }
+
   function formatDate(dateKey) {
     const date = new Date(`${dateKey}T12:00:00Z`);
     return new Intl.DateTimeFormat("nl-NL", { timeZone: TIME_ZONE, weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(date);
@@ -114,7 +119,7 @@
       : (date === yesterday && overnight && nowMinutes < endMinutes);
   }
 
-  // Alleen een herkenbare verlof-/afwezigheidsnaam mag de hoofdwerktijd tijdelijk onderbreken.
+  // Alleen een herkenbare verlof-/afwezigheidsnaam mag de hoofdwerktijd onderbreken.
   // Technische activity.type-waarden worden bewust niet gebruikt, omdat o.a. FD-activiteiten
   // intern anders gecodeerd kunnen zijn terwijl de collega volgens de zwarte balk gewoon werkt.
   function isTimeOffActivity(activity) {
@@ -133,13 +138,56 @@
     });
   }
 
+  // Trek verlof/afwezigheid af van de zwarte hoofdbalk. Volledig verlof geeft geen werkblok terug;
+  // gedeeltelijk verlof laat alleen de werkelijk resterende werkblokken zien.
+  function presenceRangesForSchedule(schedule) {
+    const start = minutesOf(schedule?.start);
+    const rawEnd = minutesOf(schedule?.end);
+    if (start === null || rawEnd === null) return [];
+
+    const end = rawEnd <= start ? rawEnd + 1440 : rawEnd;
+    let ranges = [{ start, end }];
+
+    for (const activity of schedule?.activities || []) {
+      if (!isTimeOffActivity(activity)) continue;
+
+      const leaveStartRaw = minutesOf(activity?.start);
+      const leaveEndRaw = minutesOf(activity?.end);
+      if (leaveStartRaw === null || leaveEndRaw === null) return [];
+
+      let leaveStart = leaveStartRaw;
+      let leaveEnd = leaveEndRaw <= leaveStartRaw ? leaveEndRaw + 1440 : leaveEndRaw;
+      if (end > 1440 && leaveStart < start) {
+        leaveStart += 1440;
+        leaveEnd += 1440;
+      }
+
+      const next = [];
+      for (const range of ranges) {
+        const cutStart = Math.max(range.start, leaveStart);
+        const cutEnd = Math.min(range.end, leaveEnd);
+        if (cutStart >= cutEnd) {
+          next.push(range);
+          continue;
+        }
+        if (range.start < cutStart) next.push({ start: range.start, end: cutStart });
+        if (cutEnd < range.end) next.push({ start: cutEnd, end: range.end });
+      }
+      ranges = next;
+      if (!ranges.length) break;
+    }
+
+    return ranges
+      .filter((range) => range.end > range.start)
+      .map((range) => ({ start: timeFromMinutes(range.start), end: timeFromMinutes(range.end) }));
+  }
+
   function collectToday(roster, today) {
     const workers = [];
     for (const employee of roster?.employees || []) {
       const schedules = (employee.schedules || [])
         .filter((schedule) => String(schedule?.date || "").slice(0, 10) === today && isTimedPresenceSchedule(schedule))
-        .map((schedule) => ({ start: formatTime(schedule.start), end: formatTime(schedule.end) }))
-        .filter((schedule) => schedule.start && schedule.end);
+        .flatMap((schedule) => presenceRangesForSchedule(schedule));
       if (!schedules.length) continue;
       schedules.sort((a, b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end));
       workers.push({ name: employee.name, schedules });
