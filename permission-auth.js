@@ -380,13 +380,17 @@
   }
 
   function configureAccessButtons() {
-    if (hasAllColleaguesAccess()) {
+    if (activePermission?.rosterHash) {
+      ensureMyRosterButton();
+    } else {
       document.getElementById("myRosterButton")?.remove();
-      ensureAllColleaguesButton();
-      return;
     }
-    document.getElementById("allColleaguesButton")?.remove();
-    ensureMyRosterButton();
+
+    if (hasAllColleaguesAccess()) {
+      ensureAllColleaguesButton();
+    } else {
+      document.getElementById("allColleaguesButton")?.remove();
+    }
   }
 
   function completeUnlock() {
