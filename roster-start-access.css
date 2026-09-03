@@ -189,6 +189,40 @@ body.roster-access-active .theme-side-buttons {
   display: none !important;
 }
 
+/* Terugknop boven het geopende rooster. Op de openbare startpagina blijft hij verborgen. */
+body.public-portal-mode #rosterHomeButton {
+  display: none !important;
+}
+
+.roster-home-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: auto;
+  min-width: 142px;
+  min-height: 44px;
+  margin: 0 0 16px;
+  padding: 10px 16px;
+  border-radius: 13px;
+  font-weight: 850;
+}
+
+.roster-home-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--soft-accent);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+html[data-theme="dark"] .roster-home-icon {
+  background: rgba(240, 181, 232, .14);
+}
+
 /* Volgende dienst staat als duidelijke informatiebalk boven het rooster. */
 .next-shift-bar {
   display: flex;
@@ -279,6 +313,12 @@ html[data-theme="dark"] .next-shift-bar {
 
   .kcd-intranet-item {
     padding: 9px 10px;
+  }
+
+  .roster-home-button {
+    width: 100%;
+    min-height: 42px;
+    margin-bottom: 12px;
   }
 
   .next-shift-bar {
