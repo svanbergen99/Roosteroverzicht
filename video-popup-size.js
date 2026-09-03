@@ -68,6 +68,19 @@
         padding: 6px 6px 11px;
         background: inherit;
         backdrop-filter: blur(10px);
+        cursor: move;
+        cursor: grab;
+        user-select: none;
+        touch-action: none;
+      }
+
+      #${SECTION_ID}.video-library-resizable-popup.is-dragging .video-library-player-head {
+        cursor: grabbing;
+      }
+
+      #${SECTION_ID}.video-library-resizable-popup .video-library-window-actions,
+      #${SECTION_ID}.video-library-resizable-popup .video-library-window-actions * {
+        cursor: default;
       }
 
       #${SECTION_ID}.video-library-resizable-popup .video-library-window-actions {
@@ -94,7 +107,11 @@
         font: inherit;
         font-size: 17px;
         font-weight: 1000;
-        cursor: pointer;
+        cursor: pointer !important;
+      }
+
+      #${SECTION_ID}.video-library-resizable-popup .video-library-close {
+        cursor: pointer !important;
       }
 
       #${SECTION_ID}.video-library-resizable-popup .video-library-size-save:hover,
@@ -150,13 +167,17 @@
           max-height: none;
           resize: none;
         }
+        #${SECTION_ID}.video-library-resizable-popup .video-library-player-head {
+          cursor: default;
+          touch-action: auto;
+        }
         #${SECTION_ID}.video-library-resizable-popup::after { display: none; }
       }
     `;
     document.head.appendChild(style);
   }
 
-  function readSavedSize() {
+  function readSavedGeometry() {
     try {
       const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
       if (!parsed || !Number.isFinite(parsed.width) || !Number.isFinite(parsed.height)) return null;
@@ -183,40 +204,53 @@
     };
   }
 
-  function positionCentered(section, width, height) {
-    const left = Math.max(VIEWPORT_GAP, Math.round((window.innerWidth - width) / 2));
-    const top = Math.max(VIEWPORT_GAP, Math.round((window.innerHeight - height) / 2));
-    section.style.left = `${left}px`;
-    section.style.top = `${top}px`;
+  function clampedPosition(position, width, height) {
+    const maxLeft = Math.max(VIEWPORT_GAP, window.innerWidth - width - VIEWPORT_GAP);
+    const maxTop = Math.max(VIEWPORT_GAP, window.innerHeight - height - VIEWPORT_GAP);
+    const fallbackLeft = Math.max(VIEWPORT_GAP, Math.round((window.innerWidth - width) / 2));
+    const fallbackTop = Math.max(VIEWPORT_GAP, Math.round((window.innerHeight - height) / 2));
+    return {
+      left: Math.min(maxLeft, Math.max(VIEWPORT_GAP, Number.isFinite(position?.left) ? position.left : fallbackLeft)),
+      top: Math.min(maxTop, Math.max(VIEWPORT_GAP, Number.isFinite(position?.top) ? position.top : fallbackTop))
+    };
   }
 
-  function applySavedSize(section) {
+  function applyGeometry(section, geometry) {
     if (!section || window.innerWidth <= 620) return;
-    const size = clampedSize(readSavedSize());
+    const size = clampedSize(geometry);
+    const position = clampedPosition(geometry, size.width, size.height);
     section.style.width = `${Math.round(size.width)}px`;
     section.style.height = `${Math.round(size.height)}px`;
-    positionCentered(section, size.width, size.height);
+    section.style.left = `${Math.round(position.left)}px`;
+    section.style.top = `${Math.round(position.top)}px`;
   }
 
-  function saveCurrentSize(section, button) {
+  function applySavedGeometry(section) {
+    applyGeometry(section, readSavedGeometry());
+  }
+
+  function saveCurrentGeometry(section, button) {
     if (!section || window.innerWidth <= 620) return;
     const rect = section.getBoundingClientRect();
     const size = clampedSize({ width: rect.width, height: rect.height });
+    const position = clampedPosition({ left: rect.left, top: rect.top }, size.width, size.height);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         width: Math.round(size.width),
-        height: Math.round(size.height)
+        height: Math.round(size.height),
+        left: Math.round(position.left),
+        top: Math.round(position.top)
       }));
     } catch (_) {}
 
     if (button) {
       button.classList.add("is-saved");
       button.textContent = "✓";
-      button.title = `Formaat opgeslagen: ${Math.round(size.width)} × ${Math.round(size.height)} px`;
+      button.title = `Formaat en positie opgeslagen: ${Math.round(size.width)} × ${Math.round(size.height)} px`;
       window.setTimeout(() => {
         button.classList.remove("is-saved");
         button.textContent = "V";
-        button.title = "Huidig videoformaat opslaan";
+        button.title = "Huidig formaat en positie opslaan";
       }, 1100);
     }
   }
@@ -224,12 +258,64 @@
   function keepInsideViewport(section) {
     if (!section || section.hidden || window.innerWidth <= 620) return;
     const rect = section.getBoundingClientRect();
-    const bounds = viewportBounds();
-    const width = Math.min(rect.width, bounds.width);
-    const height = Math.min(rect.height, bounds.height);
-    section.style.width = `${Math.round(width)}px`;
-    section.style.height = `${Math.round(height)}px`;
-    positionCentered(section, width, height);
+    applyGeometry(section, {
+      width: rect.width,
+      height: rect.height,
+      left: rect.left,
+      top: rect.top
+    });
+  }
+
+  function enableDragging(section, head) {
+    if (!section || !head || head.dataset.videoPopupDragReady === "true") return;
+    head.dataset.videoPopupDragReady = "true";
+
+    let drag = null;
+
+    head.addEventListener("pointerdown", (event) => {
+      if (window.innerWidth <= 620 || event.button !== 0) return;
+      if (event.target.closest(".video-library-window-actions, button, input, select, textarea, a")) return;
+
+      const rect = section.getBoundingClientRect();
+      drag = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height
+      };
+
+      section.classList.add("is-dragging");
+      try { head.setPointerCapture(event.pointerId); } catch (_) {}
+      event.preventDefault();
+    });
+
+    head.addEventListener("pointermove", (event) => {
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      const next = clampedPosition({
+        left: drag.left + event.clientX - drag.startX,
+        top: drag.top + event.clientY - drag.startY
+      }, drag.width, drag.height);
+      section.style.left = `${Math.round(next.left)}px`;
+      section.style.top = `${Math.round(next.top)}px`;
+      event.preventDefault();
+    });
+
+    function stopDrag(event) {
+      if (!drag || (event && drag.pointerId !== event.pointerId)) return;
+      try { head.releasePointerCapture(drag.pointerId); } catch (_) {}
+      drag = null;
+      section.classList.remove("is-dragging");
+    }
+
+    head.addEventListener("pointerup", stopDrag);
+    head.addEventListener("pointercancel", stopDrag);
+    head.addEventListener("lostpointercapture", () => {
+      drag = null;
+      section.classList.remove("is-dragging");
+    });
   }
 
   function install(section) {
@@ -254,20 +340,22 @@
         saveButton.type = "button";
         saveButton.className = "video-library-size-save";
         saveButton.setAttribute(SAVE_BUTTON_ATTR, "true");
-        saveButton.setAttribute("aria-label", "Huidig videoformaat opslaan");
-        saveButton.title = "Huidig videoformaat opslaan";
+        saveButton.setAttribute("aria-label", "Huidig formaat en positie opslaan");
+        saveButton.title = "Huidig formaat en positie opslaan";
         saveButton.textContent = "V";
         actions.insertBefore(saveButton, close);
-        saveButton.addEventListener("click", () => saveCurrentSize(section, saveButton));
+        saveButton.addEventListener("click", () => saveCurrentGeometry(section, saveButton));
       }
+
+      enableDragging(section, head);
     }
 
     const observer = new MutationObserver(() => {
-      if (!section.hidden) requestAnimationFrame(() => applySavedSize(section));
+      if (!section.hidden) requestAnimationFrame(() => applySavedGeometry(section));
     });
     observer.observe(section, { attributes: true, attributeFilter: ["hidden"] });
 
-    if (!section.hidden) applySavedSize(section);
+    if (!section.hidden) applySavedGeometry(section);
   }
 
   function findAndInstall() {
