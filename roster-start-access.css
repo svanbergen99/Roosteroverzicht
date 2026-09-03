@@ -4,8 +4,7 @@
   display: block;
 }
 
-/* De openbare startpagina toont bewust alleen de beveiligde Rooster-knop en de losse KCD Intranet-sectie. */
-body.public-portal-mode #publicSalarySection,
+/* Op de openbare startpagina blijven de algemene website- en thema-secties verborgen. */
 body.public-portal-mode #externalSitesSection,
 body.public-portal-mode .external-sites-card,
 body.public-portal-mode #themeCustomizerShell,
