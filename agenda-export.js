@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20260903-88";
+  const VERSION = "20260903-89";
   const FILE_MONTHS = ["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
   const MONTH_FILE_RE = /^Roosterindex_(Januari|Februari|Maart|April|Mei|Juni|Juli|Augustus|September|Oktober|November|December)\.json$/i;
 
@@ -115,6 +115,7 @@
   loadStyle("holiday-scenes.css");
   loadStyle("visual-audio-controls.css");
   loadStyle("audio-library.css");
+  loadStyle("video-library.css");
   loadStyle("permission-auth.css");
   loadStyle("roster-start-access.css");
   loadStyle("roster-action-row.css");
@@ -145,6 +146,7 @@
   loadScript("visual-audio-controls.js");
   loadScript("payday-sound-preview.js");
   loadScript("audio-library-ui.js");
+  loadScript("video-library-ui.js");
 
   /* Moet vóór public-portal.js laden om de originele beveiligde trigger te bewaren. */
   loadScript("roster-start-access.js");
