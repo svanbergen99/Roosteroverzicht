@@ -8,11 +8,16 @@
   let button = null;
   let menu = null;
   let list = null;
-  let overlay = null;
+  let playerSection = null;
   let player = null;
   let title = null;
+  let durationInput = null;
+  let durationOutput = null;
+  let currentPath = "";
   let lastLoadedAt = 0;
   let loading = false;
+
+  const durationLimits = new Map();
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -76,6 +81,13 @@
       .map((part) => encodeURIComponent(part))
       .join("/");
     return new URL(encodedPath, window.location.href).href;
+  }
+
+  function formatDuration(seconds) {
+    const safe = Math.max(0, Math.round(Number(seconds) || 0));
+    const minutes = Math.floor(safe / 60);
+    const rest = safe % 60;
+    return `${minutes}:${String(rest).padStart(2, "0")}`;
   }
 
   function renderVideos(paths) {
@@ -165,49 +177,126 @@
     if (open) loadVideos(false);
   }
 
-  function ensureOverlay() {
-    if (overlay) return;
-    overlay = document.createElement("div");
-    overlay.id = "videoLibraryOverlay";
-    overlay.className = "video-library-overlay";
-    overlay.hidden = true;
-    overlay.innerHTML = `
-      <section class="video-library-player-card" role="dialog" aria-modal="true" aria-labelledby="videoLibraryTitle">
-        <div class="video-library-player-head">
-          <strong id="videoLibraryTitle">Video</strong>
-          <button class="video-library-close" type="button" data-video-close aria-label="Video sluiten">×</button>
-        </div>
-        <video class="video-library-player" controls playsinline preload="metadata"></video>
-      </section>`;
-    document.body.appendChild(overlay);
-    player = overlay.querySelector("video");
-    title = overlay.querySelector("#videoLibraryTitle");
+  function updateDurationControl() {
+    if (!player || !durationInput || !durationOutput || !currentPath) return;
+    const total = Number.isFinite(player.duration) && player.duration > 0 ? Math.max(1, Math.ceil(player.duration)) : 1;
+    const saved = durationLimits.get(currentPath);
+    const limit = Math.max(1, Math.min(total, Number.isFinite(saved) ? Math.round(saved) : total));
 
-    overlay.addEventListener("click", (event) => {
-      if (event.target === overlay || event.target.closest?.("[data-video-close]")) closeVideo();
+    durationInput.max = String(total);
+    durationInput.value = String(limit);
+    durationInput.disabled = false;
+    durationOutput.textContent = `${formatDuration(limit)} van ${formatDuration(total)}`;
+  }
+
+  function ensurePlayerSection() {
+    if (playerSection) return;
+    const app = document.getElementById("app");
+    if (!app) return;
+
+    playerSection = document.createElement("section");
+    playerSection.id = "videoLibraryPlayerSection";
+    playerSection.className = "video-library-inline-player";
+    playerSection.hidden = true;
+    playerSection.innerHTML = `
+      <div class="video-library-player-head">
+        <div class="video-library-player-title-wrap">
+          <span>Video</span>
+          <strong id="videoLibraryTitle">Video</strong>
+        </div>
+        <button class="video-library-close" type="button" data-video-close aria-label="Video sluiten">×</button>
+      </div>
+      <video class="video-library-player" controls playsinline preload="metadata"></video>
+      <div class="video-library-duration-control">
+        <div class="video-library-duration-head">
+          <label for="videoLibraryDuration">Duur</label>
+          <output id="videoLibraryDurationOutput" for="videoLibraryDuration">Duur laden…</output>
+        </div>
+        <input id="videoLibraryDuration" type="range" min="1" max="1" step="1" value="1" disabled aria-label="Maximale afspeelduur">
+        <small>Stel in hoeveel seconden vanaf het begin van de video worden afgespeeld.</small>
+      </div>`;
+
+    const primary = document.getElementById("publicPrimaryActions");
+    if (primary?.parentElement === app) primary.after(playerSection);
+    else app.prepend(playerSection);
+
+    player = playerSection.querySelector("video");
+    title = playerSection.querySelector("#videoLibraryTitle");
+    durationInput = playerSection.querySelector("#videoLibraryDuration");
+    durationOutput = playerSection.querySelector("#videoLibraryDurationOutput");
+
+    playerSection.querySelector("[data-video-close]")?.addEventListener("click", closeVideo);
+
+    player?.addEventListener("loadedmetadata", updateDurationControl);
+    player?.addEventListener("durationchange", updateDurationControl);
+
+    player?.addEventListener("play", () => {
+      if (!durationInput || durationInput.disabled) return;
+      const limit = Number(durationInput.value) || 1;
+      if (player.currentTime >= limit - .05) player.currentTime = 0;
+    });
+
+    player?.addEventListener("timeupdate", () => {
+      if (!durationInput || durationInput.disabled || !Number.isFinite(player.duration)) return;
+      const limit = Number(durationInput.value) || player.duration;
+      if (limit < player.duration && player.currentTime >= limit) {
+        player.pause();
+        try { player.currentTime = limit; } catch (_) {}
+      }
+    });
+
+    durationInput?.addEventListener("input", () => {
+      if (!currentPath || !player) return;
+      const total = Number.isFinite(player.duration) && player.duration > 0 ? Math.max(1, Math.ceil(player.duration)) : 1;
+      const limit = Math.max(1, Math.min(total, Math.round(Number(durationInput.value) || total)));
+      durationLimits.set(currentPath, limit);
+      durationInput.value = String(limit);
+      if (durationOutput) durationOutput.textContent = `${formatDuration(limit)} van ${formatDuration(total)}`;
+      if (player.currentTime > limit) {
+        player.pause();
+        try { player.currentTime = limit; } catch (_) {}
+      }
     });
   }
 
   function openVideo(path) {
-    ensureOverlay();
+    ensurePlayerSection();
     closeMenu();
-    if (!overlay || !player) return;
+    if (!playerSection || !player || !path) return;
+
+    try { window.RoosterAudioLibrary?.stop?.(); } catch (_) {}
+    try { window.RoosterPaydaySoundPreview?.stop?.(); } catch (_) {}
+    try { window.RoosterPaydayAudio?.stop?.(); } catch (_) {}
+
+    currentPath = path;
     if (title) title.textContent = friendlyLabel(path) || "Video";
+    if (durationInput) {
+      durationInput.disabled = true;
+      durationInput.max = "1";
+      durationInput.value = "1";
+    }
+    if (durationOutput) durationOutput.textContent = "Duur laden…";
+
+    player.pause();
     player.src = mediaUrl(path);
-    overlay.hidden = false;
-    document.body.classList.add("video-library-open");
-    player.play().catch(() => {});
+    player.load();
+    playerSection.hidden = false;
+
+    requestAnimationFrame(() => {
+      playerSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      player.play().catch(() => {});
+    });
   }
 
   function closeVideo() {
-    if (!overlay || !player) return;
+    if (!playerSection || !player) return;
     try {
       player.pause();
       player.removeAttribute("src");
       player.load();
     } catch (_) {}
-    overlay.hidden = true;
-    document.body.classList.remove("video-library-open");
+    currentPath = "";
+    playerSection.hidden = true;
   }
 
   function ensureInterface() {
@@ -264,8 +353,7 @@
 
     document.addEventListener("keydown", (event) => {
       if (event.key !== "Escape") return;
-      if (overlay && !overlay.hidden) closeVideo();
-      else if (menu && !menu.hidden) {
+      if (menu && !menu.hidden) {
         closeMenu();
         button?.focus();
       }
@@ -288,6 +376,7 @@
 
   window.RoosterVideoLibrary = Object.freeze({
     refresh: () => loadVideos(true),
-    close: closeVideo
+    close: closeVideo,
+    durations: () => Object.fromEntries(durationLimits)
   });
 })();
