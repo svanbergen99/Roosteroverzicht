@@ -1,0 +1,50 @@
+body.permission-auth-enabled #unlockOverlay { display: none !important; }
+body.permission-auth-enabled #nameForm,
+body.permission-auth-enabled .search-intro,
+body.permission-auth-enabled .search-message { display: none !important; }
+.permission-auth-card { width: min(430px, 100%); }
+.permission-auth-card h1 { margin: 0; }
+.permission-auth-card p { margin: 9px 0 22px; color: var(--muted); line-height: 1.45; }
+.permission-auth-team-select {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 42px 12px 14px;
+  border: 1px solid #c9d2dc;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  outline: none;
+  cursor: pointer;
+}
+.permission-auth-team-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(123, 47, 115, .12);
+}
+.permission-auth-back {
+  width: 100%;
+  margin-top: 10px;
+  background: #fff;
+  color: var(--accent-dark);
+  border: 1px solid #cfc4ce;
+}
+.permission-auth-back:hover { background: var(--soft-accent); }
+.permission-auth-error { min-height: 20px; margin-top: 12px; color: var(--danger); font-size: 14px; font-weight: 700; }
+.permission-auth-card .full-button { margin-top: 20px; }
+.manager-colleagues-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+.manager-colleague-button {
+  width: 100%;
+  min-height: 46px;
+}
+html[data-theme="dark"] .permission-auth-team-select {
+  background: #1c2530;
+  color: #f2f4f7;
+  border-color: #46515f;
+}
+html[data-theme="dark"] .permission-auth-back { background: #1c2530; color: #e9b0e2; border-color: #46515f; }
+html[data-theme="dark"] .permission-auth-back:hover { background: #2b202c; }

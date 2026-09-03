@@ -1,0 +1,63 @@
+.holiday-scene-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.holiday-scene-side {
+  position: absolute;
+  bottom: 0;
+  width: max(0px, calc((100vw - 900px) / 2));
+  height: min(34vh, 285px);
+  overflow: hidden;
+  opacity: .98;
+}
+
+.holiday-scene-side-left { left: 0; }
+.holiday-scene-side-right { right: 0; }
+
+.holiday-scene-static-stage {
+  position: absolute;
+  bottom: 0;
+  width: min(500px, 43vw);
+  min-width: 390px;
+  height: 100%;
+}
+
+.holiday-scene-side-left .holiday-scene-static-stage {
+  right: -105px;
+  transform: scaleX(-1);
+  transform-origin: 50% 100%;
+}
+
+.holiday-scene-side-right .holiday-scene-static-stage {
+  left: -105px;
+}
+
+.holiday-scene-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 12px 18px rgba(15,23,42,.16));
+}
+
+.holiday-scene-overlay .scene-gentle-sway,
+.holiday-scene-overlay .scene-gentle-bob,
+.holiday-scene-overlay .scene-horse-bob,
+.holiday-scene-overlay .scene-flower-sway,
+.holiday-scene-overlay .scene-lantern-sway,
+.holiday-scene-overlay .scene-star-twinkle,
+.holiday-scene-overlay .scene-pumpkin-glow,
+.holiday-scene-overlay .scene-light {
+  animation: none !important;
+}
+
+@media (max-width: 1180px) {
+  .holiday-scene-overlay { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .holiday-scene-overlay { display: none !important; }
+}

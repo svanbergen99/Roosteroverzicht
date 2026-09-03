@@ -1,0 +1,79 @@
+.traffic-today-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 10px;
+  padding: 11px 14px;
+  border: 1px solid #e6b5a2;
+  border-radius: 12px;
+  background: rgba(255, 242, 236, .95);
+  color: #7a2e1f;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 3px 10px rgba(15, 23, 42, .05);
+}
+.traffic-today-title {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.traffic-today-shifts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.traffic-shift {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid rgba(122, 46, 31, .22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .72);
+  color: inherit;
+  line-height: 1.2;
+}
+.traffic-shift.is-current {
+  border-color: #b53425;
+  background: #b53425;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(181, 52, 37, .18);
+}
+.traffic-now {
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .20);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.traffic-time { white-space: nowrap; }
+.traffic-not-updated { white-space: nowrap; }
+
+html[data-theme="dark"] .traffic-today-bar {
+  border-color: #70463e;
+  background: rgba(57, 39, 36, .96);
+  color: #ffc0b2;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, .22);
+}
+html[data-theme="dark"] .traffic-shift {
+  border-color: #70463e;
+  background: rgba(36, 27, 26, .75);
+}
+html[data-theme="dark"] .traffic-shift.is-current {
+  border-color: #b94b3b;
+  background: #9f3b30;
+  color: #fff;
+}
+
+@media (max-width: 720px) {
+  .traffic-today-bar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .traffic-today-title,
+  .traffic-not-updated { white-space: normal; }
+  .traffic-today-shifts { justify-content: flex-start; }
+}

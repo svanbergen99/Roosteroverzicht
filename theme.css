@@ -1,0 +1,151 @@
+.theme-toggle {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 90;
+  min-height: 40px;
+  padding: 9px 13px;
+  border: 1px solid #cfc4ce;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .94);
+  color: var(--accent-dark);
+  box-shadow: 0 5px 18px rgba(15, 23, 42, .12);
+  backdrop-filter: blur(6px);
+  font-size: 13px;
+}
+.theme-toggle:hover { background: var(--soft-accent); }
+
+/* De pagina-achtergrond blijft altijd donker en rustig, ook in lichte modus. */
+body {
+  background-color: #0d121a;
+  background-image:
+    linear-gradient(rgba(8, 12, 18, .60), rgba(8, 12, 18, .60)),
+    var(--page-background-image, none);
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --ink: #edf2f7;
+  --muted: #aab4c3;
+  --line: #394454;
+  --surface: #171e29;
+  --page: #0d121a;
+  --accent: #c76fbe;
+  --accent-dark: #e29ad9;
+  --danger: #ff8e9c;
+  --soft-accent: #302633;
+}
+html[data-theme="dark"] body {
+  background-color: #0d121a;
+  background-image:
+    linear-gradient(rgba(8, 12, 18, .60), rgba(8, 12, 18, .60)),
+    var(--page-background-image, none);
+  color: var(--ink);
+}
+html[data-theme="dark"] .welcome-content,
+html[data-theme="dark"] .unlock-card,
+html[data-theme="dark"] .search-card {
+  background: rgba(23, 30, 41, .94);
+  border-color: rgba(255, 255, 255, .08);
+  color: var(--ink);
+}
+html[data-theme="dark"] input {
+  border-color: #465263;
+  background: #111821;
+  color: var(--ink);
+}
+html[data-theme="dark"] input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(199, 111, 190, .18);
+}
+html[data-theme="dark"] .suggestions,
+html[data-theme="dark"] .agenda-menu {
+  border-color: var(--line);
+  background: #171e29;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, .38);
+}
+html[data-theme="dark"] .suggestion,
+html[data-theme="dark"] .agenda-menu button { color: var(--ink); }
+html[data-theme="dark"] .suggestion:hover,
+html[data-theme="dark"] .suggestion.active,
+html[data-theme="dark"] .agenda-menu button:hover {
+  background: var(--soft-accent);
+  color: #f0b5e8;
+}
+html[data-theme="dark"] .roster-tools button,
+html[data-theme="dark"] .today-workers-button,
+html[data-theme="dark"] .agenda-trigger,
+html[data-theme="dark"] .screenshot-roster-button {
+  border-color: #465263;
+  background: #171e29;
+  color: #e9b0e2;
+  box-shadow: 0 2px 7px rgba(0, 0, 0, .22);
+}
+html[data-theme="dark"] .roster-tools button:hover,
+html[data-theme="dark"] .today-workers-button:hover,
+html[data-theme="dark"] .agenda-trigger:hover,
+html[data-theme="dark"] .screenshot-roster-button:hover {
+  border-color: #665168;
+  background: var(--soft-accent);
+}
+html[data-theme="dark"] .schedule-card {
+  border-color: var(--line);
+  background: #141b25;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .18);
+}
+html[data-theme="dark"] .schedule-head,
+html[data-theme="dark"] .activity,
+html[data-theme="dark"] .today-worker-row {
+  border-color: #303b49;
+  background: #1a222e;
+  color: var(--ink);
+}
+html[data-theme="dark"] .schedule-card.today {
+  border-color: rgba(199, 111, 190, .72);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .24);
+}
+html[data-theme="dark"] .schedule-card.today .schedule-head { background: #2b202c; }
+html[data-theme="dark"] .schedule-time,
+html[data-theme="dark"] .today-worker-time {
+  border-color: #3b4655;
+  background: #111821;
+  color: #c3ccda;
+}
+html[data-theme="dark"] .activities { background: #141b25; }
+html[data-theme="dark"] .agenda-help-card,
+html[data-theme="dark"] .screenshot-calendar-card {
+  background: #171e29;
+  color: var(--ink);
+}
+html[data-theme="dark"] .agenda-help-summary,
+html[data-theme="dark"] .screenshot-calendar-topbar p,
+html[data-theme="dark"] .screenshot-calendar-note { color: var(--muted); }
+html[data-theme="dark"] .agenda-help-note {
+  border-color: #46394a;
+  background: #28202a;
+  color: #d8c6d5;
+}
+html[data-theme="dark"] .agenda-help-actions .secondary,
+html[data-theme="dark"] .screenshot-calendar-actions .secondary {
+  border-color: #465263;
+  background: #171e29;
+  color: #e9b0e2;
+}
+html[data-theme="dark"] .agenda-help-actions .secondary:hover,
+html[data-theme="dark"] .screenshot-calendar-actions .secondary:hover { background: var(--soft-accent); }
+html[data-theme="dark"] .theme-toggle {
+  border-color: #465263;
+  background: rgba(23, 30, 41, .95);
+  color: #f0b5e8;
+  box-shadow: 0 5px 18px rgba(0, 0, 0, .32);
+}
+
+@media (max-width: 620px) {
+  .theme-toggle {
+    top: 8px;
+    right: 8px;
+    min-height: 36px;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+}

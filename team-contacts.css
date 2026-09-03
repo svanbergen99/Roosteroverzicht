@@ -1,0 +1,115 @@
+.team-contacts-bar {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid #d8c7d5;
+  border-radius: 12px;
+  background: rgba(244, 237, 243, .92);
+  color: var(--accent-dark);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, .05);
+}
+
+.team-contact-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.team-contact-row + .team-contact-row {
+  padding-top: 10px;
+  border-top: 1px solid rgba(123, 47, 115, .14);
+}
+
+.team-contact-person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 14px;
+}
+
+.team-contact-person-text {
+  min-width: 0;
+}
+
+.team-contact-presence {
+  display: inline-block;
+  margin-left: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  opacity: .76;
+}
+
+.team-contact-medal {
+  flex: 0 0 auto;
+  font-size: 17px;
+}
+
+.team-contact-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.team-contact-button {
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid #bca9ba;
+  border-radius: 9px;
+  background: #fff;
+  color: #542450;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.team-contact-button:hover:not(:disabled) {
+  background: #f4edf3;
+}
+
+.team-contact-button:disabled {
+  opacity: .46;
+  cursor: not-allowed;
+}
+
+html[data-theme="dark"] .team-contacts-bar {
+  border-color: #57445a;
+  background: rgba(48, 38, 51, .95);
+  color: #f0b5e8;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, .22);
+}
+
+html[data-theme="dark"] .team-contact-row + .team-contact-row {
+  border-top-color: rgba(240, 181, 232, .15);
+}
+
+html[data-theme="dark"] .team-contact-button {
+  border-color: #665168;
+  background: #1c2530;
+  color: #f0b5e8;
+}
+
+html[data-theme="dark"] .team-contact-button:hover:not(:disabled) {
+  background: #2b202c;
+}
+
+@media (max-width: 620px) {
+  .team-contact-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .team-contact-actions {
+    justify-content: flex-start;
+    padding-left: 25px;
+  }
+
+  .team-contact-presence {
+    display: block;
+    margin: 3px 0 0;
+  }
+}

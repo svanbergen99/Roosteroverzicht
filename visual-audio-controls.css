@@ -1,0 +1,93 @@
+/* Rechterkolom voor visuele instellingen. */
+.theme-side-buttons {
+  display: grid;
+  gap: 8px;
+  width: 138px;
+}
+
+.theme-side-buttons > .theme-customizer-button,
+.theme-side-buttons .effects-menu-wrap,
+.theme-side-buttons .effects-button {
+  width: 100%;
+  min-width: 0;
+}
+
+.theme-side-buttons .theme-customizer-button,
+.theme-side-buttons .effects-button {
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid #cfc4ce;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .94);
+  color: var(--accent-dark);
+  box-shadow: 0 5px 18px rgba(15, 23, 42, .12);
+  backdrop-filter: blur(6px);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.theme-side-buttons .effects-button:hover,
+.theme-side-buttons .effects-button[aria-expanded="true"] {
+  background: var(--soft-accent);
+}
+
+/* Het themapaneel opent links van de vaste rechterknoppen. */
+.theme-customizer-panel {
+  position: absolute;
+  top: 0;
+  right: calc(100% + 10px);
+}
+
+/* Effecten horen niet meer tussen de roosterknoppen. */
+.today-workers-action { gap: 8px !important; }
+@media (max-width: 620px) {
+  .today-workers-action { grid-template-columns: 1fr 1fr !important; }
+}
+@media (max-width: 470px) {
+  .today-workers-action { grid-template-columns: 1fr !important; }
+}
+
+html[data-theme="dark"] .theme-side-buttons .effects-button {
+  border-color: #465263;
+  background: rgba(23, 30, 41, .95);
+  color: #f0b5e8;
+  box-shadow: 0 5px 18px rgba(0, 0, 0, .32);
+}
+
+html[data-theme="dark"] .effects-menu {
+  border-color: #465263;
+  background: rgba(23, 30, 41, .98);
+}
+
+/* Traffic is een vaste operationele waarschuwing en mag NOOIT door een thema veranderen. */
+html body #app .traffic-today-bar {
+  border-color: #e6b5a2 !important;
+  background: rgba(255, 242, 236, .95) !important;
+  color: #7a2e1f !important;
+  box-shadow: 0 3px 10px rgba(15, 23, 42, .05) !important;
+}
+html body #app .traffic-today-bar .traffic-shift {
+  border-color: rgba(122, 46, 31, .22) !important;
+  background: rgba(255, 255, 255, .72) !important;
+  color: #7a2e1f !important;
+}
+html body #app .traffic-today-bar .traffic-shift.is-current {
+  border-color: #b53425 !important;
+  background: #b53425 !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(181, 52, 37, .18) !important;
+}
+html body #app .traffic-today-bar .traffic-now {
+  background: rgba(255, 255, 255, .20) !important;
+  color: inherit !important;
+}
+
+@media (max-width: 620px) {
+  .theme-side-buttons { width: 124px; }
+  .theme-customizer-panel {
+    position: fixed;
+    top: 96px;
+    right: 8px;
+    max-height: calc(100vh - 108px);
+  }
+}

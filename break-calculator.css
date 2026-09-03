@@ -1,0 +1,179 @@
+.break-calculator-wrap {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+}
+.break-calculator-form,
+.break-timer-card,
+.break-legal-card,
+.break-calculation-result {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, .045);
+}
+.break-calculator-form,
+.break-timer-card,
+.break-calculation-result { padding: 16px; }
+.break-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.break-fields label { margin: 0; }
+.break-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 15px 0 0;
+  font-weight: 700;
+}
+.break-checkbox-row input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+.break-calculate-button {
+  width: 100% !important;
+  margin-top: 15px;
+}
+.break-result-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.break-result-card {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #fbfcfd;
+}
+.break-result-card span,
+.break-timer-meta span,
+.break-note,
+.break-legal-note {
+  color: var(--muted);
+}
+.break-result-card strong { font-size: 18px; }
+.break-note,
+.break-warning,
+.break-error {
+  padding: 11px 12px;
+  border-radius: 10px;
+  line-height: 1.4;
+  font-size: 14px;
+  font-weight: 700;
+}
+.break-note { background: #f5f7f9; }
+.break-warning {
+  margin-top: 10px;
+  border: 1px solid #e0b764;
+  background: #fff8e8;
+  color: #795315;
+}
+.break-error {
+  border: 1px solid #e2a7ae;
+  background: #fff0f2;
+  color: var(--danger);
+}
+.break-timer-card { text-align: center; }
+.break-timer-title { font-weight: 800; font-size: 17px; }
+.break-timer-clock {
+  margin: 9px 0 8px;
+  font-size: clamp(36px, 8vw, 58px);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: .03em;
+}
+.break-timer-meta {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.break-progress {
+  height: 8px;
+  margin: 12px 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e7ebef;
+}
+.break-progress span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width .2s linear;
+}
+.break-timer-status {
+  min-height: 20px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+.break-timer-status.is-warning { color: var(--danger); }
+.break-timer-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+  margin-top: 12px;
+}
+.break-timer-actions .today-workers-button { width: 100%; }
+.break-legal-card { overflow: hidden; }
+.break-legal-card summary {
+  padding: 14px 16px;
+  cursor: pointer;
+  font-weight: 800;
+}
+.break-table-wrap { overflow-x: auto; border-top: 1px solid var(--line); }
+.break-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 560px;
+}
+.break-table th,
+.break-table td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.break-table th { background: #f5f7f9; }
+.break-legal-note { margin: 0; padding: 12px 16px 15px; font-size: 13px; }
+
+html[data-theme="dark"] .break-calculator-form,
+html[data-theme="dark"] .break-timer-card,
+html[data-theme="dark"] .break-legal-card,
+html[data-theme="dark"] .break-calculation-result,
+html[data-theme="dark"] .break-result-card {
+  border-color: var(--line);
+  background: #171e29;
+  color: var(--ink);
+}
+html[data-theme="dark"] .break-note,
+html[data-theme="dark"] .break-table th,
+html[data-theme="dark"] .break-progress { background: #111821; }
+html[data-theme="dark"] .break-warning {
+  border-color: #7b6530;
+  background: #302817;
+  color: #f0d28b;
+}
+html[data-theme="dark"] .break-error {
+  border-color: #6e3e49;
+  background: #321d23;
+}
+
+@media (max-width: 620px) {
+  .today-workers-action { grid-template-columns: 1fr 1fr !important; }
+  .break-fields,
+  .break-result-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 470px) {
+  .today-workers-action { grid-template-columns: 1fr !important; }
+  .break-timer-actions { grid-template-columns: 1fr; }
+}

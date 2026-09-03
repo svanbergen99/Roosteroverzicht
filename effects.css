@@ -1,0 +1,140 @@
+.effect-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .5s ease;
+  will-change: opacity;
+}
+
+.today-workers-action {
+  gap: 10px;
+  align-items: stretch;
+}
+
+.today-workers-button {
+  flex: 1 1 auto;
+  width: auto;
+}
+
+.effects-menu-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.effects-button {
+  min-width: 132px;
+  min-height: 42px;
+  height: 100%;
+  background: #fff;
+  color: var(--accent-dark);
+  border: 1px solid #cfc4ce;
+  box-shadow: 0 2px 7px rgba(15, 23, 42, .05);
+}
+
+.effects-button:hover,
+.effects-button[aria-expanded="true"] {
+  background: var(--soft-accent);
+  border-color: #bca9ba;
+}
+
+.effects-button-caret {
+  display: inline-block;
+  margin-left: 5px;
+  transition: transform .16s ease;
+}
+
+.effects-button[aria-expanded="true"] .effects-button-caret {
+  transform: rotate(180deg);
+}
+
+.effects-menu {
+  position: absolute;
+  z-index: 120;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(270px, calc(100vw - 40px));
+  max-height: min(430px, 62vh);
+  overflow-y: auto;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .98);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, .18);
+  backdrop-filter: blur(7px);
+}
+
+.effects-menu-item {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  font-weight: 700;
+}
+
+.effects-menu-item:hover,
+.effects-menu-item:focus-visible {
+  background: var(--soft-accent);
+  color: var(--accent-dark);
+}
+
+.effects-menu-icon {
+  display: inline-grid;
+  place-items: center;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.effects-menu-separator {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--line);
+}
+
+.effects-menu-item.stop-effect {
+  color: #7c2d38;
+}
+
+@media (max-width: 620px) {
+  .today-workers-action {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .effects-button {
+    min-width: 116px;
+  }
+}
+
+@media (max-width: 430px) {
+  .today-workers-action {
+    grid-template-columns: 1fr;
+  }
+
+  .effects-menu-wrap,
+  .effects-button {
+    width: 100%;
+  }
+
+  .effects-menu {
+    left: 0;
+    right: 0;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .effect-canvas {
+    display: none !important;
+  }
+}
