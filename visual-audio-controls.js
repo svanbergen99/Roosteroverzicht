@@ -1,28 +1,11 @@
 (() => {
   "use strict";
 
-  function closeEffectsMenu() {
-    const menu = document.getElementById("effectsMenu");
-    const button = document.getElementById("effectsButton");
-    if (!menu || !button || menu.hidden) return;
-    menu.hidden = true;
-    button.setAttribute("aria-expanded", "false");
-  }
-
-  function closeThemePanel() {
-    const panel = document.getElementById("themeCustomizerPanel");
-    const button = document.getElementById("themeCustomizerButton");
-    if (!panel || !button || panel.hidden) return;
-    panel.hidden = true;
-    button.setAttribute("aria-expanded", "false");
-  }
-
   function buildRightControls(attempt = 0) {
     const shell = document.getElementById("themeCustomizerShell");
     const themeButton = document.getElementById("themeCustomizerButton");
-    const effectsWrap = document.querySelector(".effects-menu-wrap");
 
-    if (!shell || !themeButton || !effectsWrap) {
+    if (!shell || !themeButton) {
       if (attempt < 40) setTimeout(() => buildRightControls(attempt + 1), 75);
       return;
     }
@@ -36,13 +19,11 @@
     }
 
     if (themeButton.parentElement !== buttons) buttons.appendChild(themeButton);
-    if (effectsWrap.parentElement !== buttons) buttons.appendChild(effectsWrap);
 
+    // Effecten zijn voortaan volledig automatisch aan feestdagen gekoppeld.
+    document.querySelector(".effects-menu-wrap")?.remove();
     document.getElementById("audioSettingsButton")?.remove();
     document.getElementById("audioPreviewPanel")?.remove();
-
-    themeButton.addEventListener("click", closeEffectsMenu);
-    document.getElementById("effectsButton")?.addEventListener("click", closeThemePanel);
   }
 
   if (document.readyState === "loading") {
