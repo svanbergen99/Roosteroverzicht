@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20260903-99";
+  const VERSION = "20260903-100";
   const FILE_MONTHS = ["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
   const MONTH_FILE_RE = /^Roosterindex_(Januari|Februari|Maart|April|Mei|Juni|Juli|Augustus|September|Oktober|November|December)\.json$/i;
 
@@ -142,6 +142,7 @@
   loadScript("video-library-ui.js");
   loadScript("video-popup-size.js");
   loadScript("video-document-pip.js");
+  loadScript("video-fullscreen-effects.js");
   loadScript("video-trim-save.js");
   loadScript("video-auto-close.js");
   loadScript("roster-start-access.js");
