@@ -23,6 +23,34 @@
     return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
   }
 
+  function firstName(value) {
+    return String(value || "").trim().split(/\s+/).filter(Boolean)[0] || "";
+  }
+
+  function firstNameKey(value) {
+    return firstName(value)
+      .toLocaleLowerCase("nl-NL")
+      .normalize("NFD")
+      .replace(/\p{M}/gu, "");
+  }
+
+  function workerDisplayNames(workers) {
+    const counts = new Map();
+    for (const worker of workers) {
+      const key = firstNameKey(worker.name);
+      if (key) counts.set(key, (counts.get(key) || 0) + 1);
+    }
+
+    return workers.map((worker) => {
+      const shortName = firstName(worker.name);
+      const key = firstNameKey(worker.name);
+      const displayName = shortName && (counts.get(key) || 0) === 1
+        ? shortName
+        : String(worker.name || "").trim();
+      return { ...worker, displayName: displayName || shortName };
+    });
+  }
+
   function amsterdamParts(date = new Date()) {
     const parts = new Intl.DateTimeFormat("en-CA", {
       timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23"
@@ -155,9 +183,10 @@
   }
 
   function render(title, today, workers, emptyText) {
-    const rows = workers.map((worker) => {
+    const namedWorkers = workerDisplayNames(workers);
+    const rows = namedWorkers.map((worker) => {
       const ranges = worker.schedules.map((schedule) => `${schedule.start} – ${schedule.end}`).join(", ");
-      return `<div class="today-worker-row"><span class="today-worker-name">${escapeHtml(worker.name)}</span><span class="today-worker-time">${escapeHtml(ranges)}</span></div>`;
+      return `<div class="today-worker-row"><span class="today-worker-name">${escapeHtml(worker.displayName)}</span><span class="today-worker-time">${escapeHtml(ranges)}</span></div>`;
     }).join("");
     rosterResult.innerHTML = `<div class="today-workers-head"><div><h2>${escapeHtml(title)}</h2><p class="today-workers-date">${escapeHtml(formatDate(today))}</p></div><span class="today-workers-count">${workers.length} collega${workers.length === 1 ? "" : "'s"}</span></div><div class="today-workers-list">${rows || `<div class="no-activities">${escapeHtml(emptyText)}</div>`}</div>`;
     rosterResult.hidden = false;
