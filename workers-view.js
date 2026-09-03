@@ -70,8 +70,15 @@
     return null;
   }
 
-  function isWorkSchedule(schedule) {
-    return String(schedule?.status || "").trim().toLowerCase() === "work";
+  function isExplicitNonWorkingSchedule(schedule) {
+    const status = String(schedule?.status || "").trim().toLowerCase();
+    if (!status) return false;
+    return /^(?:time[_ -]?off|day[_ -]?off|off|leave|absence|absent|verlof|afwezig|vrij)$/.test(status);
+  }
+
+  function isTimedPresenceSchedule(schedule) {
+    if (isExplicitNonWorkingSchedule(schedule)) return false;
+    return Boolean(formatTime(schedule?.start) && formatTime(schedule?.end));
   }
 
   function timeWindowIsActive(date, start, end, today, yesterday, nowMinutes) {
@@ -105,7 +112,7 @@
     const workers = [];
     for (const employee of roster?.employees || []) {
       const schedules = (employee.schedules || [])
-        .filter((schedule) => String(schedule?.date || "").slice(0, 10) === today && isWorkSchedule(schedule))
+        .filter((schedule) => String(schedule?.date || "").slice(0, 10) === today && isTimedPresenceSchedule(schedule))
         .map((schedule) => ({ start: formatTime(schedule.start), end: formatTime(schedule.end) }))
         .filter((schedule) => schedule.start && schedule.end);
       if (!schedules.length) continue;
@@ -123,7 +130,7 @@
     const workers = [];
     for (const employee of roster?.employees || []) {
       const active = (employee.schedules || []).map((schedule) => {
-        if (!isWorkSchedule(schedule)) return null;
+        if (!isTimedPresenceSchedule(schedule)) return null;
         const date = String(schedule?.date || "").slice(0, 10);
         const start = formatTime(schedule.start);
         const end = formatTime(schedule.end);
