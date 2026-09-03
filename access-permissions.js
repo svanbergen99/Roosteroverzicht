@@ -17,6 +17,14 @@
     Object.freeze({
       loginHash: "6ad50e5818f1a2949d8f46ea5f034e5456aa3bb5716bb493b4cc6ea8395fef95",
       rosterHash: "6dc35abb066d644e84334daa8c301bbe38f3830642fc26d6efffc5a868ba99a6"
+    }),
+    Object.freeze({
+      loginHash: "73704b531ac77d446ab4f8aee0a09acef8c67171ba24a1693e2af36ca7cacabf",
+      scope: "all"
+    }),
+    Object.freeze({
+      loginHash: "85ee877a32d85a6178900edb730f4fad69d85d9e33ccb42f9ddd61e6d75d9f4b",
+      scope: "all"
     })
   ]);
 })();
