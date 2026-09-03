@@ -13,7 +13,6 @@
   function effectForSource(value) {
     const text = normalizedSource(value);
 
-    // Eerst de huidige, concrete videobestanden uit de repo.
     if (/nieuwjaar\.mp4(?:[?#]|$)/i.test(text)) return "fireworks";
     if (/happy_eastern_fijne_pasen_soft\.mp4(?:[?#]|$)/i.test(text)) return "easter";
     if (/netherlands koningsdag\.mp4(?:[?#]|$)/i.test(text)) return "orange";
@@ -25,7 +24,6 @@
     if (/verjaardag\.mp4(?:[?#]|$)/i.test(text)) return "birthday";
     if (/payday\.mp4(?:[?#]|$)/i.test(text)) return "payday";
 
-    // Toekomstige of anders benoemde bestanden blijven ook automatisch werken.
     if (/christmas|kerst|xmas/.test(text)) return "christmas-snow";
     if (/sinterklaas|sint[-_ ]?nicolaas|st[-_ ]?nicholas/.test(text)) return "sinterklaas";
     if (/easter|pasen|bunny|eastern/.test(text)) return "easter";
@@ -46,9 +44,9 @@
     if (effect === "payday") {
       window.RoosterBirthdayScene?.hide?.();
       window.RoosterPaydayEffect?.start?.();
-      // Payday hoort bij het eigen geld-effect én vuurwerk. Dit gebruikt de
-      // video-bypass zodat het vuurwerk ook buiten Nieuwjaarsdag mag starten.
       window.RoosterHolidayEffects?.playForVideo?.("fireworks");
+      // Vuurwerk mag de vaste Payday-onderscène niet vervangen.
+      window.RoosterPaydayStaticScene?.show?.();
       return;
     }
 
@@ -56,7 +54,6 @@
 
     if (effect === "birthday") {
       if (window.RoosterBirthdayScene?.show) {
-        // show(true) toont de vaste verjaardagsscène en start het confetti-effect.
         window.RoosterBirthdayScene.show(true);
       } else if (window.RoosterHolidayEffects?.playForVideo) {
         window.RoosterHolidayEffects.playForVideo("birthday");
