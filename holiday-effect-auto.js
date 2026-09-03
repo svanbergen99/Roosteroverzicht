@@ -12,7 +12,6 @@
     Koningsdag: "orange",
     Moederdag: "hearts-petals",
     Vaderdag: "hearts-petals",
-    Suikerfeest: "eid",
     Halloween: "halloween",
     Sinterklaas: "sinterklaas",
     Kerst: "christmas-snow",
