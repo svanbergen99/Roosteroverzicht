@@ -1,0 +1,30 @@
+name: Finalize roster-only start page
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Finalize roster-only start
+        shell: bash
+        run: |
+          sed -i 's/agenda-export.js?v=20260903-65/agenda-export.js?v=20260903-66/' index.html
+          node --check agenda-export.js
+          node --check roster-start-access.js
+          node --check visual-audio-controls.js
+      - name: Commit cache bump
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Finalize roster-only start page"
+          git push
