@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20260903-90";
+  const VERSION = "20260903-91";
   const FILE_MONTHS = ["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
   const MONTH_FILE_RE = /^Roosterindex_(Januari|Februari|Maart|April|Mei|Juni|Juli|Augustus|September|Oktober|November|December)\.json$/i;
 
@@ -102,7 +102,6 @@
     document.body.appendChild(script);
   }
 
-  /* Openbare startpagina. */
   loadStyle("theme.css");
   loadStyle("theme-customizer.css");
   loadStyle("theme-customizer-colors.css");
@@ -121,10 +120,8 @@
   loadStyle("roster-action-row.css");
   loadStyle("public-portal.css");
 
-  /* Alleen de beveiligingslaag is vooraf beschikbaar; roosterdata/modules nog niet. */
   loadScript("access-permissions.js");
   loadScript("permission-auth.js");
-
   loadScript("theme.js");
   loadScript("theme-customizer.js");
   loadScript("theme-background-color.js");
@@ -147,8 +144,6 @@
   loadScript("payday-sound-preview.js");
   loadScript("audio-library-ui.js");
   loadScript("video-library-ui.js");
-
-  /* Moet vóór public-portal.js laden om de originele beveiligde trigger te bewaren. */
   loadScript("roster-start-access.js");
   loadScript("public-portal.js");
   loadScript("roster-home-button.js");
