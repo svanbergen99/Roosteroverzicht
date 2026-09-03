@@ -15,6 +15,7 @@
         Object.freeze({ label: "Brein", url: "https://brein-sio-particulier.custhelp.com/app/home/" }),
         Object.freeze({ label: "Compliance Check", url: "https://svanbergen99.github.io/Checklist/" }),
         Object.freeze({ label: "Rooster", url: "https://genesyswfm.hosting.corp/wfm/Login.jsp" }),
+        Object.freeze({ label: "Beschikbaarheid", url: "https://genesyswfm.hosting.corp/Puntensysteem" }),
         Object.freeze({ label: "Wall board", url: "https://achmea-production-1-a3srealtime-eu-west-1-prod.kb.eu-west-1.aws.found.io/s/centraal-beheer/app/dashboards#/view/731a7b2c-c25f-4ff6-a032-5f62ef6d2272?_g=(filters:!())" }),
         Object.freeze({ label: "Noodprocedure formulier", url: "https://achmea.sharepoint.com/sites/SP-15261/Noodprocedures/Noodprocedures.aspx", warning: "Alleen gebruiken als Traffic toestemming geeft" }),
         Object.freeze({ label: "Werkbriefjes / Loonstrook", url: "https://klantcontactdiensten.nocore.nl/" }),
