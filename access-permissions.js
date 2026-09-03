@@ -13,6 +13,10 @@
     Object.freeze({
       loginHash: "8821378fb97cb337dee90ae5fcdec92ed171d5ae33434c86cc2cb63c00171c05",
       scope: "all"
+    }),
+    Object.freeze({
+      loginHash: "6ad50e5818f1a2949d8f46ea5f034e5456aa3bb5716bb493b4cc6ea8395fef95",
+      rosterHash: "6dc35abb066d644e84334daa8c301bbe38f3830642fc26d6efffc5a868ba99a6"
     })
   ]);
 })();
