@@ -16,7 +16,6 @@
     if (/mother.?s?[-_ ]?day|moederdag/.test(text)) return "hearts-petals";
     if (/father.?s?[-_ ]?day|vaderdag/.test(text)) return "hearts-petals";
     if (/valentijn|valentine|romantic|love/.test(text)) return "hearts-petals";
-    if (/suikerfeest|eid|ramadan/.test(text)) return "eid";
     if (/halloween|witch|spooky|creepy/.test(text)) return "halloween";
     if (/birthday|verjaardag/.test(text)) return "birthday";
     if (/new[-_ ]?year|nieuwjaar|oudjaar/.test(text)) return "fireworks";
