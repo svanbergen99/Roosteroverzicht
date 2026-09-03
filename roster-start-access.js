@@ -29,6 +29,11 @@
       href: "https://wijzijnkcd.sharepoint.com/sites/formulieren/?locale=nl-nl#ziek-en-beter-melden"
     }),
     Object.freeze({
+      category: "Help, ik heb een storing",
+      label: "Storingen en oplossingen - Startpagina",
+      href: "https://wijzijnkcd.sharepoint.com/sites/storing-melden?locale=nl-nl"
+    }),
+    Object.freeze({
       category: "Langer doorgewerkt ?",
       label: "Langer doorgewerkt",
       href: "https://wijzijnkcd.sharepoint.com/sites/formulieren/SitePages/Langer-Doorgewerkt.aspx"
@@ -77,7 +82,7 @@
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href = `${href}?v=${VERSION}`;
-    link.dataset.rosterPrivateAsset = "true";
+    link.dataset.roosterPrivateAsset = "true";
     document.head.appendChild(link);
   }
 
@@ -87,7 +92,7 @@
       const script = document.createElement("script");
       script.src = `${src}?v=${VERSION}`;
       script.async = false;
-      script.dataset.rosterPrivateAsset = "true";
+      script.dataset.roosterPrivateAsset = "true";
       script.addEventListener("load", resolve, { once: true });
       script.addEventListener("error", () => reject(new Error(`Kon ${src} niet laden.`)), { once: true });
       document.body.appendChild(script);
@@ -112,85 +117,101 @@
     section.classList.remove("is-open");
   }
 
-  function ensureKcdIntranetSection(anchor) {
+  function ensureKcdIntranetSection() {
     let section = document.getElementById("kcdIntranetSection");
-    if (!section) {
-      section = document.createElement("section");
-      section.id = "kcdIntranetSection";
-      section.className = "kcd-intranet-section roster-only-start";
-      section.setAttribute("aria-labelledby", "kcdIntranetTitle");
+    if (section) return section;
 
-      const title = document.createElement("h2");
-      title.id = "kcdIntranetTitle";
-      title.className = "kcd-intranet-title";
-      title.textContent = "Wij Zijn KCD";
+    section = document.createElement("section");
+    section.id = "kcdIntranetSection";
+    section.className = "kcd-intranet-section roster-only-start";
+    section.setAttribute("aria-labelledby", "kcdIntranetTitle");
 
-      const button = document.createElement("button");
-      button.id = "kcdIntranetButton";
-      button.className = "today-workers-button public-roster-button kcd-intranet-button";
-      button.type = "button";
-      button.setAttribute("aria-expanded", "false");
-      button.setAttribute("aria-controls", "kcdIntranetPanel");
-      button.innerHTML = `
-        <span class="public-roster-button-main">
-          <span class="public-roster-button-icon kcd-intranet-icon" aria-hidden="true">⌂</span>
-          <span class="public-roster-button-copy"><strong>KCD Intranet</strong></span>
-        </span>
-        <span class="public-roster-arrow kcd-intranet-arrow" aria-hidden="true">⌄</span>`;
+    const title = document.createElement("h2");
+    title.id = "kcdIntranetTitle";
+    title.className = "kcd-intranet-title";
+    title.textContent = "Wij Zijn KCD";
 
-      const panel = document.createElement("div");
-      panel.id = "kcdIntranetPanel";
-      panel.className = "kcd-intranet-panel";
-      panel.hidden = true;
+    const button = document.createElement("button");
+    button.id = "kcdIntranetButton";
+    button.className = "today-workers-button public-roster-button kcd-intranet-button";
+    button.type = "button";
+    button.setAttribute("aria-expanded", "false");
+    button.setAttribute("aria-controls", "kcdIntranetPanel");
+    button.innerHTML = `
+      <span class="public-roster-button-main">
+        <span class="public-roster-button-icon kcd-intranet-icon" aria-hidden="true">⌂</span>
+        <span class="public-roster-button-copy"><strong>KCD Intranet</strong></span>
+      </span>
+      <span class="public-roster-arrow kcd-intranet-arrow" aria-hidden="true">⌄</span>`;
 
-      for (const item of KCD_LINKS) {
-        const row = document.createElement("div");
-        row.className = "kcd-intranet-item";
+    const panel = document.createElement("div");
+    panel.id = "kcdIntranetPanel";
+    panel.className = "kcd-intranet-panel";
+    panel.hidden = true;
 
-        const category = document.createElement("span");
-        category.className = "kcd-intranet-category";
-        category.textContent = item.category;
+    for (const item of KCD_LINKS) {
+      const row = document.createElement("div");
+      row.className = "kcd-intranet-item";
 
-        const link = document.createElement("a");
-        link.className = "kcd-intranet-link";
-        link.href = item.href;
-        link.target = "_blank";
-        link.rel = "noopener noreferrer";
-        link.textContent = item.label;
-        link.setAttribute("aria-label", `${item.label} openen in nieuw tabblad`);
+      const category = document.createElement("span");
+      category.className = "kcd-intranet-category";
+      category.textContent = item.category;
 
-        const arrow = document.createElement("span");
-        arrow.className = "kcd-intranet-link-arrow";
-        arrow.setAttribute("aria-hidden", "true");
-        arrow.textContent = "↗";
-        link.appendChild(arrow);
+      const link = document.createElement("a");
+      link.className = "kcd-intranet-link";
+      link.href = item.href;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = item.label;
+      link.setAttribute("aria-label", `${item.label} openen in nieuw tabblad`);
 
-        row.append(category, link);
-        panel.appendChild(row);
-      }
+      const arrow = document.createElement("span");
+      arrow.className = "kcd-intranet-link-arrow";
+      arrow.setAttribute("aria-hidden", "true");
+      arrow.textContent = "↗";
+      link.appendChild(arrow);
 
-      section.append(title, button, panel);
-
-      button.addEventListener("click", () => {
-        const open = panel.hidden;
-        panel.hidden = !open;
-        button.setAttribute("aria-expanded", String(open));
-        section.classList.toggle("is-open", open);
-      });
-
-      document.addEventListener("click", (event) => {
-        if (!section.contains(event.target)) closeKcdIntranet(section);
-      });
-
-      document.addEventListener("keydown", (event) => {
-        if (event.key !== "Escape" || panel.hidden) return;
-        closeKcdIntranet(section);
-        button.focus();
-      });
+      row.append(category, link);
+      panel.appendChild(row);
     }
 
-    if (anchor?.parentElement && section.previousElementSibling !== anchor) anchor.after(section);
+    section.append(title, button, panel);
+
+    button.addEventListener("click", () => {
+      const open = panel.hidden;
+      panel.hidden = !open;
+      button.setAttribute("aria-expanded", String(open));
+      section.classList.toggle("is-open", open);
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!section.contains(event.target)) closeKcdIntranet(section);
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || panel.hidden) return;
+      closeKcdIntranet(section);
+      button.focus();
+    });
+
     return section;
+  }
+
+  function positionPublicStartSections(row) {
+    const salary = document.getElementById("publicSalarySection");
+    const kcd = ensureKcdIntranetSection();
+
+    if (salary?.parentElement === app) {
+      salary.after(kcd);
+      kcd.after(row);
+      return;
+    }
+
+    if (!row.isConnected) {
+      if (searchCard?.parentElement === app) searchCard.before(row);
+      else app.prepend(row);
+    }
+    row.before(kcd);
   }
 
   function ensureQuickActions() {
@@ -199,11 +220,6 @@
       row = document.createElement("section");
       row.id = "publicPortalQuickActions";
       row.className = "public-portal-quick-actions roster-only-start";
-
-      const salary = document.getElementById("publicSalarySection");
-      if (salary?.parentElement === app) salary.before(row);
-      else if (searchCard?.parentElement === app) searchCard.before(row);
-      else app.prepend(row);
     } else {
       row.classList.add("roster-only-start");
     }
@@ -227,7 +243,7 @@
       rosterButton.addEventListener("click", openRosterAccess);
     }
 
-    ensureKcdIntranetSection(row);
+    positionPublicStartSections(row);
     return row;
   }
 
