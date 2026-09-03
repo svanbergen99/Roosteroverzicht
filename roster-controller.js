@@ -3,7 +3,7 @@
 
   const TIME_ZONE = "Europe/Amsterdam";
   const FILE_MONTHS = ["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
-  const REPO = "svanbergen99/Rooster";
+  const REPO = "svanbergen99/Roosteroverzicht";
   const CORE_FILE_RE = /Roosterindex_September\.json(?:[?#]|$)/i;
   const SKIP_WELCOME_KEY = "rooster-skip-welcome-once";
   const nativeFetch = window.__roosterNativeFetch || window.fetch.bind(window);
