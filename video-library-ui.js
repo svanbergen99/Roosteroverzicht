@@ -196,6 +196,36 @@
     return { start, end };
   }
 
+  function requestPlayerFullscreen() {
+    if (!player) return;
+    try {
+      if (typeof player.requestFullscreen === "function") {
+        const request = player.requestFullscreen({ navigationUI: "hide" });
+        request?.catch?.(() => {
+          try { player.webkitEnterFullscreen?.(); } catch (_) {}
+        });
+        return;
+      }
+      player.webkitEnterFullscreen?.();
+    } catch (_) {
+      try { player.webkitEnterFullscreen?.(); } catch (_) {}
+    }
+  }
+
+  function exitPlayerFullscreen() {
+    try {
+      if (player?.webkitDisplayingFullscreen) player.webkitExitFullscreen?.();
+    } catch (_) {}
+    try {
+      if (document.fullscreenElement) {
+        const exit = document.exitFullscreen?.();
+        exit?.catch?.(() => {});
+      } else if (document.webkitFullscreenElement) {
+        document.webkitExitFullscreen?.();
+      }
+    } catch (_) {}
+  }
+
   function updateTrimVisuals() {
     const total = totalDuration();
     if (!total || !startInput || !endInput) return;
@@ -321,6 +351,7 @@
     playerSection.querySelector("[data-video-close]")?.addEventListener("click", closeVideo);
     player?.addEventListener("loadedmetadata", updateTrimControl);
     player?.addEventListener("durationchange", updateTrimControl);
+    player?.addEventListener("ended", closeVideo);
 
     player?.addEventListener("play", () => {
       const { start, end } = currentTrim();
@@ -380,6 +411,7 @@
     player.src = mediaUrl(path);
     player.load();
     playerSection.hidden = false;
+    requestPlayerFullscreen();
 
     requestAnimationFrame(() => {
       playerSection.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -389,6 +421,7 @@
 
   function closeVideo() {
     if (!playerSection || !player) return;
+    exitPlayerFullscreen();
     try {
       player.pause();
       player.removeAttribute("src");

@@ -28,6 +28,9 @@
 
   const MOBILE = () => window.innerWidth < 680;
   const CAP = () => MOBILE() ? 220 : 360;
+  const ACTIVE_EFFECT_DURATION_MS = 12000;
+  const ACTIVE_EFFECT_FADE_AT_MS = 11200;
+  const ACTIVE_EMITTER_UNTIL_MS = 10200;
 
   let canvas = null;
   let ctx = null;
@@ -97,7 +100,7 @@
     const compactInterval = Math.max(260, interval * .78);
     emitters.push({
       interval: compactInterval,
-      until: Math.min(startedAt + duration, startedAt + 2200),
+      until: startedAt + ACTIVE_EMITTER_UNTIL_MS,
       next: startedAt + (immediate ? 0 : compactInterval),
       fn
     });
@@ -585,14 +588,14 @@
     canvas.style.opacity = "0";
     const duration = scene(type);
     if (!duration) return;
-    endAt = startedAt + Math.min(duration, 3100);
+    endAt = startedAt + ACTIVE_EFFECT_DURATION_MS;
     lastTime = performance.now();
     requestAnimationFrame(() => { if (canvas) canvas.style.opacity = "1"; });
     fadeTimer = window.setTimeout(() => {
       emitters = [];
       if (canvas) canvas.style.opacity = "0";
-    }, 2550);
-    hardStopTimer = window.setTimeout(stopEffect, 3100);
+    }, ACTIVE_EFFECT_FADE_AT_MS);
+    hardStopTimer = window.setTimeout(stopEffect, ACTIVE_EFFECT_DURATION_MS);
     animationFrame = requestAnimationFrame(animate);
   }
 
