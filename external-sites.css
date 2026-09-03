@@ -93,6 +93,94 @@
 .external-site-link.is-warning:hover { background: #fff5df; }
 .external-site-link.is-warning .external-site-warning { color: #8a5a00; }
 
+.external-site-dropdown {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.external-site-dropdown-trigger {
+  position: relative;
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.external-site-dropdown-trigger:disabled {
+  opacity: .48;
+  cursor: default;
+  transform: none;
+  box-shadow: 0 2px 7px rgba(15, 23, 42, .05);
+}
+.external-site-dropdown-trigger:disabled:hover {
+  background: #fff;
+  border-color: #cfc4ce;
+}
+.vacation-leave-toggle {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+  font-size: 18px;
+  line-height: 1;
+  transition: transform .16s ease;
+}
+.vacation-leave-dropdown.is-open .vacation-leave-toggle {
+  transform: translateY(-50%) rotate(180deg);
+}
+.vacation-leave-panel {
+  margin-top: 8px;
+  padding: 14px;
+  border: 1px solid #d7dce3;
+  border-radius: 14px;
+  background: rgba(248, 250, 252, .96);
+}
+.vacation-leave-status {
+  padding: 4px 2px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.vacation-leave-content {
+  display: grid;
+  gap: 10px;
+}
+.vacation-leave-item {
+  padding: 13px;
+  border: 1px solid #e1e5ea;
+  border-radius: 12px;
+  background: #fff;
+}
+.vacation-leave-item h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+.vacation-leave-fields {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+.vacation-leave-fields > div {
+  min-width: 0;
+  padding: 9px;
+  border-radius: 9px;
+  background: #f6f8fa;
+}
+.vacation-leave-fields span,
+.vacation-leave-fields strong {
+  display: block;
+}
+.vacation-leave-fields span {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.vacation-leave-fields strong {
+  font-size: 12.5px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
 html[data-theme="dark"] .external-sites-card {
   background: rgba(27, 34, 43, .94);
   box-shadow: 0 18px 52px rgba(0, 0, 0, .28);
@@ -113,6 +201,25 @@ html[data-theme="dark"] .external-site-link.is-warning {
 }
 html[data-theme="dark"] .external-site-link.is-warning:hover { background: #3a2f1d; }
 html[data-theme="dark"] .external-site-link.is-warning .external-site-warning { color: #f0c879; }
+html[data-theme="dark"] .external-site-dropdown-trigger:disabled:hover {
+  background: #1c2530;
+  border-color: #46515f;
+}
+html[data-theme="dark"] .vacation-leave-panel {
+  border-color: #46515f;
+  background: rgba(21, 27, 34, .96);
+}
+html[data-theme="dark"] .vacation-leave-item {
+  border-color: #3e4855;
+  background: #1c2530;
+}
+html[data-theme="dark"] .vacation-leave-fields > div {
+  background: #151b22;
+}
+
+@media (max-width: 760px) {
+  .vacation-leave-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 @media (max-width: 620px) {
   .external-sites-card {
@@ -125,4 +232,6 @@ html[data-theme="dark"] .external-site-link.is-warning .external-site-warning { 
   .external-sites-head h1 { font-size: 24px; }
   .external-floating-button { width: 100%; }
   .external-sites-grid { grid-template-columns: 1fr; }
+  .external-site-dropdown { grid-column: 1; }
+  .vacation-leave-fields { grid-template-columns: 1fr; }
 }
