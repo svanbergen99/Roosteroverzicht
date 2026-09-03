@@ -1,10 +1,10 @@
 .public-primary-actions {
-  width: min(1040px, 100%);
-  margin: 0 auto 18px;
+  width: min(1180px, 100%);
+  margin: 0 auto 20px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: start;
-  gap: 14px;
+  gap: 18px;
 }
 
 .public-primary-actions > * {
@@ -18,10 +18,15 @@
   margin: 0;
 }
 
+/* De drie primaire startknoppen zijn bewust exact even groot en staan met
+   dezelfde tussenruimte naast elkaar. */
 .public-primary-actions #publicSalaryButton,
 .public-primary-actions #kcdIntranetButton,
 .public-primary-actions #publicRosterButton {
-  min-height: 70px;
+  width: 100%;
+  height: 82px;
+  min-height: 82px;
+  padding: 14px 18px;
 }
 
 .public-portal-quick-actions {
@@ -235,11 +240,20 @@ html[data-theme="dark"] .next-shift-bar {
   box-shadow: 0 4px 14px rgba(0, 0, 0, .22);
 }
 
-@media (max-width: 900px) {
+/* Op tablets blijven de drie hoofdknoppen nog naast elkaar staan. Pas wanneer
+   er echt te weinig breedte is, schakelen ze over naar één kolom. */
+@media (max-width: 760px) {
   .public-primary-actions {
     width: min(620px, 100%);
     grid-template-columns: 1fr;
     gap: 10px;
+  }
+
+  .public-primary-actions #publicSalaryButton,
+  .public-primary-actions #kcdIntranetButton,
+  .public-primary-actions #publicRosterButton {
+    height: 72px;
+    min-height: 72px;
   }
 }
 
