@@ -23,8 +23,11 @@
     return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
   }
 
+  // In het roosterbestand staan namen als achternaam/tussenvoegsel/voornaam.
+  // Het laatste naamdeel is daarom de voornaam die in de werker-overzichten getoond wordt.
   function firstName(value) {
-    return String(value || "").trim().split(/\s+/).filter(Boolean)[0] || "";
+    const parts = String(value || "").trim().split(/\s+/).filter(Boolean);
+    return parts.at(-1) || "";
   }
 
   function firstNameKey(value) {
