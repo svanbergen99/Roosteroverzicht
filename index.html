@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rooster bekijken</title>
+<style>
+* { box-sizing: border-box; }
+:root {
+color-scheme: light;
+--ink: #172033;
+--muted: #64748b;
+--line: #dbe2ea;
+--surface: #ffffff;
+--page: #f3f5f8;
+--accent: #7b2f73;
+--accent-dark: #542450;
+--danger: #b42336;
+--background-overlay: .76;
+--soft-accent: #f4edf3;
+}
+html, body { margin: 0; min-height: 100%; }
+body {
+min-height: 100vh;
+font-family: Arial, Helvetica, sans-serif;
+background-color: var(--page);
+background-image:
+linear-gradient(rgba(243, 245, 248, var(--background-overlay)), rgba(243, 245, 248, var(--background-overlay))),
+var(--page-background-image, none);
+background-position: center;
+background-size: cover;
+background-repeat: no-repeat;
+background-attachment: fixed;
+color: var(--ink);
+}
+body.locked { overflow: hidden; }
+[hidden] { display: none !important; }
+.overlay {
+position: fixed;
+inset: 0;
+z-index: 10000;
+display: grid;
+place-items: center;
+padding: 20px;
+background: rgba(15, 23, 42, .82);
+}
+.welcome-card {
+width: min(760px, 100%);
+min-height: 310px;
+display: flex;
+align-items: flex-end;
+justify-content: center;
+padding: 28px;
+border-radius: 26px;
+overflow: hidden;
+box-shadow: 0 28px 80px rgba(0, 0, 0, .34);
+background-color: #fff;
+background-image: url("KCD.jpg");
+background-position: center;
+background-size: contain;
+background-repeat: no-repeat;
+}
+.welcome-content {
+width: min(390px, 100%);
+padding: 18px 22px 22px;
+text-align: center;
+border: 1px solid rgba(255, 255, 255, .8);
+border-radius: 18px;
+background: rgba(255, 255, 255, .88);
+backdrop-filter: blur(4px);
+box-shadow: 0 12px 34px rgba(15, 23, 42, .18);
+}
+.welcome-content h1,
+.unlock-card h1,
+.search-card h1 { margin: 0; }
+.welcome-content h1 { font-size: clamp(26px, 4vw, 34px); }
+.unlock-card {
+width: min(430px, 100%);
+padding: 30px;
+border-radius: 22px;
+background: var(--surface);
+box-shadow: 0 28px 80px rgba(0, 0, 0, .34);
+}
+.unlock-card p,
+.search-intro,
+.helper { color: var(--muted); }
+.unlock-card p { margin: 9px 0 24px; line-height: 1.45; }
+label {
+display: block;
+margin: 15px 0 7px;
+font-weight: 700;
+}
+input {
+width: 100%;
+padding: 13px 14px;
+border: 1px solid #c9d2dc;
+border-radius: 12px;
+background: #fff;
+color: var(--ink);
+font: inherit;
+font-size: 16px;
+outline: none;
+}
+input:focus {
+border-color: var(--accent);
+box-shadow: 0 0 0 3px rgba(123, 47, 115, .12);
+}
+button {
+border: 0;
+border-radius: 12px;
+padding: 13px 17px;
+background: var(--accent);
+color: #fff;
+font: inherit;
+font-weight: 700;
+cursor: pointer;
+transition: background-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+button:hover { background: var(--accent-dark); }
+button:active { transform: translateY(1px); }
+button:focus-visible { outline: 3px solid rgba(123, 47, 115, .22); outline-offset: 2px; }
+button:disabled { opacity: .58; cursor: wait; transform: none; }
+.full-button { width: 100%; margin-top: 22px; }
+.error {
+min-height: 20px;
+margin-top: 12px;
+color: var(--danger);
+font-size: 14px;
+font-weight: 700;
+}
+#app {
+min-height: 100vh;
+padding: 52px 20px;
+}
+.search-card {
+width: min(820px, 100%);
+margin: 0 auto;
+padding: 32px;
+border-radius: 22px;
+background: rgba(255, 255, 255, .93);
+backdrop-filter: blur(5px);
+box-shadow: 0 18px 52px rgba(15, 23, 42, .14);
+transition: padding .2s ease, box-shadow .2s ease;
+}
+.search-card.has-roster { padding: 22px 26px 28px; }
+.search-card.has-roster > h1 { font-size: 22px; }
+.search-card.has-roster .search-intro { display: none; }
+.search-card.has-roster form > label { margin-top: 12px; }
+.search-intro { margin: 9px 0 24px; line-height: 1.5; }
+.search-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; }
+.name-field { position: relative; }
+.suggestions { position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 6px); max-height: 280px; overflow-y: auto; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 16px 38px rgba(15,23,42,.16); }
+.suggestion { display: block; width: 100%; margin: 0; padding: 11px 12px; border-radius: 8px; background: transparent; color: var(--ink); text-align: left; font-weight: 700; }
+.suggestion:hover, .suggestion.active { background: #f2eaf1; color: var(--accent-dark); }
+.search-row button { min-width: 150px; }
+.today-workers-action { display: flex; margin-top: 12px; }
+.today-workers-button {
+width: 100%;
+min-height: 42px;
+background: #fff;
+color: var(--accent-dark);
+border: 1px solid #cfc4ce;
+box-shadow: 0 2px 7px rgba(15, 23, 42, .05);
+}
+.today-workers-button:hover { background: var(--soft-accent); border-color: #bca9ba; }
+.search-message { min-height: 22px; margin-top: 12px; color: var(--danger); font-weight: 700; font-size: 14px; }
+.today-workers-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.today-workers-head h2 { margin: 0; font-size: 25px; }
+.today-workers-date { margin: 5px 0 0; color: var(--muted); font-weight: 700; text-transform: capitalize; }
+.today-workers-count { color: var(--muted); font-size: 14px; font-weight: 800; }
+.today-workers-list { display: grid; gap: 8px; margin-top: 18px; }
+.today-worker-row {
+display: grid;
+grid-template-columns: minmax(0, 1fr) auto;
+align-items: center;
+gap: 14px;
+padding: 12px 14px;
+border: 1px solid var(--line);
+border-radius: 12px;
+background: #fff;
+box-shadow: 0 2px 7px rgba(15, 23, 42, .04);
+}
+.today-worker-name { font-weight: 800; overflow-wrap: anywhere; }
+.today-worker-time {
+padding: 5px 8px;
+border: 1px solid #e2e7ed;
+border-radius: 999px;
+background: #f5f7f9;
+color: #526073;
+font-size: 13.5px;
+font-weight: 800;
+white-space: nowrap;
+}
+.roster-result { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 20px; }
+.employee-head { display: flex; gap: 16px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
+.employee-name { margin: 0; font-size: 25px; }
+.employee-team { color: var(--muted); font-weight: 700; }
+.period { margin: 7px 0 0; color: var(--muted); }
+.roster-tools { display: flex; justify-content: flex-end; margin-top: 12px; }
+.roster-tools button {
+min-height: 40px;
+padding: 10px 14px;
+background: #fff;
+color: var(--accent-dark);
+border: 1px solid #cfc4ce;
+box-shadow: 0 2px 7px rgba(15, 23, 42, .05);
+font-size: 14px;
+}
+.roster-tools button:hover { background: var(--soft-accent); border-color: #bca9ba; }
+.schedule-list { display: grid; gap: 10px; margin-top: 18px; }
+.schedule-card {
+border: 1px solid var(--line);
+border-radius: 14px;
+overflow: hidden;
+background: #fbfcfd;
+box-shadow: 0 3px 10px rgba(15, 23, 42, .045);
+}
+.schedule-card.today {
+border: 2px solid rgba(123, 47, 115, .5);
+box-shadow: 0 8px 20px rgba(84, 36, 80, .11);
+}
+.schedule-card.today .schedule-head { background: #fbf6fa; }
+.schedule-head {
+display: grid;
+grid-template-columns: minmax(0, 1fr) auto;
+align-items: center;
+gap: 10px;
+padding: 11px 14px;
+background: #fff;
+border-bottom: 1px solid var(--line);
+}
+.schedule-date-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.schedule-date { font-weight: 800; font-size: 16.5px; line-height: 1.25; text-transform: capitalize; }
+.today-badge {
+display: inline-flex;
+align-items: center;
+padding: 3px 7px;
+border-radius: 999px;
+background: var(--accent);
+color: #fff;
+font-size: 11px;
+font-weight: 800;
+line-height: 1.2;
+letter-spacing: .01em;
+}
+.schedule-time {
+justify-self: end;
+padding: 5px 8px;
+border: 1px solid #e2e7ed;
+border-radius: 999px;
+background: #f5f7f9;
+color: #526073;
+font-size: 13.5px;
+font-weight: 800;
+white-space: nowrap;
+}
+.activities { display: grid; gap: 6px; padding: 9px 13px 12px; }
+.activity {
+position: relative;
+display: grid;
+grid-template-columns: minmax(0, 1fr) auto;
+gap: 10px;
+align-items: center;
+padding: 12px 10px 8px;
+overflow: hidden;
+border: 1px solid #edf0f4;
+border-radius: 9px;
+background: #fff;
+color: var(--ink);
+box-shadow: 0 1px 2px rgba(15, 23, 42, .025);
+}
+.activity::before {
+content: "";
+position: absolute;
+top: 3px;
+left: 8px;
+right: 8px;
+height: 4px;
+border-radius: 999px;
+background: var(--activity-color, #dbe2ea);
+}
+.activity-name { font-weight: 700; font-size: 14.5px; line-height: 1.3; overflow-wrap: anywhere; }
+.activity-time { color: var(--muted); font-size: 13.5px; font-weight: 600; white-space: nowrap; }
+.no-activities { color: var(--muted); padding: 4px 0; }
+@media (max-width: 620px) {
+.welcome-card { min-height: 270px; padding: 20px; }
+.welcome-content { padding: 16px 18px 19px; }
+.unlock-card, .search-card { padding: 21px; }
+.search-card.has-roster { padding: 18px 18px 22px; }
+#app { padding: 24px 10px; }
+.search-row { grid-template-columns: 1fr; }
+.search-row button { width: 100%; }
+.today-workers-action { margin-top: 10px; }
+.today-worker-row { padding: 11px 12px; }
+.today-workers-head h2 { font-size: 22px; }
+.employee-head { gap: 6px 12px; }
+.employee-name { font-size: 22px; }
+.roster-tools button { width: 100%; }
+.schedule-head { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 10px 11px; }
+.schedule-date { font-size: 15px; }
+.schedule-time { font-size: 12.5px; padding: 4px 7px; }
+.activities { padding: 8px 10px 10px; gap: 5px; }
+.activity { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 11px 8px 7px; align-items: start; }
+.activity-name { font-size: 14px; }
+.activity-time { font-size: 12.5px; }
+}
+@media (max-width: 430px) {
+.today-worker-row { grid-template-columns: 1fr; gap: 6px; }
+.today-worker-time { justify-self: start; }
+.schedule-head { grid-template-columns: 1fr; }
+.schedule-time { justify-self: start; }
+.activity { grid-template-columns: 1fr; gap: 3px; }
+.activity-time { justify-self: start; }
+}
+</style>
+<link rel="stylesheet" href="agenda-export.css">
+</head>
+<body class="locked">
+<div id="welcomeOverlay" class="overlay" aria-modal="true" role="dialog" aria-labelledby="welcomeTitle">
+<section class="welcome-card">
+<div class="welcome-content">
+<h1 id="welcomeTitle">Welkom Collega's</h1>
+<button id="continueButton" class="full-button" type="button">Verder</button>
+</div>
+</section>
+</div>
+<div id="unlockOverlay" class="overlay" aria-modal="true" role="dialog" aria-labelledby="unlockTitle" hidden>
+<form id="unlockForm" class="unlock-card" autocomplete="off">
+<h1 id="unlockTitle">Rooster ontgrendelen</h1>
+<p>Vul het ID en wachtwoord in waarmee het roosterbestand is beveiligd.</p>
+<label for="rosterId">ID</label>
+<input id="rosterId" name="rosterId" type="text" autocomplete="off" required>
+<label for="rosterPassword">Wachtwoord</label>
+<input id="rosterPassword" name="rosterPassword" type="password" autocomplete="new-password" required>
+<button id="unlockButton" class="full-button" type="submit">Rooster ontgrendelen</button>
+<div id="unlockError" class="error" aria-live="polite"></div>
+</form>
+</div>
+<main id="app" hidden>
+<section class="search-card">
+<h1>Rooster bekijken</h1>
+<p class="search-intro">Voer je voor of achternaam in. De volgorde van je voornaam en achternaam maakt niet uit.</p>
+<form id="nameForm" autocomplete="off">
+<label for="employeeName">Naam</label>
+<div class="search-row">
+<div class="name-field">
+<input id="employeeName" name="employeeName" type="text" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="nameSuggestions" required>
+<div id="nameSuggestions" class="suggestions" role="listbox" hidden></div>
+</div>
+<button type="submit">Rooster bekijken</button>
+</div>
+</form>
+<div class="today-workers-action">
+<button id="whoWorksTodayButton" class="today-workers-button" type="button">Wie werkt vandaag</button>
+</div>
+<div id="searchMessage" class="search-message" aria-live="polite"></div>
+<section id="rosterResult" class="roster-result" hidden></section>
+</section>
+</main>
+<script>
+(() => {
+"use strict";
+const ROSTER_FILE = "Roosterindex_September.json";
+const decoder = new TextDecoder();
+const encoder = new TextEncoder();
+let rosterIndex = null;
+let encryptedIndex = null;
+let currentEmployee = null;
+let showFullRoster = false;
+const welcomeOverlay = document.getElementById("welcomeOverlay");
+const continueButton = document.getElementById("continueButton");
+const unlockOverlay = document.getElementById("unlockOverlay");
+const unlockForm = document.getElementById("unlockForm");
+const rosterId = document.getElementById("rosterId");
+const rosterPassword = document.getElementById("rosterPassword");
+const unlockButton = document.getElementById("unlockButton");
+const unlockError = document.getElementById("unlockError");
+const app = document.getElementById("app");
+const searchCard = document.querySelector(".search-card");
+const nameForm = document.getElementById("nameForm");
+const whoWorksTodayButton = document.getElementById("whoWorksTodayButton");
+const employeeName = document.getElementById("employeeName");
+const searchMessage = document.getElementById("searchMessage");
+const rosterResult = document.getElementById("rosterResult");
+const nameSuggestions = document.getElementById("nameSuggestions");
+let suggestionMatches = [];
+let activeSuggestion = -1;
+window.RoosterAgendaBridge = {
+getCalendarData() {
+const periodLabel = rosterIndex?.period?.label && rosterIndex.period.label !== "unknown" ? rosterIndex.period.label : "";
+return {
+name: currentEmployee?.name || "",
+showFullRoster,
+periodLabel,
+appointmentName: rosterIndex?.display?.appointmentName || "Werkrooster",
+schedules: Array.isArray(currentEmployee?.schedules)
+? currentEmployee.schedules.map((schedule) => ({ date: schedule.date, start: schedule.start, end: schedule.end }))
+: []
+};
+}
+};
+const SEASON_BACKGROUNDS = {
+spring: "Lente.jpg",
+summer: "Zomer.jpg",
+autumn: "Herfst.jpg",
+winter: "Winter.jpg"
+};
+const BACKGROUND_OVERLAY_ALPHA = {
+"Lente.jpg": .73,
+"Zomer.jpg": .70,
+"Herfst.jpg": .75,
+"Winter.jpg": .77,
+"Halloween.jpg": .72,
+"Kerst.jpg": .73,
+"Koningsdag.jpg": .72,
+"Moederdag.jpg": .74,
+"Nieuwjaar.jpg": .71,
+"Oudjaar.jpg": .71,
+"Pasen.jpg": .73,
+"Suikerfeest.jpg": .72,
+"Vaderdag.jpg": .74,
+"Valentijns.jpg": .73,
+"sinterklaas.jpg": .73
+};
+const EID_AL_FITR_DATES = {
+2026: "2026-03-20",
+2027: "2027-03-10",
+2028: "2028-02-27",
+2029: "2029-02-15",
+2030: "2030-02-05",
+2031: "2031-01-25"
+};
+function localDateKey(date = new Date()) {
+const year = date.getFullYear();
+const month = String(date.getMonth() + 1).padStart(2, "0");
+const day = String(date.getDate()).padStart(2, "0");
+return `${year}-${month}-${day}`;
+}
+function dateAtNoon(year, monthIndex, day) {
+return new Date(year, monthIndex, day, 12, 0, 0, 0);
+}
+function addDays(date, amount) {
+const result = new Date(date);
+result.setDate(result.getDate() + amount);
+return result;
+}
+function easterSunday(year) {
+const a = year % 19;
+const b = Math.floor(year / 100);
+const c = year % 100;
+const d = Math.floor(b / 4);
+const e = b % 4;
+const f = Math.floor((b + 8) / 25);
+const g = Math.floor((b - f + 1) / 3);
+const h = (19 * a + b - d - g + 15) % 30;
+const i = Math.floor(c / 4);
+const k = c % 4;
+const l = (32 + 2 * e + 2 * i - h - k) % 7;
+const m = Math.floor((a + 11 * h + 22 * l) / 451);
+const month = Math.floor((h + l - 7 * m + 114) / 31);
+const day = ((h + l - 7 * m + 114) % 31) + 1;
+return dateAtNoon(year, month - 1, day);
+}
+function nthWeekdayOfMonth(year, monthIndex, weekday, occurrence) {
+const first = dateAtNoon(year, monthIndex, 1);
+const offset = (weekday - first.getDay() + 7) % 7;
+return dateAtNoon(year, monthIndex, 1 + offset + 7 * (occurrence - 1));
+}
+function kingsDay(year) {
+const april27 = dateAtNoon(year, 3, 27);
+return april27.getDay() === 0 ? dateAtNoon(year, 3, 26) : april27;
+}
+function isEidAlFitr(date) {
+const key = localDateKey(date);
+const configured = EID_AL_FITR_DATES[date.getFullYear()];
+if (configured) return key === configured;
+try {
+const parts = new Intl.DateTimeFormat("en-u-ca-islamic-umalqura", {
+month: "numeric",
+day: "numeric"
+}).formatToParts(date);
+const month = Number(parts.find((part) => part.type === "month")?.value);
+const day = Number(parts.find((part) => part.type === "day")?.value);
+return month === 10 && day === 1;
+} catch (_) {
+return false;
+}
+}
+function specialBackgroundFor(date) {
+const year = date.getFullYear();
+const month = date.getMonth();
+const day = date.getDate();
+const key = localDateKey(date);
+if (month === 0 && day === 1) return { file: "Nieuwjaar.jpg", name: "Nieuwjaar" };
+if (month === 1 && day === 14) return { file: "Valentijns.jpg", name: "Valentijnsdag" };
+const easter = easterSunday(year);
+if (key === localDateKey(easter) || key === localDateKey(addDays(easter, 1))) {
+return { file: "Pasen.jpg", name: "Pasen" };
+}
+if (key === localDateKey(kingsDay(year))) return { file: "Koningsdag.jpg", name: "Koningsdag" };
+if (key === localDateKey(nthWeekdayOfMonth(year, 4, 0, 2))) return { file: "Moederdag.jpg", name: "Moederdag" };
+if (key === localDateKey(nthWeekdayOfMonth(year, 5, 0, 3))) return { file: "Vaderdag.jpg", name: "Vaderdag" };
+if (isEidAlFitr(date)) return { file: "Suikerfeest.jpg", name: "Suikerfeest" };
+if (month === 9 && day === 31) return { file: "Halloween.jpg", name: "Halloween" };
+if (month === 11 && day === 5) return { file: "sinterklaas.jpg", name: "Sinterklaas" };
+if (month === 11 && day >= 24 && day <= 26) return { file: "Kerst.jpg", name: "Kerst" };
+if (month === 11 && day === 31) return { file: "Oudjaar.jpg", name: "Oudjaar" };
+return null;
+}
+function seasonBackgroundFor(date) {
+const month = date.getMonth();
+if (month >= 2 && month <= 4) return { file: SEASON_BACKGROUNDS.spring, name: "Lente" };
+if (month >= 5 && month <= 7) return { file: SEASON_BACKGROUNDS.summer, name: "Zomer" };
+if (month >= 8 && month <= 10) return { file: SEASON_BACKGROUNDS.autumn, name: "Herfst" };
+return { file: SEASON_BACKGROUNDS.winter, name: "Winter" };
+}
+function applyAutomaticBackground() {
+const today = new Date();
+const selected = specialBackgroundFor(today) || seasonBackgroundFor(today);
+document.body.style.setProperty("--page-background-image", `url("${selected.file}")`);
+document.body.style.setProperty("--background-overlay", String(BACKGROUND_OVERLAY_ALPHA[selected.file] ?? .75));
+document.body.dataset.backgroundTheme = selected.name;
+}
+applyAutomaticBackground();
+function base64ToBytes(value) {
+const binary = atob(value);
+const bytes = new Uint8Array(binary.length);
+for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+return bytes;
+}
+async function loadEncryptedIndex() {
+if (encryptedIndex) return encryptedIndex;
+const response = await fetch(`${ROSTER_FILE}?v=${Date.now()}`, { cache: "no-store" });
+if (!response.ok) throw new Error("Het roosterbestand kon niet worden geladen.");
+const data = await response.json();
+if (data?.kind !== "roosterhulp-encrypted-index" || data?.encrypted !== true || !data.crypto || !data.payload) {
+throw new Error("Het roosterbestand heeft niet het verwachte beveiligde formaat.");
+}
+encryptedIndex = data;
+return data;
+}
+async function decryptIndex(id, password) {
+if (!window.crypto?.subtle) throw new Error("Deze browser ondersteunt de vereiste versleuteling niet.");
+const secured = await loadEncryptedIndex();
+const cryptoInfo = secured.crypto;
+const secret = encoder.encode(`${id}\u0000${password}`);
+const keyMaterial = await crypto.subtle.importKey("raw", secret, "PBKDF2", false, ["deriveKey"]);
+const key = await crypto.subtle.deriveKey(
+{
+name: "PBKDF2",
+hash: cryptoInfo.hash || "SHA-256",
+salt: base64ToBytes(cryptoInfo.salt),
+iterations: Number(cryptoInfo.iterations) || 250000
+},
+keyMaterial,
+{ name: "AES-GCM", length: Number(cryptoInfo.keyLength) || 256 },
+false,
+["decrypt"]
+);
+const plaintext = await crypto.subtle.decrypt(
+{ name: "AES-GCM", iv: base64ToBytes(cryptoInfo.iv) },
+key,
+base64ToBytes(secured.payload)
+);
+const parsed = JSON.parse(decoder.decode(plaintext));
+if (parsed?.kind !== "roosterhulp-index" || !Array.isArray(parsed.employees)) {
+throw new Error("Het ontsleutelde roosterbestand is ongeldig.");
+}
+return parsed;
+}
+function nameSignature(value) {
+const tokens = String(value || "")
+.toLocaleLowerCase("nl-NL")
+.normalize("NFD")
+.replace(/\p{M}/gu, "")
+.replace(/[^\p{L}\p{N}]+/gu, " ")
+.trim()
+.split(/\s+/)
+.filter(Boolean)
+.sort((a, b) => a.localeCompare(b, "nl"));
+return tokens.join("|");
+}
+function normalizeSearchText(value) {
+return String(value || "")
+.toLocaleLowerCase("nl-NL")
+.normalize("NFD")
+.replace(/\p{M}/gu, "")
+.replace(/[^\p{L}\p{N}]+/gu, " ")
+.trim()
+.replace(/\s+/g, " ");
+}
+function hideSuggestions() {
+suggestionMatches = [];
+activeSuggestion = -1;
+nameSuggestions.hidden = true;
+nameSuggestions.innerHTML = "";
+employeeName.setAttribute("aria-expanded", "false");
+employeeName.removeAttribute("aria-activedescendant");
+}
+function selectSuggestion(index) {
+const employee = suggestionMatches[index];
+if (!employee) return;
+employeeName.value = employee.name;
+hideSuggestions();
+employeeName.focus();
+}
+function renderSuggestions() {
+if (!rosterIndex) return hideSuggestions();
+const query = normalizeSearchText(employeeName.value);
+if (!query) return hideSuggestions();
+const parts = query.split(" ").filter(Boolean);
+suggestionMatches = rosterIndex.employees
+.filter((employee) => {
+const candidate = normalizeSearchText(employee.name);
+return parts.every((part) => candidate.includes(part));
+})
+.sort((a, b) => String(a.name).localeCompare(String(b.name), "nl-NL"));
+activeSuggestion = -1;
+if (!suggestionMatches.length) return hideSuggestions();
+nameSuggestions.innerHTML = suggestionMatches.map((employee, index) =>
+`<button class="suggestion" id="nameSuggestion-${index}" role="option" type="button" data-index="${index}">${escapeHtml(employee.name)}</button>`
+).join("");
+nameSuggestions.hidden = false;
+employeeName.setAttribute("aria-expanded", "true");
+}
+function formatDate(value) {
+if (!value) return "Datum onbekend";
+const date = new Date(`${String(value).slice(0, 10)}T12:00:00`);
+if (Number.isNaN(date.getTime())) return String(value);
+return new Intl.DateTimeFormat("nl-NL", {
+weekday: "long",
+day: "numeric",
+month: "long",
+year: "numeric"
+}).format(date);
+}
+function formatTime(value) {
+if (!value) return "";
+const text = String(value);
+const simple = text.match(/(?:T|^)(\d{2}):(\d{2})/);
+if (simple) return `${simple[1]}:${simple[2]}`;
+const plain = text.match(/^(\d{1,2}):(\d{2})$/);
+if (plain) return `${plain[1].padStart(2, "0")}:${plain[2]}`;
+return text;
+}
+function timeRange(start, end) {
+const from = formatTime(start);
+const to = formatTime(end);
+if (from && to) return `${from} – ${to}`;
+return from || to || "";
+}
+function escapeHtml(value) {
+return String(value ?? "")
+.replaceAll("&", "&amp;")
+.replaceAll("<", "&lt;")
+.replaceAll(">", "&gt;")
+.replaceAll('"', "&quot;")
+.replaceAll("'", "&#039;");
+}
+function safeActivityColor(value) {
+const color = String(value || "").trim();
+return /^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(color) ? color : "#dbe2ea";
+}
+function todayKey() {
+return localDateKey(new Date());
+}
+function validShiftTime(value) {
+const formatted = formatTime(value);
+return /^\d{2}:\d{2}$/.test(formatted) ? formatted : "";
+}
+function renderWhoWorksToday() {
+if (!rosterIndex) return;
+const today = todayKey();
+const workers = [];
+for (const employee of rosterIndex.employees) {
+const schedules = Array.isArray(employee.schedules) ? employee.schedules : [];
+const todaySchedules = schedules
+.filter((schedule) => String(schedule.date || "").slice(0, 10) === today)
+.map((schedule) => ({
+start: validShiftTime(schedule.start),
+end: validShiftTime(schedule.end)
+}))
+.filter((schedule) => schedule.start && schedule.end);
+if (!todaySchedules.length) continue;
+todaySchedules.sort((a, b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end));
+workers.push({ name: employee.name, schedules: todaySchedules });
+}
+workers.sort((a, b) => {
+const firstA = a.schedules[0]?.start || "99:99";
+const firstB = b.schedules[0]?.start || "99:99";
+return firstA.localeCompare(firstB) || String(a.name).localeCompare(String(b.name), "nl-NL");
+});
+currentEmployee = null;
+showFullRoster = false;
+hideSuggestions();
+searchMessage.textContent = "";
+const rows = workers.map((worker) => {
+const ranges = worker.schedules.map((schedule) => `${schedule.start} – ${schedule.end}`).join(", ");
+return `<div class="today-worker-row"><span class="today-worker-name">${escapeHtml(worker.name)}</span><span class="today-worker-time">${escapeHtml(ranges)}</span></div>`;
+}).join("");
+const todayDate = new Date(`${today}T12:00:00`);
+rosterResult.innerHTML = `
+<div class="today-workers-head">
+<div>
+<h2>Wie werkt vandaag</h2>
+<p class="today-workers-date">${escapeHtml(formatDate(today))}</p>
+</div>
+<span class="today-workers-count">${workers.length} collega${workers.length === 1 ? "" : "'s"}</span>
+</div>
+<div class="today-workers-list">${rows || '<div class="no-activities">Er zijn vandaag geen collega\'s met een werkdienst gevonden.</div>'}</div>`;
+rosterResult.hidden = false;
+searchCard.classList.add("has-roster");
+}
+function renderEmployee(employee, showAll = false) {
+currentEmployee = employee;
+showFullRoster = showAll;
+const allSchedules = Array.isArray(employee.schedules) ? [...employee.schedules] : [];
+allSchedules.sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")) || String(a.start || "").localeCompare(String(b.start || "")));
+const today = todayKey();
+const hasPastSchedules = allSchedules.some((schedule) => String(schedule.date || "").slice(0, 10) < today);
+const schedules = showAll
+? allSchedules
+: allSchedules.filter((schedule) => String(schedule.date || "").slice(0, 10) >= today);
+const periodLabel = rosterIndex?.period?.label && rosterIndex.period.label !== "unknown" ? rosterIndex.period.label : "";
+const scheduleHtml = schedules.map((schedule) => {
+const scheduleDateKey = String(schedule.date || "").slice(0, 10);
+const isToday = scheduleDateKey === today;
+const activities = Array.isArray(schedule.activities) ? schedule.activities : [];
+const activityHtml = activities.length
+? activities.map((activity) => `
+<div class="activity" style="--activity-color:${safeActivityColor(activity.color)}">
+<span class="activity-name">${escapeHtml(activity.name || activity.type || "Activiteit")}</span>
+<span class="activity-time">${escapeHtml(timeRange(activity.start, activity.end))}</span>
+</div>`).join("")
+: '<div class="no-activities">Geen roosteronderdelen beschikbaar.</div>';
+return `
+<article class="schedule-card${isToday ? " today" : ""}">
+<header class="schedule-head">
+<div class="schedule-date-wrap">
+<span class="schedule-date">${escapeHtml(formatDate(schedule.date))}</span>
+${isToday ? '<span class="today-badge">Vandaag</span>' : ""}
+</div>
+<span class="schedule-time">${escapeHtml(timeRange(schedule.start, schedule.end))}</span>
+</header>
+<div class="activities">${activityHtml}</div>
+</article>`;
+}).join("");
+rosterResult.innerHTML = `
+<div class="employee-head">
+<h2 class="employee-name">${escapeHtml(employee.name)}</h2>
+${employee.team ? `<span class="employee-team">${escapeHtml(employee.team)}</span>` : ""}
+</div>
+${periodLabel ? `<p class="period">Periode: ${escapeHtml(periodLabel)}</p>` : ""}
+${hasPastSchedules ? `<div class="roster-tools"><button type="button" data-action="toggle-full-roster">${showAll ? "Toon vanaf vandaag" : "Toon volledig rooster"}</button></div>` : ""}
+<div class="schedule-list">${scheduleHtml || `<div class="no-activities">${showAll ? "Geen roosterregels gevonden." : "Geen roosterregels vanaf vandaag."}</div>`}</div>`;
+rosterResult.hidden = false;
+searchCard.classList.add("has-roster");
+}
+function keepModalLocked(event) {
+if (event.key === "Escape" && (!welcomeOverlay.hidden || !unlockOverlay.hidden)) event.preventDefault();
+}
+continueButton.addEventListener("click", () => {
+welcomeOverlay.hidden = true;
+unlockOverlay.hidden = false;
+unlockError.textContent = "";
+requestAnimationFrame(() => rosterId.focus());
+loadEncryptedIndex().catch(() => {});
+});
+welcomeOverlay.addEventListener("click", (event) => {
+if (event.target === welcomeOverlay) event.preventDefault();
+});
+unlockOverlay.addEventListener("click", (event) => {
+if (event.target === unlockOverlay) {
+event.preventDefault();
+(rosterId.value.trim() ? rosterPassword : rosterId).focus();
+}
+});
+document.addEventListener("keydown", keepModalLocked, true);
+unlockForm.addEventListener("submit", async (event) => {
+event.preventDefault();
+const id = rosterId.value.trim();
+const password = rosterPassword.value;
+if (!id || !password) return;
+unlockButton.disabled = true;
+unlockButton.textContent = "Ontgrendelen…";
+unlockError.textContent = "";
+try {
+rosterIndex = await decryptIndex(id, password);
+rosterPassword.value = "";
+rosterId.value = "";
+unlockOverlay.hidden = true;
+app.hidden = false;
+document.body.classList.remove("locked");
+requestAnimationFrame(() => employeeName.focus());
+} catch (error) {
+rosterPassword.value = "";
+rosterPassword.focus();
+if (error?.message?.includes("geladen") || error?.message?.includes("formaat") || error?.message?.includes("browser")) {
+unlockError.textContent = error.message;
+} else {
+unlockError.textContent = "ID of wachtwoord is onjuist.";
+}
+} finally {
+unlockButton.disabled = false;
+unlockButton.textContent = "Rooster ontgrendelen";
+}
+});
+employeeName.addEventListener("input", () => {
+searchMessage.textContent = "";
+renderSuggestions();
+});
+employeeName.addEventListener("keydown", (event) => {
+if (nameSuggestions.hidden || !suggestionMatches.length) return;
+if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+event.preventDefault();
+const direction = event.key === "ArrowDown" ? 1 : -1;
+activeSuggestion = (activeSuggestion + direction + suggestionMatches.length) % suggestionMatches.length;
+[...nameSuggestions.querySelectorAll(".suggestion")].forEach((button, index) => button.classList.toggle("active", index === activeSuggestion));
+employeeName.setAttribute("aria-activedescendant", `nameSuggestion-${activeSuggestion}`);
+} else if (event.key === "Enter" && activeSuggestion >= 0) {
+event.preventDefault();
+selectSuggestion(activeSuggestion);
+} else if (event.key === "Escape") {
+hideSuggestions();
+}
+});
+nameSuggestions.addEventListener("mousedown", (event) => {
+const button = event.target.closest(".suggestion");
+if (!button) return;
+event.preventDefault();
+selectSuggestion(Number(button.dataset.index));
+});
+document.addEventListener("click", (event) => {
+if (!event.target.closest(".name-field")) hideSuggestions();
+});
+rosterResult.addEventListener("click", (event) => {
+const button = event.target.closest('[data-action="toggle-full-roster"]');
+if (!button || !currentEmployee) return;
+renderEmployee(currentEmployee, !showFullRoster);
+});
+whoWorksTodayButton.addEventListener("click", () => {
+renderWhoWorksToday();
+});
+nameForm.addEventListener("submit", (event) => {
+event.preventDefault();
+searchMessage.textContent = "";
+hideSuggestions();
+searchCard.classList.remove("has-roster");
+currentEmployee = null;
+showFullRoster = false;
+rosterResult.hidden = true;
+rosterResult.innerHTML = "";
+const signature = nameSignature(employeeName.value);
+if (!signature || !rosterIndex) {
+searchMessage.textContent = "Geen rooster gevonden voor deze naam.";
+return;
+}
+const matches = rosterIndex.employees.filter((employee) => nameSignature(employee.name) === signature);
+if (matches.length !== 1) {
+searchMessage.textContent = "Geen rooster gevonden voor deze naam.";
+return;
+}
+renderEmployee(matches[0], false);
+});
+})();
+</script>
+<script src="agenda-export.js?v=20260903-61"></script>
+</body>
+</html>

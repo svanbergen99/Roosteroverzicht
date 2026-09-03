@@ -1,0 +1,34 @@
+/* Openbare startpagina: alleen algemene websites en visuele instellingen zijn zichtbaar. */
+body.public-portal-mode #unlockOverlay,
+body.public-portal-mode .search-card {
+  display: none !important;
+}
+
+body.public-portal-mode #app {
+  min-height: 100vh;
+  padding: 52px 20px;
+}
+
+body.public-portal-mode .external-sites-card {
+  margin-top: 0;
+}
+
+/* Extra vangnet: rooster-/personeelsblokken blijven verborgen als oude markup nog in de pagina staat. */
+body.public-portal-mode .traffic-today-bar,
+body.public-portal-mode .next-salary-payment-bar,
+body.public-portal-mode .team-contacts-bar,
+body.public-portal-mode .break-calculator,
+body.public-portal-mode .break-calculator-card,
+body.public-portal-mode .personal-month-view,
+body.public-portal-mode .roster-result,
+body.public-portal-mode .today-workers-action,
+body.public-portal-mode .next-shift-card,
+body.public-portal-mode [data-roster-private="true"] {
+  display: none !important;
+}
+
+@media (max-width: 620px) {
+  body.public-portal-mode #app {
+    padding: 24px 10px;
+  }
+}

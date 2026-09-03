@@ -1,0 +1,73 @@
+.next-salary-payment-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 11px 14px;
+  border: 1px solid #d8c7d5;
+  border-radius: 12px;
+  background: rgba(244, 237, 243, .92);
+  color: var(--accent-dark);
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 3px 10px rgba(15, 23, 42, .05);
+}
+.next-salary-payment-bar strong {
+  font-size: 15px;
+  white-space: nowrap;
+}
+.salary-history-toggle {
+  width: 100%;
+  margin-top: 14px;
+}
+.salary-history-toggle[aria-pressed="true"] {
+  background: var(--soft-accent);
+  border-color: #bca9ba;
+}
+.salary-payment-row.salary-payment-next {
+  border-color: rgba(123, 47, 115, .55);
+  background: var(--soft-accent);
+  box-shadow: 0 5px 14px rgba(84, 36, 80, .10);
+}
+.salary-payment-row.salary-payment-next .today-worker-name::after {
+  content: "Volgende";
+  display: inline-flex;
+  margin-left: 8px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  vertical-align: middle;
+}
+html[data-theme="dark"] .next-salary-payment-bar {
+  border-color: #57445a;
+  background: rgba(48, 38, 51, .95);
+  color: #f0b5e8;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, .22);
+}
+html[data-theme="dark"] .salary-history-toggle[aria-pressed="true"] {
+  border-color: #665168;
+  background: #2b202c;
+}
+html[data-theme="dark"] .salary-payment-row.salary-payment-next {
+  border-color: #665168;
+  background: #2b202c;
+}
+
+@media (max-width: 620px) {
+  .next-salary-payment-bar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+    margin-bottom: 14px;
+  }
+  .next-salary-payment-bar strong { white-space: normal; }
+  .today-workers-action { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 470px) {
+  .today-workers-action { grid-template-columns: 1fr; }
+}

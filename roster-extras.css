@@ -1,0 +1,27 @@
+.roster-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.roster-title-row h1 { margin: 0; }
+.search-card.has-roster .roster-title-row h1 { font-size: 22px; }
+.roster-update-stamp {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.today-workers-action { gap: 8px; }
+.today-workers-action .today-workers-button {
+  width: auto;
+  flex: 1 1 0;
+}
+
+@media (max-width: 620px) {
+  .roster-title-row { align-items: flex-start; }
+  .roster-update-stamp { white-space: normal; }
+  .today-workers-action { display: grid; grid-template-columns: 1fr 1fr; }
+  .today-workers-action .today-workers-button { width: 100%; }
+}

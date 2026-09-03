@@ -1,0 +1,16 @@
+/* De seizoens- en feestdagachtergrond blijft rustig; de helderheid is live instelbaar. */
+body {
+  --background-overlay-alpha: .82;
+  background-color: #0d121a !important;
+  background-image:
+    linear-gradient(rgba(8, 12, 18, var(--background-overlay-alpha)), rgba(8, 12, 18, var(--background-overlay-alpha))),
+    var(--page-background-image, none) !important;
+}
+
+html[data-theme="dark"] body {
+  --background-overlay-alpha: .84;
+  background-color: #0d121a !important;
+  background-image:
+    linear-gradient(rgba(8, 12, 18, var(--background-overlay-alpha)), rgba(8, 12, 18, var(--background-overlay-alpha))),
+    var(--page-background-image, none) !important;
+}

@@ -1,0 +1,37 @@
+.session-timeout-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 13000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(8, 12, 18, .82);
+}
+.session-timeout-overlay[hidden] { display: none !important; }
+.session-timeout-card {
+  width: min(430px, 100%);
+  padding: 26px;
+  border-radius: 20px;
+  background: #fff;
+  color: #172033;
+  box-shadow: 0 28px 80px rgba(0,0,0,.38);
+  text-align: center;
+}
+.session-timeout-card h2 { margin: 0 0 8px; }
+.session-timeout-card p { margin: 0 0 18px; color: #64748b; line-height: 1.5; }
+.session-timeout-countdown {
+  display: inline-flex;
+  min-width: 46px;
+  justify-content: center;
+  margin-left: 3px;
+  font-weight: 900;
+  color: var(--accent-dark);
+}
+.session-timeout-card button { width: 100%; }
+html[data-theme="dark"] .session-timeout-card {
+  background: #171e29;
+  color: #edf2f7;
+  border: 1px solid #394454;
+}
+html[data-theme="dark"] .session-timeout-card p { color: #aab4c3; }
+html[data-theme="dark"] .session-timeout-countdown { color: #e9b0e2; }
