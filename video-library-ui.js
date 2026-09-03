@@ -3,6 +3,7 @@
 
   const TREE_URL = "https://api.github.com/repos/svanbergen99/Roosteroverzicht/git/trees/main?recursive=1";
   const REFRESH_AFTER_MS = 120000;
+  const MIN_CLIP_SECONDS = 0.5;
 
   let wrap = null;
   let button = null;
@@ -11,13 +12,17 @@
   let playerSection = null;
   let player = null;
   let title = null;
-  let durationInput = null;
-  let durationOutput = null;
+  let startInput = null;
+  let endInput = null;
+  let startOutput = null;
+  let endOutput = null;
+  let selectionOutput = null;
+  let trimFill = null;
   let currentPath = "";
   let lastLoadedAt = 0;
   let loading = false;
 
-  const durationLimits = new Map();
+  const trimRanges = new Map();
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -84,10 +89,12 @@
   }
 
   function formatDuration(seconds) {
-    const safe = Math.max(0, Math.round(Number(seconds) || 0));
+    const safe = Math.max(0, Number(seconds) || 0);
     const minutes = Math.floor(safe / 60);
-    const rest = safe % 60;
-    return `${minutes}:${String(rest).padStart(2, "0")}`;
+    const wholeSeconds = Math.floor(safe % 60);
+    const tenths = Math.round((safe - Math.floor(safe)) * 10) % 10;
+    const base = `${minutes}:${String(wholeSeconds).padStart(2, "0")}`;
+    return tenths ? `${base}.${tenths}` : base;
   }
 
   function renderVideos(paths) {
@@ -177,16 +184,89 @@
     if (open) loadVideos(false);
   }
 
-  function updateDurationControl() {
-    if (!player || !durationInput || !durationOutput || !currentPath) return;
-    const total = Number.isFinite(player.duration) && player.duration > 0 ? Math.max(1, Math.ceil(player.duration)) : 1;
-    const saved = durationLimits.get(currentPath);
-    const limit = Math.max(1, Math.min(total, Number.isFinite(saved) ? Math.round(saved) : total));
+  function totalDuration() {
+    return Number.isFinite(player?.duration) && player.duration > 0 ? player.duration : 0;
+  }
 
-    durationInput.max = String(total);
-    durationInput.value = String(limit);
-    durationInput.disabled = false;
-    durationOutput.textContent = `${formatDuration(limit)} van ${formatDuration(total)}`;
+  function currentTrim() {
+    const total = totalDuration();
+    if (!total || !startInput || !endInput) return { start: 0, end: total };
+    const start = Math.max(0, Math.min(total, Number(startInput.value) || 0));
+    const end = Math.max(start, Math.min(total, Number(endInput.value) || total));
+    return { start, end };
+  }
+
+  function updateTrimVisuals() {
+    const total = totalDuration();
+    if (!total || !startInput || !endInput) return;
+    const { start, end } = currentTrim();
+
+    if (startOutput) startOutput.textContent = formatDuration(start);
+    if (endOutput) endOutput.textContent = formatDuration(end);
+    if (selectionOutput) selectionOutput.textContent = `${formatDuration(start)} → ${formatDuration(end)} · ${formatDuration(end - start)} geselecteerd`;
+
+    if (trimFill) {
+      const left = Math.max(0, Math.min(100, (start / total) * 100));
+      const right = Math.max(0, Math.min(100, (end / total) * 100));
+      trimFill.style.left = `${left}%`;
+      trimFill.style.width = `${Math.max(0, right - left)}%`;
+    }
+  }
+
+  function updateTrimControl() {
+    if (!player || !startInput || !endInput || !currentPath) return;
+    const total = totalDuration();
+    if (!total) return;
+
+    const saved = trimRanges.get(currentPath);
+    let start = Number.isFinite(saved?.start) ? saved.start : 0;
+    let end = Number.isFinite(saved?.end) ? saved.end : total;
+    start = Math.max(0, Math.min(total - Math.min(MIN_CLIP_SECONDS, total), start));
+    end = Math.max(start + Math.min(MIN_CLIP_SECONDS, total), Math.min(total, end));
+
+    for (const input of [startInput, endInput]) {
+      input.min = "0";
+      input.max = String(total);
+      input.step = "0.1";
+      input.disabled = false;
+    }
+    startInput.value = String(start);
+    endInput.value = String(end);
+    trimRanges.set(currentPath, { start, end });
+    updateTrimVisuals();
+
+    if (Math.abs(player.currentTime - start) > 0.05) {
+      try { player.currentTime = start; } catch (_) {}
+    }
+  }
+
+  function handleStartInput() {
+    const total = totalDuration();
+    if (!total || !currentPath || !startInput || !endInput) return;
+    const gap = Math.min(MIN_CLIP_SECONDS, total);
+    let start = Number(startInput.value) || 0;
+    const end = Number(endInput.value) || total;
+    start = Math.max(0, Math.min(end - gap, start));
+    startInput.value = String(start);
+    trimRanges.set(currentPath, { start, end });
+    updateTrimVisuals();
+    try { player.currentTime = start; } catch (_) {}
+  }
+
+  function handleEndInput() {
+    const total = totalDuration();
+    if (!total || !currentPath || !startInput || !endInput) return;
+    const gap = Math.min(MIN_CLIP_SECONDS, total);
+    const start = Number(startInput.value) || 0;
+    let end = Number(endInput.value) || total;
+    end = Math.min(total, Math.max(start + gap, end));
+    endInput.value = String(end);
+    trimRanges.set(currentPath, { start, end });
+    updateTrimVisuals();
+    if (player.currentTime > end) {
+      player.pause();
+      try { player.currentTime = end; } catch (_) {}
+    }
   }
 
   function ensurePlayerSection() {
@@ -207,13 +287,22 @@
         <button class="video-library-close" type="button" data-video-close aria-label="Video sluiten">×</button>
       </div>
       <video class="video-library-player" controls playsinline preload="metadata"></video>
-      <div class="video-library-duration-control">
-        <div class="video-library-duration-head">
-          <label for="videoLibraryDuration">Duur</label>
-          <output id="videoLibraryDurationOutput" for="videoLibraryDuration">Duur laden…</output>
+      <div class="video-library-trim-control">
+        <div class="video-library-trim-head">
+          <strong>Begin en einde</strong>
+          <output id="videoLibrarySelectionOutput">Fragment laden…</output>
         </div>
-        <input id="videoLibraryDuration" type="range" min="1" max="1" step="1" value="1" disabled aria-label="Maximale afspeelduur">
-        <small>Stel in hoeveel seconden vanaf het begin van de video worden afgespeeld.</small>
+        <div class="video-library-trim-track" aria-label="Begin en einde van het videofragment">
+          <div class="video-library-trim-rail"></div>
+          <div class="video-library-trim-fill"></div>
+          <input id="videoLibraryStart" class="video-library-trim-range video-library-trim-start" type="range" min="0" max="1" step="0.1" value="0" disabled aria-label="Begin van het videofragment">
+          <input id="videoLibraryEnd" class="video-library-trim-range video-library-trim-end" type="range" min="0" max="1" step="0.1" value="1" disabled aria-label="Einde van het videofragment">
+        </div>
+        <div class="video-library-trim-values">
+          <span><b>Begin</b><output id="videoLibraryStartOutput">0:00</output></span>
+          <span><b>Einde</b><output id="videoLibraryEndOutput">0:00</output></span>
+        </div>
+        <small>Schuif het linker handvat naar het gewenste begin en het rechter handvat naar het gewenste einde.</small>
       </div>`;
 
     const primary = document.getElementById("publicPrimaryActions");
@@ -222,41 +311,43 @@
 
     player = playerSection.querySelector("video");
     title = playerSection.querySelector("#videoLibraryTitle");
-    durationInput = playerSection.querySelector("#videoLibraryDuration");
-    durationOutput = playerSection.querySelector("#videoLibraryDurationOutput");
+    startInput = playerSection.querySelector("#videoLibraryStart");
+    endInput = playerSection.querySelector("#videoLibraryEnd");
+    startOutput = playerSection.querySelector("#videoLibraryStartOutput");
+    endOutput = playerSection.querySelector("#videoLibraryEndOutput");
+    selectionOutput = playerSection.querySelector("#videoLibrarySelectionOutput");
+    trimFill = playerSection.querySelector(".video-library-trim-fill");
 
     playerSection.querySelector("[data-video-close]")?.addEventListener("click", closeVideo);
-
-    player?.addEventListener("loadedmetadata", updateDurationControl);
-    player?.addEventListener("durationchange", updateDurationControl);
+    player?.addEventListener("loadedmetadata", updateTrimControl);
+    player?.addEventListener("durationchange", updateTrimControl);
 
     player?.addEventListener("play", () => {
-      if (!durationInput || durationInput.disabled) return;
-      const limit = Number(durationInput.value) || 1;
-      if (player.currentTime >= limit - .05) player.currentTime = 0;
+      const { start, end } = currentTrim();
+      if (player.currentTime < start - 0.05 || player.currentTime >= end - 0.05) {
+        try { player.currentTime = start; } catch (_) {}
+      }
+    });
+
+    player?.addEventListener("seeking", () => {
+      const { start, end } = currentTrim();
+      if (!Number.isFinite(start) || !Number.isFinite(end)) return;
+      if (player.currentTime < start) {
+        try { player.currentTime = start; } catch (_) {}
+      } else if (player.currentTime > end) {
+        try { player.currentTime = end; } catch (_) {}
+      }
     });
 
     player?.addEventListener("timeupdate", () => {
-      if (!durationInput || durationInput.disabled || !Number.isFinite(player.duration)) return;
-      const limit = Number(durationInput.value) || player.duration;
-      if (limit < player.duration && player.currentTime >= limit) {
-        player.pause();
-        try { player.currentTime = limit; } catch (_) {}
-      }
+      const { end } = currentTrim();
+      if (!end || player.currentTime < end) return;
+      player.pause();
+      try { player.currentTime = end; } catch (_) {}
     });
 
-    durationInput?.addEventListener("input", () => {
-      if (!currentPath || !player) return;
-      const total = Number.isFinite(player.duration) && player.duration > 0 ? Math.max(1, Math.ceil(player.duration)) : 1;
-      const limit = Math.max(1, Math.min(total, Math.round(Number(durationInput.value) || total)));
-      durationLimits.set(currentPath, limit);
-      durationInput.value = String(limit);
-      if (durationOutput) durationOutput.textContent = `${formatDuration(limit)} van ${formatDuration(total)}`;
-      if (player.currentTime > limit) {
-        player.pause();
-        try { player.currentTime = limit; } catch (_) {}
-      }
-    });
+    startInput?.addEventListener("input", handleStartInput);
+    endInput?.addEventListener("input", handleEndInput);
   }
 
   function openVideo(path) {
@@ -270,12 +361,20 @@
 
     currentPath = path;
     if (title) title.textContent = friendlyLabel(path) || "Video";
-    if (durationInput) {
-      durationInput.disabled = true;
-      durationInput.max = "1";
-      durationInput.value = "1";
+    for (const input of [startInput, endInput]) {
+      if (!input) continue;
+      input.disabled = true;
+      input.max = "1";
     }
-    if (durationOutput) durationOutput.textContent = "Duur laden…";
+    if (startInput) startInput.value = "0";
+    if (endInput) endInput.value = "1";
+    if (startOutput) startOutput.textContent = "0:00";
+    if (endOutput) endOutput.textContent = "0:00";
+    if (selectionOutput) selectionOutput.textContent = "Fragment laden…";
+    if (trimFill) {
+      trimFill.style.left = "0%";
+      trimFill.style.width = "100%";
+    }
 
     player.pause();
     player.src = mediaUrl(path);
@@ -377,6 +476,6 @@
   window.RoosterVideoLibrary = Object.freeze({
     refresh: () => loadVideos(true),
     close: closeVideo,
-    durations: () => Object.fromEntries(durationLimits)
+    ranges: () => Object.fromEntries(trimRanges)
   });
 })();
