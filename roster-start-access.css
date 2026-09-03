@@ -4,7 +4,7 @@
   display: block;
 }
 
-/* De openbare startpagina toont bewust alleen de beveiligde Rooster-knop. */
+/* De openbare startpagina toont bewust alleen de beveiligde Rooster-knop en de losse KCD Intranet-sectie. */
 body.public-portal-mode #publicSalarySection,
 body.public-portal-mode #externalSitesSection,
 body.public-portal-mode .external-sites-card,
@@ -60,8 +60,114 @@ body.public-portal-mode .theme-side-buttons {
   line-height: 1;
 }
 
-/* Na succesvolle toegang verdwijnt ook de openbare knop; dan blijft alleen het rooster over. */
+.kcd-intranet-section {
+  width: min(420px, 100%);
+  margin: 0 auto 18px;
+}
+
+.kcd-intranet-title {
+  margin: 0 0 9px;
+  padding: 0 2px;
+  color: var(--accent-dark);
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: .01em;
+}
+
+.kcd-intranet-button {
+  margin: 0;
+}
+
+.kcd-intranet-icon {
+  font-size: 21px;
+}
+
+.kcd-intranet-arrow {
+  transition: transform .18s ease;
+}
+
+.kcd-intranet-section.is-open .kcd-intranet-arrow {
+  transform: rotate(180deg);
+}
+
+.kcd-intranet-panel {
+  display: grid;
+  gap: 8px;
+  margin-top: 9px;
+  padding: 10px;
+  border: 1px solid #d8cbd6;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .95);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, .10);
+  backdrop-filter: blur(5px);
+}
+
+.kcd-intranet-item {
+  display: grid;
+  gap: 5px;
+  padding: 10px 11px;
+  border: 1px solid #e4dce3;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.kcd-intranet-category {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 900;
+  letter-spacing: .025em;
+}
+
+.kcd-intranet-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--accent-dark);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-decoration: none;
+}
+
+.kcd-intranet-link:hover {
+  text-decoration: underline;
+}
+
+.kcd-intranet-link:focus-visible {
+  outline: 3px solid rgba(123, 47, 115, .18);
+  outline-offset: 3px;
+  border-radius: 5px;
+}
+
+.kcd-intranet-link-arrow {
+  flex: 0 0 auto;
+  font-size: 15px;
+}
+
+html[data-theme="dark"] .kcd-intranet-title,
+html[data-theme="dark"] .kcd-intranet-link {
+  color: #f0b5e8;
+}
+
+html[data-theme="dark"] .kcd-intranet-panel {
+  border-color: #57445a;
+  background: rgba(48, 38, 51, .96);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .24);
+}
+
+html[data-theme="dark"] .kcd-intranet-item {
+  border-color: #665368;
+  background: rgba(39, 31, 42, .95);
+}
+
+html[data-theme="dark"] .kcd-intranet-category {
+  color: #c9b9cb;
+}
+
+/* Na succesvolle toegang verdwijnen de openbare knoppen; dan blijft alleen het rooster over. */
 body.roster-access-active #publicPortalQuickActions,
+body.roster-access-active #kcdIntranetSection,
 body.roster-access-active #publicSalarySection,
 body.roster-access-active #externalSitesSection,
 body.roster-access-active .external-sites-card,
@@ -122,9 +228,17 @@ html[data-theme="dark"] .next-shift-bar {
 }
 
 @media (max-width: 620px) {
-  .public-portal-quick-actions {
+  .public-portal-quick-actions,
+  .kcd-intranet-section {
     width: 100%;
+  }
+
+  .public-portal-quick-actions {
     margin-bottom: 12px;
+  }
+
+  .kcd-intranet-section {
+    margin-bottom: 14px;
   }
 
   .public-roster-button {
@@ -136,6 +250,14 @@ html[data-theme="dark"] .next-shift-bar {
     width: 34px;
     height: 34px;
     font-size: 17px;
+  }
+
+  .kcd-intranet-panel {
+    padding: 8px;
+  }
+
+  .kcd-intranet-item {
+    padding: 9px 10px;
   }
 
   .next-shift-bar {
