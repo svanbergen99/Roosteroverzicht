@@ -252,14 +252,22 @@
 
   async function collectEmployeeNames(attempt = 0) {
     const monthBridge = window.RoosterMonthBridge;
+    const state = monthBridge?.getState?.() || {};
+    const monthKey = /^\d{4}-\d{2}$/.test(String(state.currentMonthKey || ""))
+      ? state.currentMonthKey
+      : "";
+    const roster = monthKey ? monthBridge?.getRoster?.(monthKey) : null;
     const names = new Set();
-    for (const monthKey of availableMonthKeys()) {
-      const roster = monthBridge?.getRoster?.(monthKey);
-      for (const employee of roster?.employees || []) {
-        const name = String(employee?.name || "").trim();
-        if (name) names.add(name);
-      }
+
+    for (const employee of roster?.employees || []) {
+      const hasActiveScheduleThisMonth = (employee?.schedules || []).some((schedule) =>
+        String(schedule?.date || "").slice(0, 7) === monthKey
+      );
+      if (!hasActiveScheduleThisMonth) continue;
+      const name = String(employee?.name || "").trim();
+      if (name) names.add(name);
     }
+
     if (names.size) return [...names].sort((a, b) => a.localeCompare(b, "nl"));
     if (attempt >= 30) return [];
     await new Promise((resolve) => setTimeout(resolve, 100));
