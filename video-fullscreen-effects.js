@@ -4,7 +4,8 @@
   const SECTION_ID = "videoLibraryPlayerSection";
   const STYLE_ID = "videoFullscreenEffectsStyle";
   const BUTTON_ATTR = "data-video-effect-fullscreen";
-  const EFFECT_SELECTOR = ".effect-canvas, #paydayEffectOverlay";
+  const FALLBACK_CLASS = "video-library-auto-fullscreen-fallback";
+  const EFFECT_SELECTOR = ".effect-canvas, #paydayEffectOverlay, #combinedPetalEffectOverlay, #holidaySceneOverlay";
 
   let popupGeometryBeforeFullscreen = null;
 
@@ -16,8 +17,16 @@
     return document.fullscreenElement || document.webkitFullscreenElement || null;
   }
 
-  function isOurFullscreen(section = getSection()) {
+  function isNativeFullscreen(section = getSection()) {
     return Boolean(section && getFullscreenElement() === section);
+  }
+
+  function isFallbackFullscreen(section = getSection()) {
+    return Boolean(section?.classList.contains(FALLBACK_CLASS));
+  }
+
+  function isOurFullscreen(section = getSection()) {
+    return isNativeFullscreen(section) || isFallbackFullscreen(section);
   }
 
   function rememberPopupGeometry(section) {
@@ -69,6 +78,13 @@
     button.textContent = active ? "⤢" : "⛶";
   }
 
+  function enterFallbackFullscreen(section) {
+    if (!section) return;
+    section.classList.add(FALLBACK_CLASS);
+    moveEffectsIntoFullscreen(section);
+    setButtonState(section);
+  }
+
   async function enterFullscreen(section) {
     if (!section || section.hidden || isOurFullscreen(section)) return;
     rememberPopupGeometry(section);
@@ -80,15 +96,27 @@
       } else if (typeof section.webkitRequestFullscreen === "function") {
         section.webkitRequestFullscreen();
       } else {
-        throw new Error("Fullscreen wordt niet ondersteund door deze browser.");
+        enterFallbackFullscreen(section);
       }
     } catch (error) {
-      restoreEffectsToPage(section);
-      console.warn("Fullscreen met effecten kon niet worden geopend.", error);
+      // Browsers mogen echte fullscreen blokkeren wanneer een video automatisch
+      // wordt gestart. In dat geval houden we wel een schermvullende speler met
+      // alle visuele effecten binnen de pagina.
+      enterFallbackFullscreen(section);
+      console.info("Native fullscreen niet beschikbaar; schermvullende fallback actief.", error);
     }
+    setButtonState(section);
   }
 
   async function exitFullscreen() {
+    const section = getSection();
+    if (section?.classList.contains(FALLBACK_CLASS)) {
+      section.classList.remove(FALLBACK_CLASS);
+      restoreEffectsToPage(section);
+      restorePopupGeometry(section);
+      setButtonState(section);
+    }
+
     try {
       if (document.fullscreenElement && typeof document.exitFullscreen === "function") {
         await document.exitFullscreen();
@@ -142,9 +170,11 @@
       }
 
       #${SECTION_ID}:fullscreen,
-      #${SECTION_ID}:-webkit-full-screen {
+      #${SECTION_ID}:-webkit-full-screen,
+      #${SECTION_ID}.${FALLBACK_CLASS} {
         position: fixed !important;
         inset: 0 !important;
+        z-index: 2147483000 !important;
         width: 100vw !important;
         height: 100vh !important;
         min-width: 0 !important;
@@ -162,12 +192,14 @@
       }
 
       #${SECTION_ID}:fullscreen::after,
-      #${SECTION_ID}:-webkit-full-screen::after {
+      #${SECTION_ID}:-webkit-full-screen::after,
+      #${SECTION_ID}.${FALLBACK_CLASS}::after {
         display: none !important;
       }
 
       #${SECTION_ID}:fullscreen > .video-library-player,
-      #${SECTION_ID}:-webkit-full-screen > .video-library-player {
+      #${SECTION_ID}:-webkit-full-screen > .video-library-player,
+      #${SECTION_ID}.${FALLBACK_CLASS} > .video-library-player {
         position: absolute !important;
         inset: 0 !important;
         z-index: 1 !important;
@@ -183,13 +215,15 @@
         background: #000 !important;
       }
 
-      #${SECTION_ID}:fullscreen > :not(.video-library-player):not(.video-library-player-head):not(.effect-canvas):not(#paydayEffectOverlay),
-      #${SECTION_ID}:-webkit-full-screen > :not(.video-library-player):not(.video-library-player-head):not(.effect-canvas):not(#paydayEffectOverlay) {
+      #${SECTION_ID}:fullscreen > :not(.video-library-player):not(.video-library-player-head):not(.effect-canvas):not(#paydayEffectOverlay):not(#combinedPetalEffectOverlay):not(#holidaySceneOverlay),
+      #${SECTION_ID}:-webkit-full-screen > :not(.video-library-player):not(.video-library-player-head):not(.effect-canvas):not(#paydayEffectOverlay):not(#combinedPetalEffectOverlay):not(#holidaySceneOverlay),
+      #${SECTION_ID}.${FALLBACK_CLASS} > :not(.video-library-player):not(.video-library-player-head):not(.effect-canvas):not(#paydayEffectOverlay):not(#combinedPetalEffectOverlay):not(#holidaySceneOverlay) {
         display: none !important;
       }
 
       #${SECTION_ID}:fullscreen .video-library-player-head,
-      #${SECTION_ID}:-webkit-full-screen .video-library-player-head {
+      #${SECTION_ID}:-webkit-full-screen .video-library-player-head,
+      #${SECTION_ID}.${FALLBACK_CLASS} .video-library-player-head {
         position: absolute !important;
         top: 12px !important;
         right: 12px !important;
@@ -206,23 +240,29 @@
 
       #${SECTION_ID}:fullscreen .video-library-player-title-wrap,
       #${SECTION_ID}:-webkit-full-screen .video-library-player-title-wrap,
+      #${SECTION_ID}.${FALLBACK_CLASS} .video-library-player-title-wrap,
       #${SECTION_ID}:fullscreen .video-library-size-save,
       #${SECTION_ID}:-webkit-full-screen .video-library-size-save,
+      #${SECTION_ID}.${FALLBACK_CLASS} .video-library-size-save,
       #${SECTION_ID}:fullscreen .video-library-document-pip,
       #${SECTION_ID}:-webkit-full-screen .video-library-document-pip,
+      #${SECTION_ID}.${FALLBACK_CLASS} .video-library-document-pip,
       #${SECTION_ID}:fullscreen .video-library-close,
-      #${SECTION_ID}:-webkit-full-screen .video-library-close {
+      #${SECTION_ID}:-webkit-full-screen .video-library-close,
+      #${SECTION_ID}.${FALLBACK_CLASS} .video-library-close {
         display: none !important;
       }
 
       #${SECTION_ID}:fullscreen .video-library-window-actions,
-      #${SECTION_ID}:-webkit-full-screen .video-library-window-actions {
+      #${SECTION_ID}:-webkit-full-screen .video-library-window-actions,
+      #${SECTION_ID}.${FALLBACK_CLASS} .video-library-window-actions {
         display: flex !important;
         justify-content: flex-end !important;
       }
 
       #${SECTION_ID}:fullscreen .video-library-fullscreen-effects,
-      #${SECTION_ID}:-webkit-full-screen .video-library-fullscreen-effects {
+      #${SECTION_ID}:-webkit-full-screen .video-library-fullscreen-effects,
+      #${SECTION_ID}.${FALLBACK_CLASS} .video-library-fullscreen-effects {
         display: inline-grid !important;
         width: 44px !important;
         height: 44px !important;
@@ -234,8 +274,16 @@
 
       #${SECTION_ID}:fullscreen > .effect-canvas,
       #${SECTION_ID}:-webkit-full-screen > .effect-canvas,
+      #${SECTION_ID}.${FALLBACK_CLASS} > .effect-canvas,
       #${SECTION_ID}:fullscreen > #paydayEffectOverlay,
-      #${SECTION_ID}:-webkit-full-screen > #paydayEffectOverlay {
+      #${SECTION_ID}:-webkit-full-screen > #paydayEffectOverlay,
+      #${SECTION_ID}.${FALLBACK_CLASS} > #paydayEffectOverlay,
+      #${SECTION_ID}:fullscreen > #combinedPetalEffectOverlay,
+      #${SECTION_ID}:-webkit-full-screen > #combinedPetalEffectOverlay,
+      #${SECTION_ID}.${FALLBACK_CLASS} > #combinedPetalEffectOverlay,
+      #${SECTION_ID}:fullscreen > #holidaySceneOverlay,
+      #${SECTION_ID}:-webkit-full-screen > #holidaySceneOverlay,
+      #${SECTION_ID}.${FALLBACK_CLASS} > #holidaySceneOverlay {
         position: fixed !important;
         inset: 0 !important;
         z-index: 10550 !important;
@@ -305,7 +353,7 @@
     const section = getSection();
     if (!section) return;
 
-    if (isOurFullscreen(section)) {
+    if (isNativeFullscreen(section) || isFallbackFullscreen(section)) {
       moveEffectsIntoFullscreen(section);
     } else {
       restoreEffectsToPage(section);
@@ -344,9 +392,26 @@
   document.addEventListener("fullscreenchange", handleFullscreenChange);
   document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
 
+  // Elke video uit de videobibliotheek gaat bij het starten automatisch naar
+  // fullscreen-met-effecten. Dit geldt zowel voor handmatig gekozen video's als
+  // voor video's die door de feestdaglogica worden gestart.
+  document.addEventListener("play", (event) => {
+    const player = event.target;
+    if (!(player instanceof HTMLVideoElement)) return;
+    if (!player.matches(`#${SECTION_ID} .video-library-player`)) return;
+    const section = getSection();
+    if (!section || section.hidden || isOurFullscreen(section)) return;
+    enterFullscreen(section);
+  }, true);
+
   document.addEventListener("ended", (event) => {
     if (!(event.target instanceof HTMLVideoElement)) return;
     if (!event.target.matches(`#${SECTION_ID} .video-library-player`)) return;
+    if (isOurFullscreen()) exitFullscreen();
+  }, true);
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest?.(`#${SECTION_ID} [data-video-close]`)) return;
     if (isOurFullscreen()) exitFullscreen();
   }, true);
 
