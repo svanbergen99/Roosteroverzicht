@@ -76,7 +76,7 @@
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href = `${href}?v=${VERSION}`;
-    link.dataset.roosterPrivateAsset = "true";
+    link.dataset.rosterPrivateAsset = "true";
     document.head.appendChild(link);
   }
 
@@ -86,7 +86,7 @@
       const script = document.createElement("script");
       script.src = `${src}?v=${VERSION}`;
       script.async = false;
-      script.dataset.roosterPrivateAsset = "true";
+      script.dataset.rosterPrivateAsset = "true";
       script.addEventListener("load", resolve, { once: true });
       script.addEventListener("error", () => reject(new Error(`Kon ${src} niet laden.`)), { once: true });
       document.body.appendChild(script);
@@ -118,12 +118,7 @@
     section = document.createElement("section");
     section.id = "kcdIntranetSection";
     section.className = "kcd-intranet-section roster-only-start";
-    section.setAttribute("aria-labelledby", "kcdIntranetTitle");
-
-    const title = document.createElement("h2");
-    title.id = "kcdIntranetTitle";
-    title.className = "kcd-intranet-title";
-    title.textContent = "Wij Zijn KCD";
+    section.setAttribute("aria-label", "Wij Zijn KCD");
 
     const button = document.createElement("button");
     button.id = "kcdIntranetButton";
@@ -134,7 +129,10 @@
     button.innerHTML = `
       <span class="public-roster-button-main">
         <span class="public-roster-button-icon kcd-intranet-icon" aria-hidden="true">⌂</span>
-        <span class="public-roster-button-copy"><strong>KCD Intranet</strong></span>
+        <span class="public-roster-button-copy">
+          <strong>KCD Intranet</strong>
+          <small>Wij Zijn KCD</small>
+        </span>
       </span>
       <span class="public-roster-arrow kcd-intranet-arrow" aria-hidden="true">⌄</span>`;
 
@@ -165,7 +163,7 @@
       panel.appendChild(row);
     }
 
-    section.append(title, button, panel);
+    section.append(button, panel);
 
     button.addEventListener("click", () => {
       const open = panel.hidden;
@@ -187,21 +185,30 @@
     return section;
   }
 
-  function positionPublicStartSections(row) {
+  function ensurePrimaryActionsRow() {
+    let primary = document.getElementById("publicPrimaryActions");
+    if (!primary) {
+      primary = document.createElement("section");
+      primary.id = "publicPrimaryActions";
+      primary.className = "public-primary-actions roster-only-start";
+      if (searchCard?.parentElement === app) searchCard.before(primary);
+      else app.prepend(primary);
+    }
+    return primary;
+  }
+
+  function positionPublicStartSections(row, attempt = 0) {
+    const primary = ensurePrimaryActionsRow();
     const salary = document.getElementById("publicSalarySection");
     const kcd = ensureKcdIntranetSection();
 
-    if (salary?.parentElement === app) {
-      salary.after(kcd);
-      kcd.after(row);
-      return;
-    }
+    if (salary) primary.appendChild(salary);
+    primary.append(kcd, row);
 
-    if (!row.isConnected) {
-      if (searchCard?.parentElement === app) searchCard.before(row);
-      else app.prepend(row);
+    // Salaris wordt normaal eerder geladen, maar houd de volgorde ook bij trage scriptbelasting stabiel.
+    if (!salary && attempt < 20) {
+      setTimeout(() => positionPublicStartSections(row, attempt + 1), 100);
     }
-    row.before(kcd);
   }
 
   function ensureQuickActions() {
