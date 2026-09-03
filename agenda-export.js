@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20260903-95";
+  const VERSION = "20260903-96";
   const FILE_MONTHS = ["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
   const MONTH_FILE_RE = /^Roosterindex_(Januari|Februari|Maart|April|Mei|Juni|Juli|Augustus|September|Oktober|November|December)\.json$/i;
 
@@ -140,6 +140,7 @@
   loadScript("payday-effect.js");
   loadScript("visual-audio-controls.js");
   loadScript("video-library-ui.js");
+  loadScript("video-popup-size.js");
   loadScript("video-trim-save.js");
   loadScript("video-auto-close.js");
   loadScript("roster-start-access.js");
