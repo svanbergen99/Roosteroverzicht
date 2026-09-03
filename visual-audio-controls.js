@@ -1,6 +1,18 @@
 (() => {
   "use strict";
 
+  // Bewuste feature-schakelaar. Alle themabestanden, presets en instellingen blijven
+  // volledig bewaard. Zet dit later op true om de thema-interface weer te tonen.
+  const ENABLE_THEME_CONTROLS = false;
+
+  function hideThemeControls() {
+    document.getElementById("themeCustomizerPanel")?.setAttribute("hidden", "");
+    document.getElementById("themeSideButtons")?.remove();
+    document.getElementById("themeCustomizerButton")?.remove();
+    const shell = document.getElementById("themeCustomizerShell");
+    if (shell) shell.hidden = true;
+  }
+
   function buildRightControls(attempt = 0) {
     const shell = document.getElementById("themeCustomizerShell");
     const themeButton = document.getElementById("themeCustomizerButton");
@@ -9,6 +21,16 @@
       if (attempt < 40) setTimeout(() => buildRightControls(attempt + 1), 75);
       return;
     }
+
+    if (!ENABLE_THEME_CONTROLS) {
+      hideThemeControls();
+      document.querySelector(".effects-menu-wrap")?.remove();
+      document.getElementById("audioSettingsButton")?.remove();
+      document.getElementById("audioPreviewPanel")?.remove();
+      return;
+    }
+
+    shell.hidden = false;
 
     let buttons = document.getElementById("themeSideButtons");
     if (!buttons) {
