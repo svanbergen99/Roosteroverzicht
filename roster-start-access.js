@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20260903-71";
+  const VERSION = "20260903-72";
   const app = document.getElementById("app");
   const searchCard = document.querySelector(".search-card");
   const detachedAuthTrigger = document.getElementById("continueButton");
