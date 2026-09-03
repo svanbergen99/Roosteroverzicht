@@ -8,6 +8,7 @@
   const EFFECT_SELECTOR = ".effect-canvas, #paydayEffectOverlay, #combinedPetalEffectOverlay, #holidaySceneOverlay";
 
   let popupGeometryBeforeFullscreen = null;
+  let fullscreenRequestPending = false;
 
   function getSection() {
     return document.getElementById(SECTION_ID);
@@ -71,11 +72,18 @@
     const button = section?.querySelector(`[${BUTTON_ATTR}]`);
     if (!button) return;
     const active = isOurFullscreen(section);
+    const pressed = String(active);
+    const label = active ? "Fullscreen afsluiten" : "Fullscreen met effecten";
+    const glyph = active ? "⤢" : "⛶";
+
     button.classList.toggle("is-active", active);
-    button.setAttribute("aria-pressed", String(active));
-    button.setAttribute("aria-label", active ? "Fullscreen afsluiten" : "Fullscreen met effecten");
-    button.title = active ? "Fullscreen afsluiten" : "Fullscreen met effecten";
-    button.textContent = active ? "⤢" : "⛶";
+    if (button.getAttribute("aria-pressed") !== pressed) button.setAttribute("aria-pressed", pressed);
+    if (button.getAttribute("aria-label") !== label) button.setAttribute("aria-label", label);
+    if (button.title !== label) button.title = label;
+    // Belangrijk: textContent alleen wijzigen als dat echt nodig is. De
+    // MutationObserver hieronder luistert naar childList-wijzigingen; steeds
+    // dezelfde tekst opnieuw schrijven veroorzaakte anders een oneindige lus.
+    if (button.textContent !== glyph) button.textContent = glyph;
   }
 
   function enterFallbackFullscreen(section) {
@@ -86,7 +94,8 @@
   }
 
   async function enterFullscreen(section) {
-    if (!section || section.hidden || isOurFullscreen(section)) return;
+    if (!section || section.hidden || isOurFullscreen(section) || fullscreenRequestPending) return;
+    fullscreenRequestPending = true;
     rememberPopupGeometry(section);
     moveEffectsIntoFullscreen(section);
 
@@ -104,12 +113,15 @@
       // alle visuele effecten binnen de pagina.
       enterFallbackFullscreen(section);
       console.info("Native fullscreen niet beschikbaar; schermvullende fallback actief.", error);
+    } finally {
+      fullscreenRequestPending = false;
+      setButtonState(section);
     }
-    setButtonState(section);
   }
 
   async function exitFullscreen() {
     const section = getSection();
+    fullscreenRequestPending = false;
     if (section?.classList.contains(FALLBACK_CLASS)) {
       section.classList.remove(FALLBACK_CLASS);
       restoreEffectsToPage(section);
@@ -303,7 +315,8 @@
 
     const tokens = new Set(String(player.getAttribute("controlslist") || "").split(/\s+/).filter(Boolean));
     tokens.add("nofullscreen");
-    player.setAttribute("controlslist", [...tokens].join(" "));
+    const nextValue = [...tokens].join(" ");
+    if (player.getAttribute("controlslist") !== nextValue) player.setAttribute("controlslist", nextValue);
   }
 
   function install(section) {
@@ -400,7 +413,7 @@
     if (!(player instanceof HTMLVideoElement)) return;
     if (!player.matches(`#${SECTION_ID} .video-library-player`)) return;
     const section = getSection();
-    if (!section || section.hidden || isOurFullscreen(section)) return;
+    if (!section || section.hidden || isOurFullscreen(section) || fullscreenRequestPending) return;
     enterFullscreen(section);
   }, true);
 
