@@ -4,9 +4,8 @@
   display: block;
 }
 
-/* Op de openbare startpagina blijven de algemene website- en thema-secties verborgen. */
-body.public-portal-mode #externalSitesSection,
-body.public-portal-mode .external-sites-card,
+/* Ontwikkelstand: alle functionele startpagina-blokken zijn zichtbaar om de indeling te beoordelen.
+   Alleen de eerder bewust verborgen thema-interface blijft buiten beeld. */
 body.public-portal-mode #themeCustomizerShell,
 body.public-portal-mode .theme-side-buttons {
   display: none !important;
