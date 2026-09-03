@@ -14,8 +14,7 @@
     Vaderdag: "hearts-petals",
     Halloween: "halloween",
     Sinterklaas: "sinterklaas",
-    Kerst: "christmas-snow",
-    Oudjaar: "fireworks"
+    Kerst: "christmas-snow"
   });
 
   const normalize = (type) => window.RoosterEffectCombinations?.normalize?.(type) || String(type || "");
