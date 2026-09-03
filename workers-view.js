@@ -112,65 +112,132 @@
     return Boolean(formatTime(schedule?.start) && formatTime(schedule?.end));
   }
 
-  function timeWindowIsActive(date, start, end, today, yesterday, nowMinutes) {
-    const startMinutes = minutesOf(start);
-    const endMinutes = minutesOf(end);
-    if (startMinutes === null || endMinutes === null) return false;
-    const overnight = endMinutes <= startMinutes;
-    return date === today
-      ? (overnight ? nowMinutes >= startMinutes : nowMinutes >= startMinutes && nowMinutes < endMinutes)
-      : (date === yesterday && overnight && nowMinutes < endMinutes);
-  }
-
   // Herkenbare niet-werkactiviteiten onderbreken de zwarte hoofdbalk.
   // Prefixherkenning vangt o.a. Verlof Bijzonder, Verlof door Traffic,
   // Afwezig Lang, Afwezig Kort, Ziek, Ziekte en Ziekmelding.
-  // Technische activity.type-waarden worden bewust niet gebruikt, omdat FD-activiteiten
-  // intern anders gecodeerd kunnen zijn terwijl de collega volgens de zwarte balk gewoon werkt.
   function isTimeOffActivity(activity) {
     const name = String(activity?.name || activity?.label || "").trim().toLowerCase();
     return /^(?:verlof|afwezig|ziek)/.test(name);
   }
 
-  function hasActiveTimeOff(schedule, today, yesterday, nowMinutes) {
-    const date = String(schedule?.date || "").slice(0, 10);
-    return (schedule?.activities || []).some((activity) => {
-      if (!isTimeOffActivity(activity)) return false;
-      const start = formatTime(activity?.start);
-      const end = formatTime(activity?.end);
-      if (!start || !end) return date === today;
-      return timeWindowIsActive(date, start, end, today, yesterday, nowMinutes);
-    });
+  // Een normale pauze telt niet als afwezigheid. Staat zo'n pauze echter binnen of precies
+  // tussen afwezigheidsblokken, dan vervalt hij omdat de collega op dat moment niet werkt.
+  function isBreakActivity(activity) {
+    const name = String(activity?.name || activity?.label || "").trim().toLowerCase();
+    return /^(?:break|pauze|lunch|maaltijd)/.test(name);
   }
 
-  // Trek Verlof/Afwezig/Ziek af van de zwarte hoofdbalk. Een volledige afwezigheid geeft
-  // geen werkblok terug; een gedeeltelijke afwezigheid laat alleen de resterende werkblokken zien.
-  function presenceRangesForSchedule(schedule) {
+  function scheduleBounds(schedule) {
     const start = minutesOf(schedule?.start);
     const rawEnd = minutesOf(schedule?.end);
-    if (start === null || rawEnd === null) return [];
+    if (start === null || rawEnd === null) return null;
+    return { start, end: rawEnd <= start ? rawEnd + 1440 : rawEnd };
+  }
 
-    const end = rawEnd <= start ? rawEnd + 1440 : rawEnd;
-    let ranges = [{ start, end }];
+  function activityRange(activity, bounds) {
+    const rawStart = minutesOf(activity?.start);
+    const rawEnd = minutesOf(activity?.end);
+    if (rawStart === null || rawEnd === null || !bounds) return null;
 
-    for (const activity of schedule?.activities || []) {
-      if (!isTimeOffActivity(activity)) continue;
+    let start = rawStart;
+    let end = rawEnd <= rawStart ? rawEnd + 1440 : rawEnd;
+    if (bounds.end > 1440 && start < bounds.start) {
+      start += 1440;
+      end += 1440;
+    }
 
-      const leaveStartRaw = minutesOf(activity?.start);
-      const leaveEndRaw = minutesOf(activity?.end);
-      if (leaveStartRaw === null || leaveEndRaw === null) return [];
+    start = Math.max(bounds.start, start);
+    end = Math.min(bounds.end, end);
+    return end > start ? { start, end } : null;
+  }
 
-      let leaveStart = leaveStartRaw;
-      let leaveEnd = leaveEndRaw <= leaveStartRaw ? leaveEndRaw + 1440 : leaveEndRaw;
-      if (end > 1440 && leaveStart < start) {
-        leaveStart += 1440;
-        leaveEnd += 1440;
+  function mergeRanges(ranges) {
+    const sorted = ranges
+      .filter((range) => range && range.end > range.start)
+      .map((range) => ({ start: range.start, end: range.end }))
+      .sort((a, b) => a.start - b.start || a.end - b.end);
+    const merged = [];
+    for (const range of sorted) {
+      const previous = merged.at(-1);
+      if (!previous || range.start > previous.end) {
+        merged.push(range);
+      } else {
+        previous.end = Math.max(previous.end, range.end);
       }
+    }
+    return merged;
+  }
 
+  function effectiveTimeOffRanges(schedule) {
+    const bounds = scheduleBounds(schedule);
+    if (!bounds) return [];
+
+    const blocked = [];
+    const breaks = [];
+    for (const activity of schedule?.activities || []) {
+      if (!isTimeOffActivity(activity) && !isBreakActivity(activity)) continue;
+
+      const range = activityRange(activity, bounds);
+      if (isTimeOffActivity(activity)) {
+        // Een herkenbare afwezigheid zonder tijden betekent voor deze werkbalk: hele dienst afwezig.
+        if (!range) return [{ start: bounds.start, end: bounds.end }];
+        blocked.push(range);
+      } else if (range) {
+        breaks.push(range);
+      }
+    }
+
+    let mergedBlocked = mergeRanges(blocked);
+    let pendingBreaks = breaks;
+    let changed = true;
+
+    // Pauzes/lunch/maaltijd worden alleen geannuleerd als ze een afwezigheidsblok overlappen
+    // of twee afwezigheidsblokken met elkaar verbinden. Een gewone pauze buiten afwezigheid blijft staan.
+    while (changed && pendingBreaks.length) {
+      changed = false;
+      const remaining = [];
+      for (const pause of pendingBreaks) {
+        const overlapsAbsence = mergedBlocked.some((range) =>
+          Math.max(range.start, pause.start) < Math.min(range.end, pause.end)
+        );
+        const hasLeftAbsence = mergedBlocked.some((range) => range.end >= pause.start && range.end <= pause.end);
+        const hasRightAbsence = mergedBlocked.some((range) => range.start >= pause.start && range.start <= pause.end);
+
+        if (overlapsAbsence || (hasLeftAbsence && hasRightAbsence)) {
+          mergedBlocked = mergeRanges([...mergedBlocked, pause]);
+          changed = true;
+        } else {
+          remaining.push(pause);
+        }
+      }
+      pendingBreaks = remaining;
+    }
+
+    return mergedBlocked;
+  }
+
+  function hasActiveTimeOff(schedule, today, yesterday, nowMinutes) {
+    const date = String(schedule?.date || "").slice(0, 10);
+    const current = date === today
+      ? nowMinutes
+      : (date === yesterday ? nowMinutes + 1440 : null);
+    if (current === null) return false;
+    return effectiveTimeOffRanges(schedule).some((range) => current >= range.start && current < range.end);
+  }
+
+  // Trek Verlof/Afwezig/Ziek en eventueel daardoor vervallen pauzes af van de zwarte hoofdbalk.
+  // Een volledige afwezigheid geeft geen werkblok terug; gedeeltelijke afwezigheid laat alleen
+  // de werkelijk resterende werkblokken zien.
+  function presenceRangesForSchedule(schedule) {
+    const bounds = scheduleBounds(schedule);
+    if (!bounds) return [];
+
+    let ranges = [{ start: bounds.start, end: bounds.end }];
+    for (const blocked of effectiveTimeOffRanges(schedule)) {
       const next = [];
       for (const range of ranges) {
-        const cutStart = Math.max(range.start, leaveStart);
-        const cutEnd = Math.min(range.end, leaveEnd);
+        const cutStart = Math.max(range.start, blocked.start);
+        const cutEnd = Math.min(range.end, blocked.end);
         if (cutStart >= cutEnd) {
           next.push(range);
           continue;
@@ -185,6 +252,16 @@
     return ranges
       .filter((range) => range.end > range.start)
       .map((range) => ({ start: timeFromMinutes(range.start), end: timeFromMinutes(range.end) }));
+  }
+
+  function timeWindowIsActive(date, start, end, today, yesterday, nowMinutes) {
+    const startMinutes = minutesOf(start);
+    const endMinutes = minutesOf(end);
+    if (startMinutes === null || endMinutes === null) return false;
+    const overnight = endMinutes <= startMinutes;
+    return date === today
+      ? (overnight ? nowMinutes >= startMinutes : nowMinutes >= startMinutes && nowMinutes < endMinutes)
+      : (date === yesterday && overnight && nowMinutes < endMinutes);
   }
 
   function collectToday(roster, today) {
