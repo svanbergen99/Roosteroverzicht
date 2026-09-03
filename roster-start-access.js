@@ -7,6 +7,34 @@
   const detachedAuthTrigger = document.getElementById("continueButton");
   if (!app || !detachedAuthTrigger) return;
 
+  const KCD_LINKS = Object.freeze([
+    Object.freeze({
+      category: "Hoofd Pagina",
+      label: "Wij zijn KCD - Organization home",
+      href: "https://wijzijnkcd.sharepoint.com/"
+    }),
+    Object.freeze({
+      category: "Nieuws",
+      label: "Nieuws",
+      href: "https://wijzijnkcd.sharepoint.com/_layouts/15/news.aspx?title=Nieuws&newsSource=3&instanceId=9cfbacd7-8861-4d94-b593-4268b36a165b&webPartId=8c88f208-6c77-4bdb-86a0-0c47b4316588&serverRelativeUrl=%2FSitePages%2FHome.aspx&pagesListId=5d923cc9-9536-49ed-9383-bebf20d98b42&locale=nl-nl"
+    }),
+    Object.freeze({
+      category: "Salaris, declaraties & vergoedingen",
+      label: "Salaris, declaraties & vergoedingen",
+      href: "https://wijzijnkcd.sharepoint.com/sites/team-hr/SitePages/Salaris,-declaraties-%26-vergoedingen.aspx?locale=nl-nl#uitleg-salarisstrook"
+    }),
+    Object.freeze({
+      category: "Ziek en beter melden",
+      label: "Formulieren - Home",
+      href: "https://wijzijnkcd.sharepoint.com/sites/formulieren/?locale=nl-nl#ziek-en-beter-melden"
+    }),
+    Object.freeze({
+      category: "Langer doorgewerkt ?",
+      label: "Langer doorgewerkt",
+      href: "https://wijzijnkcd.sharepoint.com/sites/formulieren/SitePages/Langer-Doorgewerkt.aspx"
+    })
+  ]);
+
   const PRIVATE_STYLES = [
     "roster-extras.css",
     "team-contacts.css",
@@ -75,6 +103,96 @@
     return privateModulesPromise;
   }
 
+  function closeKcdIntranet(section) {
+    const button = section?.querySelector("#kcdIntranetButton");
+    const panel = section?.querySelector("#kcdIntranetPanel");
+    if (!button || !panel) return;
+    panel.hidden = true;
+    button.setAttribute("aria-expanded", "false");
+    section.classList.remove("is-open");
+  }
+
+  function ensureKcdIntranetSection(anchor) {
+    let section = document.getElementById("kcdIntranetSection");
+    if (!section) {
+      section = document.createElement("section");
+      section.id = "kcdIntranetSection";
+      section.className = "kcd-intranet-section roster-only-start";
+      section.setAttribute("aria-labelledby", "kcdIntranetTitle");
+
+      const title = document.createElement("h2");
+      title.id = "kcdIntranetTitle";
+      title.className = "kcd-intranet-title";
+      title.textContent = "Wij Zijn KCD";
+
+      const button = document.createElement("button");
+      button.id = "kcdIntranetButton";
+      button.className = "today-workers-button public-roster-button kcd-intranet-button";
+      button.type = "button";
+      button.setAttribute("aria-expanded", "false");
+      button.setAttribute("aria-controls", "kcdIntranetPanel");
+      button.innerHTML = `
+        <span class="public-roster-button-main">
+          <span class="public-roster-button-icon kcd-intranet-icon" aria-hidden="true">⌂</span>
+          <span class="public-roster-button-copy"><strong>KCD Intranet</strong></span>
+        </span>
+        <span class="public-roster-arrow kcd-intranet-arrow" aria-hidden="true">⌄</span>`;
+
+      const panel = document.createElement("div");
+      panel.id = "kcdIntranetPanel";
+      panel.className = "kcd-intranet-panel";
+      panel.hidden = true;
+
+      for (const item of KCD_LINKS) {
+        const row = document.createElement("div");
+        row.className = "kcd-intranet-item";
+
+        const category = document.createElement("span");
+        category.className = "kcd-intranet-category";
+        category.textContent = item.category;
+
+        const link = document.createElement("a");
+        link.className = "kcd-intranet-link";
+        link.href = item.href;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = item.label;
+        link.setAttribute("aria-label", `${item.label} openen in nieuw tabblad`);
+
+        const arrow = document.createElement("span");
+        arrow.className = "kcd-intranet-link-arrow";
+        arrow.setAttribute("aria-hidden", "true");
+        arrow.textContent = "↗";
+        link.appendChild(arrow);
+
+        row.append(category, link);
+        panel.appendChild(row);
+      }
+
+      section.append(title, button, panel);
+
+      button.addEventListener("click", () => {
+        const open = panel.hidden;
+        panel.hidden = !open;
+        button.setAttribute("aria-expanded", String(open));
+        section.classList.toggle("is-open", open);
+      });
+
+      document.addEventListener("click", (event) => {
+        if (!section.contains(event.target)) closeKcdIntranet(section);
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape" || panel.hidden) return;
+        closeKcdIntranet(section);
+        button.focus();
+      });
+    }
+
+    if (anchor?.parentElement && section.previousElementSibling !== anchor) anchor.after(section);
+    return section;
+  }
+
   function ensureQuickActions() {
     let row = document.getElementById("publicPortalQuickActions");
     if (!row) {
@@ -109,6 +227,7 @@
       rosterButton.addEventListener("click", openRosterAccess);
     }
 
+    ensureKcdIntranetSection(row);
     return row;
   }
 
