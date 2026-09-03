@@ -3,7 +3,7 @@
 
   const MIN_BRIGHTNESS = 1;
   const MAX_BRIGHTNESS = 100;
-  const DEFAULT_BRIGHTNESS = 18;
+  const DEFAULT_BRIGHTNESS = 100;
   const app = document.getElementById("app");
   if (!app) return;
 
@@ -30,6 +30,10 @@
     if (output) output.textContent = `${brightness}%`;
     if (slider && Number(slider.value) !== brightness) slider.value = String(brightness);
   }
+
+  // Iedere nieuwe pagina-open start bewust opnieuw op 100% helderheid.
+  // Handmatige wijzigingen gelden alleen voor de huidige geopende pagina.
+  applyBrightness(DEFAULT_BRIGHTNESS);
 
   function closePanel() {
     const panel = document.getElementById("backgroundBrightnessPanel");
@@ -101,11 +105,7 @@
 
   const themeObserver = new MutationObserver(() => {
     if (userAdjusted || app.hidden) return;
-    const brightness = brightnessFromCurrentOverlay();
-    const slider = document.getElementById("backgroundBrightnessSlider");
-    const output = document.getElementById("backgroundBrightnessValue");
-    if (slider) slider.value = String(brightness);
-    if (output) output.textContent = `${brightness}%`;
+    applyBrightness(DEFAULT_BRIGHTNESS);
   });
   themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
