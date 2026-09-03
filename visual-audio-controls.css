@@ -5,15 +5,12 @@
   width: 138px;
 }
 
-.theme-side-buttons > .theme-customizer-button,
-.theme-side-buttons .effects-menu-wrap,
-.theme-side-buttons .effects-button {
+.theme-side-buttons > .theme-customizer-button {
   width: 100%;
   min-width: 0;
 }
 
-.theme-side-buttons .theme-customizer-button,
-.theme-side-buttons .effects-button {
+.theme-side-buttons .theme-customizer-button {
   min-height: 40px;
   padding: 9px 12px;
   border: 1px solid #cfc4ce;
@@ -26,37 +23,26 @@
   font-weight: 800;
 }
 
-.theme-side-buttons .effects-button:hover,
-.theme-side-buttons .effects-button[aria-expanded="true"] {
-  background: var(--soft-accent);
+/* Handmatige effecten zijn vervallen; feestdageffecten worden automatisch gestart. */
+.effects-menu-wrap,
+#effectsButton,
+#effectsMenu {
+  display: none !important;
 }
 
-/* Het themapaneel opent links van de vaste rechterknoppen. */
+/* Het themapaneel opent links van de vaste rechterknop. */
 .theme-customizer-panel {
   position: absolute;
   top: 0;
   right: calc(100% + 10px);
 }
 
-/* Effecten horen niet meer tussen de roosterknoppen. */
 .today-workers-action { gap: 8px !important; }
 @media (max-width: 620px) {
   .today-workers-action { grid-template-columns: 1fr 1fr !important; }
 }
 @media (max-width: 470px) {
   .today-workers-action { grid-template-columns: 1fr !important; }
-}
-
-html[data-theme="dark"] .theme-side-buttons .effects-button {
-  border-color: #465263;
-  background: rgba(23, 30, 41, .95);
-  color: #f0b5e8;
-  box-shadow: 0 5px 18px rgba(0, 0, 0, .32);
-}
-
-html[data-theme="dark"] .effects-menu {
-  border-color: #465263;
-  background: rgba(23, 30, 41, .98);
 }
 
 /* Traffic is een vaste operationele waarschuwing en mag NOOIT door een thema veranderen. */
