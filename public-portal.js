@@ -8,7 +8,7 @@
   if (!body || !welcome || !app || !originalButton) return;
 
   body.classList.add("public-portal-mode");
-  document.title = "Collega portaal";
+  document.title = "Roosteroverzicht";
 
   const button = originalButton.cloneNode(true);
   originalButton.replaceWith(button);
