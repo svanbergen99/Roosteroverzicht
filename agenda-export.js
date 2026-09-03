@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20260903-84";
+  const VERSION = "20260903-85";
   const FILE_MONTHS = ["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
   const MONTH_FILE_RE = /^Roosterindex_(Januari|Februari|Maart|April|Mei|Juni|Juli|Augustus|September|Oktober|November|December)\.json$/i;
 
@@ -146,4 +146,5 @@
   /* Moet vóór public-portal.js laden om de originele beveiligde trigger te bewaren. */
   loadScript("roster-start-access.js");
   loadScript("public-portal.js");
+  loadScript("roster-home-button.js");
 })();
