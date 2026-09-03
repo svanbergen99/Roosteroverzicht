@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20260903-81";
+  const VERSION = "20260903-82";
   const FILE_MONTHS = ["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
   const MONTH_FILE_RE = /^Roosterindex_(Januari|Februari|Maart|April|Mei|Juni|Juli|Augustus|September|Oktober|November|December)\.json$/i;
 
@@ -133,11 +133,13 @@
   loadScript("leave-source-filename.js");
   loadScript("external-sites-tweaks.js");
   loadScript("leave-overview-extra.js");
+  loadScript("leave-manual-primary.js");
   loadScript("effects.js");
   loadScript("holiday-effect-auto.js");
   loadScript("holiday-scenes.js");
   loadScript("birthday-scene.js");
   loadScript("payday-effect.js");
+  loadScript("payday-audio.js");
   loadScript("visual-audio-controls.js");
 
   /* Moet vóór public-portal.js laden om de originele beveiligde trigger te bewaren. */
