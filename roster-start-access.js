@@ -9,33 +9,27 @@
 
   const KCD_LINKS = Object.freeze([
     Object.freeze({
-      category: "Hoofd Pagina",
-      label: "Wij zijn KCD - Organization home",
+      label: "Hoofd Pagina",
       href: "https://wijzijnkcd.sharepoint.com/"
     }),
     Object.freeze({
-      category: "Nieuws",
       label: "Nieuws",
       href: "https://wijzijnkcd.sharepoint.com/_layouts/15/news.aspx?title=Nieuws&newsSource=3&instanceId=9cfbacd7-8861-4d94-b593-4268b36a165b&webPartId=8c88f208-6c77-4bdb-86a0-0c47b4316588&serverRelativeUrl=%2FSitePages%2FHome.aspx&pagesListId=5d923cc9-9536-49ed-9383-bebf20d98b42&locale=nl-nl"
     }),
     Object.freeze({
-      category: "Salaris, declaraties & vergoedingen",
       label: "Salaris, declaraties & vergoedingen",
       href: "https://wijzijnkcd.sharepoint.com/sites/team-hr/SitePages/Salaris,-declaraties-%26-vergoedingen.aspx?locale=nl-nl#uitleg-salarisstrook"
     }),
     Object.freeze({
-      category: "Ziek en beter melden",
-      label: "Formulieren - Home",
+      label: "Ziek en beter melden",
       href: "https://wijzijnkcd.sharepoint.com/sites/formulieren/?locale=nl-nl#ziek-en-beter-melden"
     }),
     Object.freeze({
-      category: "Help, ik heb een storing",
-      label: "Storingen en oplossingen - Startpagina",
+      label: "Help, ik heb een storing",
       href: "https://wijzijnkcd.sharepoint.com/sites/storing-melden?locale=nl-nl"
     }),
     Object.freeze({
-      category: "Langer doorgewerkt ?",
-      label: "Langer doorgewerkt",
+      label: "Langer doorgewerkt ?",
       href: "https://wijzijnkcd.sharepoint.com/sites/formulieren/SitePages/Langer-Doorgewerkt.aspx"
     })
   ]);
@@ -153,10 +147,6 @@
       const row = document.createElement("div");
       row.className = "kcd-intranet-item";
 
-      const category = document.createElement("span");
-      category.className = "kcd-intranet-category";
-      category.textContent = item.category;
-
       const link = document.createElement("a");
       link.className = "kcd-intranet-link";
       link.href = item.href;
@@ -171,7 +161,7 @@
       arrow.textContent = "↗";
       link.appendChild(arrow);
 
-      row.append(category, link);
+      row.appendChild(link);
       panel.appendChild(row);
     }
 
