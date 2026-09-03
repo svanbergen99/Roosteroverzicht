@@ -102,9 +102,41 @@
     petalTimer = window.setTimeout(stopPetals, DURATION_MS);
   }
 
+  function requestExistingStaticScene(type) {
+    const normalized = normalize(type);
+
+    if (normalized === "birthday") {
+      window.RoosterBirthdayScene?.show?.(false);
+      return;
+    }
+
+    const sceneType = ({
+      fireworks: "fireworks",
+      orange: "orange",
+      "hearts-petals": "hearts",
+      easter: "easter",
+      halloween: "halloween",
+      sinterklaas: "sinterklaas",
+      "christmas-snow": "christmas"
+    })[normalized];
+    if (!sceneType) return;
+
+    // holiday-scenes.js beheert de bestaande vaste onderscènes via zijn
+    // data-effect kliklistener. Een verborgen marker laat ons diezelfde scenes
+    // ook gebruiken bij video/automatische starts zonder de SVG's te dupliceren.
+    const marker = document.createElement("span");
+    marker.hidden = true;
+    marker.dataset.effect = sceneType;
+    marker.dataset.staticSceneRequest = "true";
+    document.body.appendChild(marker);
+    marker.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    marker.remove();
+  }
+
   function combinedStart(type) {
     const normalized = normalize(type);
     stopPetals();
+    requestExistingStaticScene(normalized);
 
     if (normalized === "hearts-petals") {
       originalStart("hearts");
@@ -124,45 +156,50 @@
     originalStop();
   }
 
+  function setMenuItem(item, id, iconText, labelText) {
+    if (!item) return;
+    item.dataset.effect = id;
+    const icon = item.querySelector(".effects-menu-icon");
+    const label = item.querySelector("span:last-child");
+    if (icon && icon.textContent !== iconText) icon.textContent = iconText;
+    if (label && label.textContent !== labelText) label.textContent = labelText;
+  }
+
   function patchMenu() {
     const menu = document.getElementById("effectsMenu");
     if (!menu) return;
 
-    const hearts = menu.querySelector('[data-effect="hearts"]');
-    const petals = menu.querySelector('[data-effect="petals"]');
-    if (hearts) {
-      hearts.dataset.effect = "hearts-petals";
-      const icon = hearts.querySelector(".effects-menu-icon");
-      const label = hearts.querySelector("span:last-child");
-      if (icon) icon.textContent = "❤️🌸";
-      if (label) label.textContent = "Hartjes & Bloemblaadjes";
-    }
-    petals?.remove();
+    // Alleen deze feest-/gelegenheidseffecten blijven in het menu, in de
+    // gewenste volgorde. Payday wordt door payday-effect.js na Verjaardag gezet.
+    menu.querySelector('[data-effect="snow"]')?.remove();
+    menu.querySelector('[data-effect="petals"]')?.remove();
+    menu.querySelector('[data-effect="stars"]')?.remove();
+    menu.querySelector('[data-effect="autumn"]')?.remove();
 
-    const christmas = menu.querySelector('[data-effect="christmas"]');
-    const snow = menu.querySelector('[data-effect="snow"]');
-    if (christmas) {
-      christmas.dataset.effect = "christmas-snow";
-      const icon = christmas.querySelector(".effects-menu-icon");
-      const label = christmas.querySelector("span:last-child");
-      if (icon) icon.textContent = "🎄❄️";
-      if (label) label.textContent = "Kerst & Sneeuw";
-    }
-    snow?.remove();
+    setMenuItem(menu.querySelector('[data-effect="fireworks"]'), "fireworks", "🎆", "Nieuwjaar");
+    setMenuItem(menu.querySelector('[data-effect="birthday"]'), "birthday", "🎂", "Verjaardag");
+    setMenuItem(menu.querySelector('[data-effect="orange"]'), "orange", "🧡", "Koningsdag");
+
+    const hearts = menu.querySelector('[data-effect="hearts"], [data-effect="hearts-petals"]');
+    setMenuItem(hearts, "hearts-petals", "❤️🌸", "Valentijns");
+
+    setMenuItem(menu.querySelector('[data-effect="easter"]'), "easter", "🐣", "Pasen");
+    setMenuItem(menu.querySelector('[data-effect="halloween"]'), "halloween", "🦇", "Halloween");
+    setMenuItem(menu.querySelector('[data-effect="sinterklaas"]'), "sinterklaas", "🎁", "Sinterklaas");
+
+    const christmas = menu.querySelector('[data-effect="christmas"], [data-effect="christmas-snow"]');
+    setMenuItem(christmas, "christmas-snow", "🎄❄️", "Kerst");
   }
 
-  // effects.js heeft zelf een interne menu-handler. Voor de twee samengestelde
-  // keuzes onderscheppen we de klik vóór die handler, anders zou effects.js de
-  // onbekende ids 'hearts-petals' en 'christmas-snow' rechtstreeks proberen te
-  // starten en gebeurt er niets.
   document.addEventListener("click", (event) => {
     const item = event.target.closest?.("[data-effect]");
-    if (!item) return;
+    if (!item || item.dataset.staticSceneRequest === "true") return;
 
     manualStartUntil = performance.now() + 300;
     const selected = normalize(item.dataset.effect);
     if (selected !== "hearts-petals" && selected !== "christmas-snow") return;
 
+    // De interne menu-handler van effects.js kent de combinatie-id's niet.
     event.preventDefault();
     event.stopImmediatePropagation();
 
@@ -179,22 +216,21 @@
   effects.start = combinedStart;
   effects.stop = combinedStop;
   effects.list = () => [
-    { id: "fireworks", label: "Vuurwerk" },
+    { id: "fireworks", label: "Nieuwjaar" },
     { id: "birthday", label: "Verjaardag" },
-    { id: "orange", label: "Oranje feest" },
-    { id: "hearts-petals", label: "Hartjes & Bloemblaadjes" },
-    { id: "stars", label: "Sterrenregen" },
-    { id: "easter", label: "Paaseieren" },
-    { id: "autumn", label: "Herfstbladeren" },
+    { id: "orange", label: "Koningsdag" },
+    { id: "hearts-petals", label: "Valentijns" },
+    { id: "easter", label: "Pasen" },
     { id: "halloween", label: "Halloween" },
     { id: "sinterklaas", label: "Sinterklaas" },
-    { id: "christmas-snow", label: "Kerst & Sneeuw" }
+    { id: "christmas-snow", label: "Kerst" }
   ];
 
   window.RoosterEffectCombinations = Object.freeze({
     normalize,
     isManualStart: () => performance.now() <= manualStartUntil,
-    stopPetals
+    stopPetals,
+    showStaticUnderEffect: requestExistingStaticScene
   });
 
   patchMenu();
