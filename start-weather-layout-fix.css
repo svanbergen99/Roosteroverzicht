@@ -63,7 +63,7 @@ body.weather-scene-no-room #startWeatherScene {
 
 /* De locatienaam staat alleen in de gesplitste weergave. Bij hetzelfde effect
    gebruikt de scène één volledig vlak zonder locatietekst. */
-.start-weather-scene-location {
+.start-weather-scene-sky .start-weather-scene-location {
   position: absolute;
   z-index: 4;
   left: 50%;
