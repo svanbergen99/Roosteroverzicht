@@ -4,9 +4,8 @@
   const app = document.getElementById("app");
   const BODY_LOGIN_CLASS = "roster-login-active";
   const BODY_NO_ROOM_CLASS = "weather-scene-no-room";
-  const OUTER_MARGIN = 20;
   const GAP = 12;
-  const MIN_SIZE = 180;
+  const MIN_SIZE = 220;
 
   function loginOverlayVisible() {
     const overlay = document.getElementById("permissionAuthOverlay");
@@ -24,16 +23,15 @@
     syncLoginState();
 
     const scene = document.getElementById("startWeatherScene");
-    const primary = document.getElementById("publicPrimaryActions");
-    const salary = document.getElementById("publicSalarySection") || document.getElementById("publicSalaryButton");
-    const publicStart = document.body.classList.contains("public-portal-mode") && !app?.hidden && !document.body.classList.contains(BODY_LOGIN_CLASS);
+    const externalSites = document.getElementById("externalSitesSection");
+    const publicStart = document.body.classList.contains("public-portal-mode") &&
+      !app?.hidden &&
+      !document.body.classList.contains(BODY_LOGIN_CLASS);
 
-    if (!scene || !primary || !salary || !publicStart) return;
+    if (!scene || !externalSites || !publicStart) return;
 
-    const primaryRect = primary.getBoundingClientRect();
-    const salaryRect = salary.getBoundingClientRect();
-    const rightEdge = primaryRect.left - GAP;
-    const size = Math.floor(rightEdge - OUTER_MARGIN);
+    const externalRect = externalSites.getBoundingClientRect();
+    const size = Math.floor(externalRect.left - GAP);
     const noRoom = size < MIN_SIZE;
 
     if (document.body.classList.contains(BODY_NO_ROOM_CLASS) !== noRoom) {
@@ -41,8 +39,11 @@
     }
     if (noRoom) return;
 
-    scene.style.left = `${OUTER_MARGIN}px`;
-    scene.style.top = `${Math.round(salaryRect.bottom + GAP)}px`;
+    // Het weerblok staat op een vaste plek IN de pagina, niet vast aan de viewport.
+    // Daardoor vult het exact de vrije linker ruimte naast Externe websites en
+    // scrollt het gewoon met de rest van de startpagina mee omhoog.
+    scene.style.left = "0px";
+    scene.style.top = `${Math.round(window.scrollY + externalRect.top)}px`;
     scene.style.width = `${size}px`;
     scene.style.height = `${size}px`;
   }
