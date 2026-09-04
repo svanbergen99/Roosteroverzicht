@@ -6,13 +6,13 @@ body.weather-scene-no-room #startWeatherScene {
   display: none !important;
 }
 
-/* Het grote weerbeeld is een vierkant blok links van de startpagina.
-   De exacte positie en maat worden door start-weather-layout-fix.js berekend. */
+/* Het grote weerbeeld staat vast IN de pagina-layout, niet vast aan de viewport.
+   start-weather-layout-fix.js zet het exact in de vrije linker ruimte naast
+   Externe websites. Daardoor scrollt het normaal met de pagina mee omhoog. */
 .start-weather-scene-large {
-  position: fixed !important;
+  position: absolute !important;
   right: auto !important;
   bottom: auto !important;
-  height: auto !important;
   aspect-ratio: 1 / 1;
   pointer-events: none;
   overflow: hidden;
@@ -40,19 +40,18 @@ body.weather-scene-no-room #startWeatherScene {
   box-shadow: none !important;
 }
 
-/* De transparante PNG uit Weer.json is voortaan het echte weer-effect. */
+/* De PNG uit Weer.json vult het volledige weerpaneel. */
 .start-weather-scene-image {
   position: relative;
   z-index: 3;
   display: block;
-  width: 92%;
-  height: 92%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   object-position: center;
   filter: drop-shadow(0 16px 24px rgba(15,23,42,.18));
 }
 
-/* Rustige achtergrond per soort weer; het PNG-beeld blijft de hoofdillustratie. */
 .start-weather-scene-sky[data-weather-effect="heldere-zon"],
 .start-weather-scene-sky[data-weather-effect="hittegolf"] {
   background: linear-gradient(180deg, #7dd3fc 0%, #fde68a 100%) !important;
@@ -94,8 +93,7 @@ body.weather-scene-no-room #startWeatherScene {
   background: linear-gradient(180deg, #e2e8f0 0%, #f8fafc 100%) !important;
 }
 
-/* Als de twee actuele locaties verschillende afbeeldingen/effecten hebben wordt
-   het vierkant exact in twee gelijke helften verdeeld: locatie 1 links, locatie 2 rechts. */
+/* Verschillend weer: exact twee gelijke helften, locatie 1 links en locatie 2 rechts. */
 .start-weather-scene-split {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -113,12 +111,11 @@ body.weather-scene-no-room #startWeatherScene {
 }
 
 .start-weather-scene-split .start-weather-scene-image {
-  width: 96%;
-  height: 88%;
+  width: 100%;
+  height: 100%;
 }
 
-/* De locatienaam staat alleen in de gesplitste weergave. Bij hetzelfde effect
-   gebruikt de scène één volledig vlak zonder locatietekst. */
+/* Locatienamen verschijnen uitsluitend wanneer het weerbeeld gesplitst is. */
 .start-weather-scene-sky .start-weather-scene-location {
   position: absolute;
   z-index: 5;
@@ -147,7 +144,7 @@ body.weather-scene-no-room #startWeatherScene {
   display: none !important;
 }
 
-/* Ook de kleine actuele-weerkaart en de handmatige testlijst gebruiken de PNG's uit Weer.json. */
+/* Ook de kleine actuele-weerkaart en handmatige testlijst gebruiken de PNG's uit Weer.json. */
 .public-weather-icon img {
   display: block;
   width: 46px;
@@ -172,12 +169,6 @@ body.weather-scene-no-room #startWeatherScene {
   object-fit: contain;
 }
 
-@media (max-width: 1360px) {
-  .start-weather-scene-large {
-    display: block;
-  }
-
-  body.weather-scene-no-room .start-weather-scene-large {
-    display: none !important;
-  }
+body.weather-scene-no-room .start-weather-scene-large {
+  display: none !important;
 }
