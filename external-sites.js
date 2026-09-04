@@ -262,7 +262,7 @@
           <span data-digital-hour>00</span><span class="digital-clock-colon">:</span><span data-digital-minute>00</span>
         </div>
         <div class="digital-clock-date">
-          <strong class="digital-clock-date-day" data-digital-date-day>(0)</strong>
+          <strong class="digital-clock-date-day" data-digital-date-day>0</strong>
           <strong class="digital-clock-date-month" data-digital-date-month>Maand</strong>
         </div>`;
     }
@@ -304,7 +304,7 @@
     if (day) day.textContent = capitalize(read("weekday"));
     if (hour) hour.textContent = read("hour").padStart(2, "0");
     if (minute) minute.textContent = read("minute").padStart(2, "0");
-    if (dateDay) dateDay.textContent = `(${Number(read("day")) || read("day")})`;
+    if (dateDay) dateDay.textContent = String(Number(read("day")) || read("day"));
     if (dateMonth) dateMonth.textContent = capitalize(read("month"));
   }
 
