@@ -19,7 +19,9 @@
         Object.freeze({ label: "Wall board", url: "https://achmea-production-1-a3srealtime-eu-west-1-prod.kb.eu-west-1.aws.found.io/s/centraal-beheer/app/dashboards#/view/731a7b2c-c25f-4ff6-a032-5f62ef6d2272?_g=(filters:!())" }),
         Object.freeze({ label: "Noodprocedure formulier", url: "https://achmea.sharepoint.com/sites/SP-15261/Noodprocedures/Noodprocedures.aspx", warning: "Alleen gebruiken als Traffic toestemming geeft" }),
         Object.freeze({ label: "Werkbriefjes / Loonstrook", url: "https://klantcontactdiensten.nocore.nl/" }),
-        Object.freeze({ label: "NPS", url: "https://dashboards.insights.metrixlab.com/Account/Login?ReturnUrl=%2fDashboard%2fDashboard%2f%3fProjectId%3d48316%26ProjectDashboardId%3d22&ProjectId=48316&ProjectDashboardId=22" })
+        Object.freeze({ label: "NPS", url: "https://dashboards.insights.metrixlab.com/Account/Login?ReturnUrl=%2fDashboard%2fDashboard%2f%3fProjectId%3d48316%26ProjectDashboardId%3d22&ProjectId=48316&ProjectDashboardId=22" }),
+        Object.freeze({ label: "Meldcode opvragen", url: "https://auto.dispatch.nl" }),
+        Object.freeze({ label: "RoyData", url: "https://portal.stichting-eps.nl/login" })
       ])
     }),
     Object.freeze({
@@ -31,8 +33,7 @@
         Object.freeze({ label: "Kadastriaalekaart", url: "https://kadastralekaart.com/" }),
         Object.freeze({ label: "Kenteken Check", url: "https://www.centraalbeheer.nl/verzekeringen/autoverzekering/kentekencheck" }),
         Object.freeze({ label: "RDW", url: "https://www.rdw.nl/" }),
-        Object.freeze({ label: "Finnik", url: "https://finnik.nl/" }),
-        Object.freeze({ label: "Meldcode opvragen", url: "https://auto.dispatch.nl" })
+        Object.freeze({ label: "Finnik", url: "https://finnik.nl/" })
       ])
     })
   ]);
