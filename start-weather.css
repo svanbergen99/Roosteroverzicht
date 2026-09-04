@@ -100,15 +100,16 @@ body.roster-access-active #startWeatherScene {
   font-weight: 700;
 }
 
-/* Grote vaste weerscène links naast de startpagina. */
+/* Grote weerscène: vult de volledige vrije linkerkolom naast de 1180px startpagina.
+   De buitenmarge (20px) en tussenruimte (12px) volgen dezelfde afstanden als de pagina. */
 .start-weather-scene-large {
   position: fixed;
-  left: 22px;
-  top: 50%;
+  left: 20px;
+  top: 52px;
+  bottom: 52px;
   z-index: 115;
-  width: 300px;
-  height: 300px;
-  transform: translateY(-50%);
+  width: calc((100vw - 1180px) / 2 - 32px);
+  height: auto;
   pointer-events: none;
 }
 .start-weather-scene-sky {
@@ -117,11 +118,9 @@ body.roster-access-active #startWeatherScene {
   height: 100%;
   display: grid;
   place-items: center;
-  align-content: center;
-  gap: 10px;
   overflow: hidden;
   border: 1px solid rgba(255,255,255,.78);
-  border-radius: 34px;
+  border-radius: 24px;
   background: linear-gradient(180deg, rgba(186,230,253,.96), rgba(226,232,240,.94));
   box-shadow: 0 24px 70px rgba(15,23,42,.18), inset 0 0 0 1px rgba(255,255,255,.62);
   backdrop-filter: blur(5px);
@@ -133,8 +132,8 @@ body.roster-access-active #startWeatherScene {
   pointer-events: none;
 }
 .start-weather-scene-sky::before {
-  inset: auto -15% -28% -15%;
-  height: 54%;
+  inset: auto -15% -16% -15%;
+  height: 44%;
   border-radius: 50% 50% 0 0;
   background: rgba(255,255,255,.45);
 }
@@ -155,20 +154,15 @@ body.roster-access-active #startWeatherScene {
   position: relative;
   z-index: 2;
   display: block;
-  font-size: 132px;
+  font-size: clamp(54px, calc((100vw - 1180px) * .28), 180px);
   line-height: 1;
-  filter: drop-shadow(0 12px 18px rgba(15,23,42,.18));
+  filter: drop-shadow(0 14px 22px rgba(15,23,42,.2));
 }
-.start-weather-scene-sky strong {
-  position: relative;
-  z-index: 2;
-  padding: 7px 15px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.76);
-  color: #263447;
-  font-size: 18px;
-  font-weight: 950;
-  box-shadow: 0 5px 18px rgba(15,23,42,.08);
+
+/* De illustratie vertelt zelf al welk weer het is; geen extra tekst onder het beeld. */
+.start-weather-scene-sky strong,
+.start-weather-scene-sky [data-weather-scene-label] {
+  display: none !important;
 }
 
 /* Weer-effecten staat in dezelfde rechter bedieningskolom als Effecten en Video. */
@@ -244,19 +238,10 @@ html[data-theme="dark"] .background-brightness-shell .weather-effects-button {
 }
 html[data-theme="dark"] .weather-effects-item { color: #edf2f7; }
 
-@media (max-width: 1500px) {
-  .start-weather-scene-large { width: 250px; height: 250px; left: 12px; }
-  .start-weather-scene-icon { font-size: 108px; }
-}
-@media (max-width: 1250px) {
-  .start-weather-scene-large {
-    position: static;
-    width: min(360px, 100%);
-    height: 220px;
-    margin: 0 auto 12px;
-    transform: none;
-  }
-  .start-weather-scene-icon { font-size: 96px; }
+/* Onder deze breedte is er geen bruikbare vrije linkerkolom meer.
+   Het weerbeeld verdwijnt dan in plaats van bovenop de startpagina te komen. */
+@media (max-width: 1360px) {
+  .start-weather-scene-large { display: none !important; }
 }
 @media (max-width: 900px) {
   .public-weather-bars { grid-template-columns: 1fr; }
@@ -269,6 +254,4 @@ html[data-theme="dark"] .weather-effects-item { color: #edf2f7; }
   .public-weather-details { grid-column: 1 / -1; }
   .public-weather-note { grid-column: 1 / -1; }
   .public-weather-mainline { align-items: flex-start; flex-direction: column; gap: 2px; }
-  .start-weather-scene-large { height: 190px; }
-  .start-weather-scene-icon { font-size: 80px; }
 }
