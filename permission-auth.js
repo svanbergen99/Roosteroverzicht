@@ -35,6 +35,7 @@
   let passwordInput = null;
   let authError = null;
   let resolvedEmployeeName = "";
+  let nameStepBusy = false;
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -58,6 +59,15 @@
       .join("|");
   }
 
+  function searchSignature(value) {
+    return String(value || "")
+      .toLocaleLowerCase("nl-NL")
+      .normalize("NFD")
+      .replace(/\p{M}/gu, "")
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .trim();
+  }
+
   async function hashName(value) {
     const signature = nameSignature(value);
     if (!signature) return "";
@@ -77,13 +87,13 @@
     return permission?.scope === "all";
   }
 
-  async function permissionForInput(value) {
-    const firstName = firstNameFromInput(value);
-    if (!firstName || firstName === "Collega") return null;
-    const loginHash = await hashName(firstName);
-    return PERMISSIONS.find((permission) =>
-      permission?.loginHash === loginHash && (permission?.rosterHash || hasAllColleaguesAccess(permission))
-    ) || null;
+  async function permissionForSelectedEmployee(fullName) {
+    const rosterHash = await hashName(fullName);
+    const loginHash = await hashName(firstNameFromInput(fullName));
+    const byRoster = PERMISSIONS.find((permission) => permission?.rosterHash === rosterHash);
+    const byLogin = PERMISSIONS.find((permission) => permission?.loginHash === loginHash);
+    const matched = byRoster || byLogin || null;
+    return matched ? { ...matched, rosterHash } : { rosterHash };
   }
 
   function ensureOverlay() {
@@ -113,6 +123,7 @@
 
   function showTeamStep() {
     authPending = false;
+    nameStepBusy = false;
     unlockOverlay.hidden = true;
     const target = ensureOverlay();
     target.innerHTML = `
@@ -141,59 +152,27 @@
         return;
       }
       selectedTeam = value;
-      showNameStep();
+      activePermission = null;
+      resolvedEmployeeName = "";
+      colleagueFirstName = "Collega";
+      unlockCompleted = false;
+      showPasswordStep();
     });
     focusSoon("#permissionTeamSelect");
   }
 
-  function showNameStep() {
-    authPending = false;
-    const target = ensureOverlay();
-    target.innerHTML = `
-      <form id="permissionNameForm" class="unlock-card permission-auth-card" autocomplete="off">
-        <h1>Wie ben je?</h1>
-        <p>Vul je voornaam in. Alleen collega's met toestemming kunnen verder.</p>
-        <label for="permissionNameInput">Voornaam</label>
-        <input id="permissionNameInput" type="text" autocomplete="off" autocapitalize="words" required>
-        <button class="full-button" type="submit">Verder</button>
-        <button id="permissionBackToTeam" class="permission-auth-back" type="button">Terug</button>
-        <div id="permissionNameError" class="permission-auth-error" aria-live="polite"></div>
-      </form>`;
-
-    const form = target.querySelector("#permissionNameForm");
-    const input = target.querySelector("#permissionNameInput");
-    const error = target.querySelector("#permissionNameError");
-    target.querySelector("#permissionBackToTeam")?.addEventListener("click", showTeamStep);
-    form?.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      error.textContent = "";
-      const value = input.value.trim();
-      if (!value) return;
-      const permission = await permissionForInput(value);
-      if (!permission) {
-        error.textContent = "Deze voornaam heeft geen toestemming voor roosterinzicht.";
-        input.select();
-        return;
-      }
-      activePermission = permission;
-      colleagueFirstName = firstNameFromInput(value);
-      resolvedEmployeeName = "";
-      showPasswordStep();
-    });
-    focusSoon("#permissionNameInput");
-  }
-
   function showPasswordStep() {
     authPending = false;
+    nameStepBusy = false;
     const target = ensureOverlay();
     target.innerHTML = `
       <form id="permissionPasswordForm" class="unlock-card permission-auth-card" autocomplete="off">
-        <h1>Welkom ${escapeHtml(colleagueFirstName)}</h1>
-        <p>Typ hier je Team Wachtwoord voor <strong>${escapeHtml(selectedTeam)}</strong>:</p>
+        <h1>Team ontgrendelen</h1>
+        <p>Typ het Team Wachtwoord voor <strong>${escapeHtml(selectedTeam)}</strong>. Daarna kun je je naam kiezen uit het ontgrendelde rooster.</p>
         <label for="permissionPasswordInput">Team Wachtwoord</label>
         <input id="permissionPasswordInput" type="password" autocomplete="new-password" required>
         <button id="permissionUnlockButton" class="full-button" type="submit">Rooster ontgrendelen</button>
-        <button id="permissionBackToName" class="permission-auth-back" type="button">Terug</button>
+        <button id="permissionBackToTeam" class="permission-auth-back" type="button">Terug</button>
         <div id="permissionAuthError" class="permission-auth-error" aria-live="polite"></div>
       </form>`;
 
@@ -202,11 +181,11 @@
     authError = target.querySelector("#permissionAuthError");
     const submitButton = target.querySelector("#permissionUnlockButton");
 
-    target.querySelector("#permissionBackToName")?.addEventListener("click", showNameStep);
+    target.querySelector("#permissionBackToTeam")?.addEventListener("click", showTeamStep);
     form?.addEventListener("submit", (event) => {
       event.preventDefault();
       const password = passwordInput.value;
-      if (!password || !selectedTeam || !activePermission || authPending) return;
+      if (!password || !selectedTeam || authPending) return;
       authPending = true;
       authError.textContent = "";
       submitButton.disabled = true;
@@ -230,6 +209,198 @@
     ].filter((value) => /^\d{4}-\d{2}$/.test(String(value || ""))))];
   }
 
+  async function collectUnlockedEmployeeNames(attempt = 0) {
+    const monthBridge = window.RoosterMonthBridge;
+    const names = new Set();
+    for (const monthKey of availableMonthKeys()) {
+      const roster = monthBridge?.getRoster?.(monthKey);
+      for (const employee of roster?.employees || []) {
+        const name = String(employee?.name || "").trim();
+        if (name) names.add(name);
+      }
+    }
+    if (names.size) return [...names].sort((a, b) => a.localeCompare(b, "nl"));
+    if (attempt >= 50) return [];
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    return collectUnlockedEmployeeNames(attempt + 1);
+  }
+
+  function rankedMatches(names, query) {
+    const q = searchSignature(query);
+    if (!q) return [];
+    return names
+      .map((name) => {
+        const normalized = searchSignature(name);
+        const words = normalized.split(/\s+/).filter(Boolean);
+        let score = 99;
+        if (normalized.startsWith(q)) score = 0;
+        else if (words[0]?.startsWith(q)) score = 1;
+        else if (words.some((word) => word.startsWith(q))) score = 2;
+        else if (normalized.includes(q)) score = 3;
+        return { name, score };
+      })
+      .filter((item) => item.score < 99)
+      .sort((a, b) => itemCompare(a, b))
+      .slice(0, 14)
+      .map((item) => item.name);
+  }
+
+  function itemCompare(a, b) {
+    if (a.score !== b.score) return a.score - b.score;
+    return a.name.localeCompare(b.name, "nl");
+  }
+
+  async function finalizeEmployeeSelection(fullName) {
+    const exactName = String(fullName || "").trim();
+    if (!exactName) return;
+    resolvedEmployeeName = exactName;
+    colleagueFirstName = firstNameFromInput(exactName);
+    activePermission = await permissionForSelectedEmployee(exactName);
+    unlockCompleted = true;
+    configureAccessButtons();
+    closeOverview();
+
+    if (overlay?.isConnected) overlay.remove();
+    overlay = null;
+    unlockOverlay.hidden = true;
+    body.classList.add("roster-person-selected");
+
+    window.dispatchEvent(new CustomEvent("rooster-user-selected", {
+      detail: {
+        name: resolvedEmployeeName,
+        firstName: colleagueFirstName,
+        team: selectedTeam
+      }
+    }));
+  }
+
+  async function showNameStep() {
+    if (nameStepBusy || unlockCompleted) return;
+    nameStepBusy = true;
+    authPending = false;
+    const target = ensureOverlay();
+    target.innerHTML = `
+      <form id="permissionNameForm" class="unlock-card permission-auth-card" autocomplete="off">
+        <h1>Wie ben je?</h1>
+        <p>Het rooster is ontgrendeld. Typ je naam; suggesties komen rechtstreeks uit het beveiligde roosterbestand.</p>
+        <label for="permissionNameInput">Naam</label>
+        <div class="permission-auth-name-field">
+          <input id="permissionNameInput" type="text" autocomplete="off" autocapitalize="words" placeholder="Begin met typen…" disabled required>
+          <div id="permissionNameSuggestions" class="permission-auth-name-suggestions" role="listbox" hidden></div>
+        </div>
+        <button id="permissionNameSubmit" class="full-button" type="submit" disabled>Verder naar WFM</button>
+        <div id="permissionNameError" class="permission-auth-error" aria-live="polite">Namen uit rooster laden…</div>
+      </form>`;
+    target.hidden = false;
+
+    const form = target.querySelector("#permissionNameForm");
+    const input = target.querySelector("#permissionNameInput");
+    const suggestions = target.querySelector("#permissionNameSuggestions");
+    const submit = target.querySelector("#permissionNameSubmit");
+    const error = target.querySelector("#permissionNameError");
+    const names = await collectUnlockedEmployeeNames();
+
+    if (!names.length) {
+      nameStepBusy = false;
+      error.textContent = "Er konden geen namen uit het ontgrendelde rooster worden geladen. Vernieuw de pagina en probeer opnieuw.";
+      return;
+    }
+
+    error.textContent = "";
+    input.disabled = false;
+    submit.disabled = false;
+    let selectedName = "";
+    let activeIndex = -1;
+    let currentMatches = [];
+
+    function hideSuggestions() {
+      suggestions.hidden = true;
+      suggestions.innerHTML = "";
+      activeIndex = -1;
+      currentMatches = [];
+    }
+
+    function chooseName(name) {
+      selectedName = name;
+      input.value = name;
+      hideSuggestions();
+      error.textContent = "";
+    }
+
+    function renderSuggestions() {
+      selectedName = "";
+      currentMatches = rankedMatches(names, input.value);
+      activeIndex = -1;
+      if (!currentMatches.length) {
+        hideSuggestions();
+        return;
+      }
+      suggestions.innerHTML = currentMatches.map((name, index) =>
+        `<button class="permission-auth-name-option" type="button" role="option" data-name-index="${index}">${escapeHtml(name)}</button>`
+      ).join("");
+      suggestions.hidden = false;
+      suggestions.querySelectorAll("[data-name-index]").forEach((button) => {
+        button.addEventListener("pointerdown", (event) => event.preventDefault());
+        button.addEventListener("click", () => {
+          const index = Number(button.dataset.nameIndex);
+          if (Number.isInteger(index) && currentMatches[index]) chooseName(currentMatches[index]);
+        });
+      });
+    }
+
+    function updateActiveOption() {
+      suggestions.querySelectorAll("[data-name-index]").forEach((button, index) => {
+        button.classList.toggle("is-active", index === activeIndex);
+      });
+    }
+
+    input.addEventListener("input", () => {
+      error.textContent = "";
+      renderSuggestions();
+    });
+    input.addEventListener("focus", () => {
+      if (input.value.trim()) renderSuggestions();
+    });
+    input.addEventListener("blur", () => window.setTimeout(hideSuggestions, 120));
+    input.addEventListener("keydown", (event) => {
+      if (suggestions.hidden || !currentMatches.length) return;
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        activeIndex = (activeIndex + 1) % currentMatches.length;
+        updateActiveOption();
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        activeIndex = activeIndex <= 0 ? currentMatches.length - 1 : activeIndex - 1;
+        updateActiveOption();
+      } else if (event.key === "Enter" && activeIndex >= 0) {
+        event.preventDefault();
+        chooseName(currentMatches[activeIndex]);
+      } else if (event.key === "Escape") {
+        hideSuggestions();
+      }
+    });
+
+    form?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      error.textContent = "";
+      const typed = searchSignature(input.value);
+      const exact = selectedName || names.find((name) => searchSignature(name) === typed) || "";
+      if (!exact) {
+        error.textContent = "Kies je volledige naam uit de suggestielijst.";
+        input.focus();
+        renderSuggestions();
+        return;
+      }
+      submit.disabled = true;
+      input.disabled = true;
+      error.textContent = "WFM voorbereiden…";
+      await finalizeEmployeeSelection(exact);
+    });
+
+    nameStepBusy = false;
+    focusSoon("#permissionNameInput");
+  }
+
   async function resolveEmployeeName(attempt = 0) {
     if (resolvedEmployeeName) return resolvedEmployeeName;
     if (!activePermission?.rosterHash) return "";
@@ -250,28 +421,8 @@
     return resolveEmployeeName(attempt + 1);
   }
 
-  async function collectEmployeeNames(attempt = 0) {
-    const monthBridge = window.RoosterMonthBridge;
-    const state = monthBridge?.getState?.() || {};
-    const monthKey = /^\d{4}-\d{2}$/.test(String(state.currentMonthKey || ""))
-      ? state.currentMonthKey
-      : "";
-    const roster = monthKey ? monthBridge?.getRoster?.(monthKey) : null;
-    const names = new Set();
-
-    for (const employee of roster?.employees || []) {
-      const hasActiveScheduleThisMonth = (employee?.schedules || []).some((schedule) =>
-        String(schedule?.date || "").slice(0, 7) === monthKey
-      );
-      if (!hasActiveScheduleThisMonth) continue;
-      const name = String(employee?.name || "").trim();
-      if (name) names.add(name);
-    }
-
-    if (names.size) return [...names].sort((a, b) => a.localeCompare(b, "nl"));
-    if (attempt >= 30) return [];
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    return collectEmployeeNames(attempt + 1);
+  async function collectEmployeeNames() {
+    return collectUnlockedEmployeeNames();
   }
 
   function closeOverview() {
@@ -290,7 +441,7 @@
   async function openAllowedRoster() {
     const actualName = await resolveEmployeeName();
     if (!actualName) {
-      rosterResult.innerHTML = '<div class="no-activities">Je eigen rooster kon nog niet worden gekoppeld aan deze toestemming.</div>';
+      rosterResult.innerHTML = '<div class="no-activities">Je eigen rooster kon nog niet worden gekoppeld aan deze naam.</div>';
       rosterResult.hidden = false;
       searchCard.classList.add("has-roster");
       return;
@@ -393,16 +544,11 @@
     }
   }
 
-  function completeUnlock() {
-    if (app.hidden || !activePermission) return;
+  function handleSuccessfulUnlock() {
+    if (!selectedTeam || !authPending || app.hidden) return;
     authPending = false;
-    if (overlay?.isConnected) overlay.remove();
-    overlay = null;
     unlockOverlay.hidden = true;
-    configureAccessButtons();
-    if (unlockCompleted) return;
-    unlockCompleted = true;
-    closeOverview();
+    showNameStep();
   }
 
   continueButton.addEventListener("click", (event) => {
@@ -431,10 +577,10 @@
     unlockErrorObserver.observe(unlockError, { childList: true, characterData: true, subtree: true });
   }
 
-  window.addEventListener("rooster-unlocked", completeUnlock);
+  window.addEventListener("rooster-unlocked", handleSuccessfulUnlock);
 
   const appObserver = new MutationObserver(() => {
-    if (!app.hidden) completeUnlock();
+    if (!app.hidden) handleSuccessfulUnlock();
   });
   appObserver.observe(app, { attributes: true, attributeFilter: ["hidden"] });
 
