@@ -78,29 +78,60 @@ body.weather-scene-no-room #startWeatherScene {
   height: 100%;
 }
 
-/* Locatienamen verschijnen uitsluitend wanneer het weerbeeld gesplitst is. */
-.start-weather-scene-sky .start-weather-scene-location {
+/* De witte/transparante halve cirkel onder in de weerillustraties wordt gebruikt
+   als informatieruimte. De klok staat altijd in het midden. Alleen bij 50/50
+   staan locatie 1 links en locatie 2 rechts. */
+.start-weather-scene-info {
   position: absolute;
-  z-index: 5;
-  left: 50%;
-  bottom: 16px;
-  display: block !important;
-  max-width: calc(100% - 18px);
-  padding: 6px 10px;
-  transform: translateX(-50%);
+  z-index: 8;
+  left: 4%;
+  right: 4%;
+  bottom: 5.5%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+  color: #172033;
+  text-shadow: 0 1px 2px rgba(255,255,255,.9), 0 2px 8px rgba(255,255,255,.55);
+}
+
+.start-weather-live-clock {
+  grid-column: 2;
+  justify-self: center;
+  min-width: 0;
+  font-size: clamp(17px, 1.55vw, 26px);
+  font-weight: 1000;
+  line-height: 1;
+  letter-spacing: .035em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.start-weather-scene-location {
+  min-width: 0;
   overflow: hidden;
-  border: 1px solid rgba(255,255,255,.62);
-  border-radius: 999px;
-  background: rgba(15,23,42,.66);
-  color: #fff;
-  box-shadow: 0 5px 16px rgba(15,23,42,.16);
-  font-size: clamp(10px, .8vw, 13px);
-  font-weight: 900;
-  line-height: 1.2;
-  text-align: center;
+  font-size: clamp(12px, 1.02vw, 17px);
+  font-weight: 1000;
+  line-height: 1.15;
   text-overflow: ellipsis;
   white-space: nowrap;
-  backdrop-filter: blur(5px);
+}
+
+.start-weather-scene-location.is-left {
+  grid-column: 1;
+  justify-self: start;
+  text-align: left;
+}
+
+.start-weather-scene-location.is-right {
+  grid-column: 3;
+  justify-self: end;
+  text-align: right;
+}
+
+.start-weather-scene-info.is-single .start-weather-live-clock {
+  grid-column: 2;
 }
 
 .start-weather-scene-sky [data-weather-scene-label] {
@@ -122,11 +153,51 @@ body.weather-scene-no-room #startWeatherScene {
   background: transparent !important;
 }
 
-/* De handmatige testlijst gebruikt dezelfde transparante PNG's. */
+/* Handmatig testen: eerst locatie 1 of locatie 2 kiezen, daarna het effect. */
 .weather-effects-menu {
-  max-height: min(72vh, 690px);
+  max-height: min(76vh, 740px);
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+.weather-effects-targets {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 8px;
+  background: inherit;
+  border-bottom: 1px solid rgba(148,163,184,.25);
+}
+
+.weather-effects-target,
+.weather-effects-auto {
+  min-height: 34px;
+  padding: 7px 9px;
+  border: 1px solid rgba(148,163,184,.42);
+  border-radius: 9px;
+  background: rgba(255,255,255,.08);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.weather-effects-target.is-active {
+  border-color: currentColor;
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.weather-effects-auto {
+  width: calc(100% - 16px);
+  margin: 7px 8px 5px;
+}
+
+.weather-effects-list {
+  display: grid;
 }
 
 .weather-effects-item {
@@ -143,4 +214,21 @@ body.weather-scene-no-room #startWeatherScene {
 
 body.weather-scene-no-room .start-weather-scene-large {
   display: none !important;
+}
+
+@media (max-width: 620px) {
+  .start-weather-scene-info {
+    left: 3%;
+    right: 3%;
+    bottom: 5%;
+    gap: 5px;
+  }
+
+  .start-weather-live-clock {
+    font-size: clamp(12px, 3.6vw, 18px);
+  }
+
+  .start-weather-scene-location {
+    font-size: clamp(10px, 2.7vw, 14px);
+  }
 }
