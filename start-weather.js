@@ -7,6 +7,7 @@
   const CONTROL_ID = "weatherEffectsWrap";
   const BARS_ID = "publicWeatherBars";
   const WEATHER_CONFIG_FILE = "Weer.json";
+  const TIME_ZONE = "Europe/Amsterdam";
 
   const DEFAULTS = Object.freeze([
     Object.freeze({ name: "Rotterdam", latitude: 51.9225, longitude: 4.47917 }),
@@ -45,10 +46,13 @@
   if (!app) return;
 
   let refreshTimer = 0;
+  let clockTimer = 0;
   let weatherConfigPromise = null;
   let weatherAssets = [];
   let weatherById = new Map();
   let activeEffect = "zwaar-bewolkt";
+  let manualTarget = 0;
+  const manualEffects = [null, null];
   const liveWeather = [null, null];
 
   function isPublicStart() {
@@ -112,6 +116,43 @@
       minimumFractionDigits: digits,
       maximumFractionDigits: digits
     }).format(number);
+  }
+
+  function amsterdamClockParts() {
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat("nl-NL", {
+      timeZone: TIME_ZONE,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23"
+    }).formatToParts(now);
+    const read = (type) => parts.find((part) => part.type === type)?.value || "00";
+
+    let zone = "CET";
+    try {
+      const offsetParts = new Intl.DateTimeFormat("en-GB", {
+        timeZone: TIME_ZONE,
+        timeZoneName: "shortOffset"
+      }).formatToParts(now);
+      const offset = offsetParts.find((part) => part.type === "timeZoneName")?.value || "";
+      if (/GMT\+2(?:\D|$)/.test(offset)) zone = "CEST";
+    } catch (_) {}
+
+    return { time: `${read("hour")}:${read("minute")}:${read("second")}`, zone };
+  }
+
+  function updateWeatherClock() {
+    const { time, zone } = amsterdamClockParts();
+    document.querySelectorAll("[data-weather-live-clock]").forEach((node) => {
+      node.textContent = `${time} ${zone}`;
+    });
+  }
+
+  function startClock() {
+    updateWeatherClock();
+    clearInterval(clockTimer);
+    clockTimer = window.setInterval(updateWeatherClock, 1000);
   }
 
   function chooseWeatherEffect(current = {}) {
@@ -216,19 +257,36 @@
       "cloud_cover",
       "visibility"
     ].join(","));
-    url.searchParams.set("timezone", "Europe/Amsterdam");
+    url.searchParams.set("timezone", TIME_ZONE);
     url.searchParams.set("forecast_days", "1");
     const response = await fetch(url.toString(), { cache: "no-store" });
     if (!response.ok) throw new Error(`Weather HTTP ${response.status}`);
     return response.json();
   }
 
-  function scenePanelMarkup(effectId, locationName = "") {
+  function scenePanelMarkup(effectId) {
     const asset = assetById(effectId);
     return `
       <div class="start-weather-scene-sky" data-weather-effect="${escapeHtml(asset.id)}">
         <img class="start-weather-scene-image" src="${escapeHtml(assetUrl(asset))}" alt="" aria-hidden="true">
-        ${locationName ? `<strong class="start-weather-scene-location">${escapeHtml(locationName)}</strong>` : ""}
+      </div>`;
+  }
+
+  function sceneInfoMarkup(split) {
+    if (!split) {
+      return `
+        <div class="start-weather-scene-info is-single">
+          <span></span>
+          <strong class="start-weather-live-clock" data-weather-live-clock>00:00:00 CEST</strong>
+          <span></span>
+        </div>`;
+    }
+
+    return `
+      <div class="start-weather-scene-info is-split">
+        <strong class="start-weather-scene-location is-left">${escapeHtml(readLocation(0).name)}</strong>
+        <strong class="start-weather-live-clock" data-weather-live-clock>00:00:00 CEST</strong>
+        <strong class="start-weather-scene-location is-right">${escapeHtml(readLocation(1).name)}</strong>
       </div>`;
   }
 
@@ -239,48 +297,63 @@
     scene.id = SCENE_ID;
     scene.className = "start-weather-scene-large roster-only-start";
     scene.setAttribute("aria-hidden", "true");
-    scene.innerHTML = scenePanelMarkup(activeEffect);
+    scene.innerHTML = `${scenePanelMarkup(activeEffect)}${sceneInfoMarkup(false)}`;
     document.body.appendChild(scene);
+    updateWeatherClock();
     return scene;
   }
 
-  function markActiveWeatherButton(effectId) {
+  function effectiveEffect(index) {
+    return manualEffects[index] || liveWeather[index]?.effect || activeEffect;
+  }
+
+  function markActiveWeatherButton() {
     document.querySelectorAll("[data-weather-effect]").forEach((button) => {
-      button.classList.toggle("is-active", !!effectId && button.dataset.weatherEffect === effectId);
+      const selected = manualEffects[manualTarget];
+      button.classList.toggle("is-active", !!selected && button.dataset.weatherEffect === selected);
+    });
+    document.querySelectorAll("[data-weather-target]").forEach((button) => {
+      button.classList.toggle("is-active", Number(button.dataset.weatherTarget) === manualTarget);
+      button.setAttribute("aria-pressed", String(Number(button.dataset.weatherTarget) === manualTarget));
     });
   }
 
   function renderLiveWeatherScene() {
     if (!liveWeather[0] || !liveWeather[1]) return;
     const scene = ensureScene();
-    const first = liveWeather[0];
-    const second = liveWeather[1];
-    const sameEffect = first.effect === second.effect;
+    const firstEffect = effectiveEffect(0);
+    const secondEffect = effectiveEffect(1);
+    const sameEffect = firstEffect === secondEffect;
 
     scene.dataset.weatherMode = sameEffect ? "single" : "split";
     if (sameEffect) {
-      scene.innerHTML = scenePanelMarkup(first.effect);
-      activeEffect = first.effect;
-      markActiveWeatherButton(first.effect);
-      return;
+      scene.innerHTML = `${scenePanelMarkup(firstEffect)}${sceneInfoMarkup(false)}`;
+      activeEffect = firstEffect;
+    } else {
+      scene.innerHTML = `
+        <div class="start-weather-scene-split">
+          ${scenePanelMarkup(firstEffect)}
+          ${scenePanelMarkup(secondEffect)}
+        </div>
+        ${sceneInfoMarkup(true)}`;
     }
-
-    scene.innerHTML = `
-      <div class="start-weather-scene-split">
-        ${scenePanelMarkup(first.effect, readLocation(0).name)}
-        ${scenePanelMarkup(second.effect, readLocation(1).name)}
-      </div>`;
-    markActiveWeatherButton("");
+    markActiveWeatherButton();
+    updateWeatherClock();
   }
 
-  async function setWeatherEffect(effectId) {
+  async function setWeatherEffect(effectId, targetIndex = manualTarget) {
     await loadWeatherConfig();
+    const target = Number(targetIndex) === 1 ? 1 : 0;
     const asset = assetById(effectId);
-    activeEffect = asset.id;
-    const scene = ensureScene();
-    scene.dataset.weatherMode = "manual";
-    scene.innerHTML = scenePanelMarkup(asset.id);
-    markActiveWeatherButton(asset.id);
+    manualTarget = target;
+    manualEffects[target] = asset.id;
+    renderLiveWeatherScene();
+  }
+
+  function restoreAutomaticEffect(targetIndex = manualTarget) {
+    const target = Number(targetIndex) === 1 ? 1 : 0;
+    manualEffects[target] = null;
+    renderLiveWeatherScene();
   }
 
   function weatherMenuItemsMarkup() {
@@ -310,7 +383,14 @@
         Weer-effecten <span aria-hidden="true">▾</span>
       </button>
       <div id="weatherEffectsMenu" class="weather-effects-menu" role="menu" hidden>
-        ${weatherMenuItemsMarkup()}
+        <div class="weather-effects-targets" role="group" aria-label="Kies locatie voor handmatig weer-effect">
+          <button type="button" class="weather-effects-target" data-weather-target="0" aria-pressed="true">Locatie 1</button>
+          <button type="button" class="weather-effects-target" data-weather-target="1" aria-pressed="false">Locatie 2</button>
+        </div>
+        <button type="button" class="weather-effects-auto" data-weather-auto="true">↺ Actueel weer herstellen</button>
+        <div class="weather-effects-list">
+          ${weatherMenuItemsMarkup()}
+        </div>
       </div>`;
 
     const video = document.getElementById("videoLibraryWrap");
@@ -324,21 +404,38 @@
       const open = menu.hidden;
       menu.hidden = !open;
       button.setAttribute("aria-expanded", String(open));
+      markActiveWeatherButton();
     });
+
     menu?.addEventListener("click", async (event) => {
       event.stopPropagation();
+
+      const targetButton = event.target.closest?.("[data-weather-target]");
+      if (targetButton) {
+        manualTarget = Number(targetButton.dataset.weatherTarget) === 1 ? 1 : 0;
+        markActiveWeatherButton();
+        return;
+      }
+
+      if (event.target.closest?.("[data-weather-auto]")) {
+        restoreAutomaticEffect(manualTarget);
+        markActiveWeatherButton();
+        return;
+      }
+
       const item = event.target.closest?.("[data-weather-effect]");
       if (!item) return;
-      await setWeatherEffect(item.dataset.weatherEffect);
-      menu.hidden = true;
-      button.setAttribute("aria-expanded", "false");
+      await setWeatherEffect(item.dataset.weatherEffect, manualTarget);
+      markActiveWeatherButton();
     });
+
     document.addEventListener("click", (event) => {
       if (wrap && !wrap.contains(event.target)) {
         menu.hidden = true;
         button.setAttribute("aria-expanded", "false");
       }
     });
+    markActiveWeatherButton();
     return wrap;
   }
 
@@ -400,6 +497,7 @@
         }
         saveLocation(index, location);
         liveWeather[index] = null;
+        manualEffects[index] = null;
         const name = card?.querySelector("[data-weather-location]");
         if (name) name.textContent = location.name;
         edit.setAttribute("aria-label", `Locatie ${location.name} aanpassen`);
@@ -433,7 +531,7 @@
     set("[data-weather-wind]", `${formatNumber(current.wind_speed_10m)} km/u`);
     set("[data-weather-rain]", `${formatNumber(current.precipitation, 1)} mm`);
     const note = card.querySelector("[data-weather-note]");
-    if (note) note.textContent = `Bijgewerkt ${new Date().toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })} · Open-Meteo`;
+    if (note) note.textContent = `Bijgewerkt ${new Date().toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", timeZone: TIME_ZONE })} · Open-Meteo`;
 
     liveWeather[index] = { effect: asset.id };
     renderLiveWeatherScene();
@@ -464,6 +562,7 @@
     if (!isPublicStart()) return;
     await loadWeatherConfig();
     ensureScene();
+    startClock();
     await ensureWeatherControl();
     if (!ensureWeatherBars()) return;
     refreshAll();
@@ -482,6 +581,11 @@
   window.RoosterStartWeather = Object.freeze({
     refresh: refreshAll,
     setEffect: setWeatherEffect,
+    setTarget(index) {
+      manualTarget = Number(index) === 1 ? 1 : 0;
+      markActiveWeatherButton();
+    },
+    restoreAutomatic: restoreAutomaticEffect,
     syncLive: renderLiveWeatherScene,
     reloadConfig: () => loadWeatherConfig(true),
     effects: () => weatherAssets.map((item) => ({ id: item.id, label: item.naam, automatisch: item.automatisch }))
