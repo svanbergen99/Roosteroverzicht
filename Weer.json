@@ -1,0 +1,31 @@
+{
+  "versie": 1,
+  "beschrijving": "Weerafbeeldingen voor de openbare startpagina. Automatische items kunnen door actuele Open-Meteo-data worden gekozen; Geen 1 t/m Geen 4 zijn alleen handmatig testbaar.",
+  "afbeeldingen": [
+    { "id": "heldere-zon", "naam": "Heldere zon", "bestand": "01_heldere_zon.png", "automatisch": true },
+    { "id": "half-bewolkt", "naam": "Half bewolkt", "bestand": "02_half_bewolkt.png", "automatisch": true },
+    { "id": "zwaar-bewolkt", "naam": "Zwaar bewolkt", "bestand": "03_zwaar_bewolkt.png", "automatisch": true },
+    { "id": "betrokken", "naam": "Betrokken", "bestand": "04_betrokken.png", "automatisch": true },
+    { "id": "motregen", "naam": "Motregen", "bestand": "05_motregen.png", "automatisch": true },
+    { "id": "lichte-regen", "naam": "Lichte regen", "bestand": "06_lichte_regen.png", "automatisch": true },
+    { "id": "zware-regen", "naam": "Zware regen", "bestand": "07_zware_regen.png", "automatisch": true },
+    { "id": "plaatselijke-regenbui", "naam": "Plaatselijke regenbui", "bestand": "08_plaatselijke_regenbui.png", "automatisch": true },
+    { "id": "onweer", "naam": "Onweer", "bestand": "09_onweer.png", "automatisch": true },
+    { "id": "hagelbui", "naam": "Hagelbui", "bestand": "10_hagelbui.png", "automatisch": true },
+    { "id": "lichte-sneeuw", "naam": "Lichte sneeuw", "bestand": "11_lichte_sneeuw.png", "automatisch": true },
+    { "id": "zware-sneeuw", "naam": "Zware sneeuw", "bestand": "12_zware_sneeuw.png", "automatisch": true },
+    { "id": "sneeuwstorm", "naam": "Sneeuwstorm", "bestand": "13_sneeuwstorm.png", "automatisch": true },
+    { "id": "natte-sneeuw", "naam": "Natte sneeuw", "bestand": "14_natte_sneeuw.png", "automatisch": true },
+    { "id": "ijzel", "naam": "IJzel", "bestand": "15_ijzel.png", "automatisch": true },
+    { "id": "dichte-mist", "naam": "Dichte mist", "bestand": "16_dichte_mist.png", "automatisch": true },
+    { "id": "nevel", "naam": "Nevel", "bestand": "17_nevel.png", "automatisch": true },
+    { "id": "harde-wind", "naam": "Harde wind", "bestand": "18_harde_wind.png", "automatisch": true },
+    { "id": "geen-1", "naam": "Geen 1", "bestand": "Geen 1.png", "automatisch": false, "origineel": "Stofstorm" },
+    { "id": "geen-2", "naam": "Geen 2", "bestand": "Geen 2.png", "automatisch": false, "origineel": "Zandstorm" },
+    { "id": "geen-3", "naam": "Geen 3", "bestand": "Geen 3.png", "automatisch": false, "origineel": "Tornado" },
+    { "id": "geen-4", "naam": "Geen 4", "bestand": "Geen 4.png", "automatisch": false, "origineel": "Orkaan" },
+    { "id": "regenboog-na-regen", "naam": "Regenboog na regen", "bestand": "23_regenboog_na_regen.png", "automatisch": true },
+    { "id": "hittegolf", "naam": "Hittegolf", "bestand": "24_hittegolf.png", "automatisch": true },
+    { "id": "strenge-vorst", "naam": "Strenge vorst", "bestand": "25_strenge_vorst.png", "automatisch": true }
+  ]
+}
