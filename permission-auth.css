@@ -32,6 +32,38 @@ body.permission-auth-enabled .search-message { display: none !important; }
 .permission-auth-back:hover { background: var(--soft-accent); }
 .permission-auth-error { min-height: 20px; margin-top: 12px; color: var(--danger); font-size: 14px; font-weight: 700; }
 .permission-auth-card .full-button { margin-top: 20px; }
+.permission-auth-name-field { position: relative; }
+.permission-auth-name-suggestions {
+  position: absolute;
+  z-index: 100;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  max-height: 286px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid #d5dce5;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 16px 38px rgba(15, 23, 42, .18);
+}
+.permission-auth-name-option {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 10px 11px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  font-weight: 700;
+}
+.permission-auth-name-option:hover,
+.permission-auth-name-option.is-active {
+  background: var(--soft-accent);
+  color: var(--accent-dark);
+}
 .manager-colleagues-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -41,10 +73,14 @@ body.permission-auth-enabled .search-message { display: none !important; }
   width: 100%;
   min-height: 46px;
 }
-html[data-theme="dark"] .permission-auth-team-select {
+html[data-theme="dark"] .permission-auth-team-select,
+html[data-theme="dark"] .permission-auth-name-suggestions {
   background: #1c2530;
   color: #f2f4f7;
   border-color: #46515f;
 }
+html[data-theme="dark"] .permission-auth-name-option { color: #f2f4f7; }
+html[data-theme="dark"] .permission-auth-name-option:hover,
+html[data-theme="dark"] .permission-auth-name-option.is-active { background: #2b202c; color: #e9b0e2; }
 html[data-theme="dark"] .permission-auth-back { background: #1c2530; color: #e9b0e2; border-color: #46515f; }
 html[data-theme="dark"] .permission-auth-back:hover { background: #2b202c; }
