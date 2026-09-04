@@ -13,12 +13,6 @@
   display: none !important;
 }
 
-/* Verjaardagvideo is uitsluitend automatisch beschikbaar op de opgeslagen datum. */
-[data-auto-only-video="birthday"],
-.video-library-group.is-auto-only-video-group {
-  display: none !important;
-}
-
 .birthday-profile-control {
   width: auto !important;
   min-height: 40px !important;
@@ -96,6 +90,18 @@
   font-weight: 800;
 }
 
+.birthday-profile-storage-note {
+  margin-top: 2px;
+  padding: 9px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
 .birthday-profile-actions {
   display: flex;
   justify-content: flex-end;
@@ -123,8 +129,12 @@ html[data-theme="dark"] .birthday-profile-control {
   color: #f8fafc !important;
 }
 
-/* Payday-tekst en geldregen moeten altijd vóór de video en de overige effecten staan.
-   De extra html-specificiteit zorgt dat dit ook de later geïnjecteerde fullscreen-CSS wint. */
+html[data-theme="dark"] .birthday-profile-storage-note {
+  border-color: #465263;
+  background: #1f2937;
+}
+
+/* Payday-tekst en geldregen moeten altijd vóór de video en de overige effecten staan. */
 html #paydayEffectOverlay {
   z-index: 10620 !important;
 }
