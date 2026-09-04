@@ -128,15 +128,21 @@
     return /(?:^|\/)payday\.mp4(?:[?#]|$)/i.test(String(path || ""));
   }
 
-  function removeManualBirthdayEffectButton() {
-    document.querySelectorAll('[data-effect="birthday"]').forEach((item) => item.remove());
+  // Oude versies verborgen de verjaardagvideo voor handmatige bediening.
+  // Ruim zulke legacy-markeringen op zodat Verjaardag.mp4 altijd testbaar blijft.
+  function restoreBirthdayTestVisibility() {
+    for (const item of document.querySelectorAll("[data-video-path]")) {
+      if (!isBirthdayVideoPath(item.dataset.videoPath || "")) continue;
+      if (item.hasAttribute("data-auto-only-video")) item.removeAttribute("data-auto-only-video");
+      item.closest(".video-library-group")?.classList.remove("is-auto-only-video-group");
+    }
   }
 
   async function findVideoButton(matcher, timeoutMs = 6500) {
     const started = Date.now();
     let refreshed = false;
     while (Date.now() - started < timeoutMs) {
-      removeManualBirthdayEffectButton();
+      restoreBirthdayTestVisibility();
       const button = [...document.querySelectorAll("[data-video-path]")]
         .find((item) => matcher(item.dataset.videoPath || ""));
       if (button) return button;
@@ -268,6 +274,8 @@
     button.title = formatted ? "Verjaardag wijzigen" : "Verjaardag instellen";
   }
 
+  // AUTOMATISCHE REGEL: alleen voor de geselecteerde collega en alleen als
+  // diens opgeslagen verjaardag exact overeenkomt met vandaag.
   async function maybePlayBirthday(name) {
     if (!name) return;
     await loadCentralBirthdays();
@@ -310,17 +318,11 @@
     }
   }
 
-  document.addEventListener("click", (event) => {
-    const effect = event.target.closest?.('[data-effect="birthday"]');
-    if (!effect) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-  }, true);
-
-  const observer = new MutationObserver(removeManualBirthdayEffectButton);
+  // Alleen oude verborgen videomarkeringen opruimen. Het Effecten-menu wordt
+  // hier bewust niet aangepast: Verjaardag blijft zichtbaar voor handmatige tests.
+  const observer = new MutationObserver(restoreBirthdayTestVisibility);
   observer.observe(document.documentElement, { childList: true, subtree: true });
-  removeManualBirthdayEffectButton();
-  loadCentralBirthdays();
+  restoreBirthdayTestVisibility();
 
   window.addEventListener("rooster-employee-selected", () => requestAnimationFrame(handleEmployeeSelected));
   window.addEventListener("salary-payments-ready", () => window.setTimeout(maybePlayPayday, 250));
