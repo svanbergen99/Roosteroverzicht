@@ -1,3 +1,18 @@
+/* Videoformaat en videolengte zijn niet meer aanpasbaar. */
+#videoLibraryPlayerSection {
+  resize: none !important;
+}
+
+#videoLibraryPlayerSection .video-library-size-save,
+#videoLibraryPlayerSection [data-video-window-save],
+#videoLibraryPlayerSection .video-library-trim-control,
+#videoLibraryPlayerSection .video-library-trim-actions,
+#videoLibraryPlayerSection [data-video-trim-save],
+#videoLibraryPlayerSection [data-video-preview-selection],
+#videoLibraryPlayerSection [data-video-exact-12] {
+  display: none !important;
+}
+
 /* Verjaardagvideo is uitsluitend automatisch beschikbaar op de opgeslagen datum. */
 [data-auto-only-video="birthday"],
 .video-library-group.is-auto-only-video-group {
