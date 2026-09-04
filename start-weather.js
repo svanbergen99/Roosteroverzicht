@@ -6,28 +6,49 @@
   const SCENE_ID = "startWeatherScene";
   const CONTROL_ID = "weatherEffectsWrap";
   const BARS_ID = "publicWeatherBars";
+  const WEATHER_CONFIG_FILE = "Weer.json";
 
   const DEFAULTS = Object.freeze([
     Object.freeze({ name: "Rotterdam", latitude: 51.9225, longitude: 4.47917 }),
     Object.freeze({ name: "Apeldoorn", latitude: 52.21, longitude: 5.96944 })
   ]);
 
-  const WEATHER_EFFECTS = Object.freeze({
-    sun: Object.freeze({ label: "Zon", icon: "☀️" }),
-    rain: Object.freeze({ label: "Regen", icon: "🌧️" }),
-    fog: Object.freeze({ label: "Mist", icon: "🌫️" }),
-    cloudy: Object.freeze({ label: "Bewolkt", icon: "☁️" }),
-    snow: Object.freeze({ label: "Sneeuw", icon: "🌨️" }),
-    thunder: Object.freeze({ label: "Onweer", icon: "⛈️" }),
-    wind: Object.freeze({ label: "Wind", icon: "💨" }),
-    rainbow: Object.freeze({ label: "Regenboog", icon: "🌈" })
-  });
+  const FALLBACK_ASSETS = Object.freeze([
+    { id: "heldere-zon", naam: "Heldere zon", bestand: "01_heldere_zon.png", automatisch: true },
+    { id: "half-bewolkt", naam: "Half bewolkt", bestand: "02_half_bewolkt.png", automatisch: true },
+    { id: "zwaar-bewolkt", naam: "Zwaar bewolkt", bestand: "03_zwaar_bewolkt.png", automatisch: true },
+    { id: "betrokken", naam: "Betrokken", bestand: "04_betrokken.png", automatisch: true },
+    { id: "motregen", naam: "Motregen", bestand: "05_motregen.png", automatisch: true },
+    { id: "lichte-regen", naam: "Lichte regen", bestand: "06_lichte_regen.png", automatisch: true },
+    { id: "zware-regen", naam: "Zware regen", bestand: "07_zware_regen.png", automatisch: true },
+    { id: "plaatselijke-regenbui", naam: "Plaatselijke regenbui", bestand: "08_plaatselijke_regenbui.png", automatisch: true },
+    { id: "onweer", naam: "Onweer", bestand: "09_onweer.png", automatisch: true },
+    { id: "hagelbui", naam: "Hagelbui", bestand: "10_hagelbui.png", automatisch: true },
+    { id: "lichte-sneeuw", naam: "Lichte sneeuw", bestand: "11_lichte_sneeuw.png", automatisch: true },
+    { id: "zware-sneeuw", naam: "Zware sneeuw", bestand: "12_zware_sneeuw.png", automatisch: true },
+    { id: "sneeuwstorm", naam: "Sneeuwstorm", bestand: "13_sneeuwstorm.png", automatisch: true },
+    { id: "natte-sneeuw", naam: "Natte sneeuw", bestand: "14_natte_sneeuw.png", automatisch: true },
+    { id: "ijzel", naam: "IJzel", bestand: "15_ijzel.png", automatisch: true },
+    { id: "dichte-mist", naam: "Dichte mist", bestand: "16_dichte_mist.png", automatisch: true },
+    { id: "nevel", naam: "Nevel", bestand: "17_nevel.png", automatisch: true },
+    { id: "harde-wind", naam: "Harde wind", bestand: "18_harde_wind.png", automatisch: true },
+    { id: "geen-1", naam: "Geen 1", bestand: "Geen 1.png", automatisch: false },
+    { id: "geen-2", naam: "Geen 2", bestand: "Geen 2.png", automatisch: false },
+    { id: "geen-3", naam: "Geen 3", bestand: "Geen 3.png", automatisch: false },
+    { id: "geen-4", naam: "Geen 4", bestand: "Geen 4.png", automatisch: false },
+    { id: "regenboog-na-regen", naam: "Regenboog na regen", bestand: "23_regenboog_na_regen.png", automatisch: true },
+    { id: "hittegolf", naam: "Hittegolf", bestand: "24_hittegolf.png", automatisch: true },
+    { id: "strenge-vorst", naam: "Strenge vorst", bestand: "25_strenge_vorst.png", automatisch: true }
+  ]);
 
   const app = document.getElementById("app");
   if (!app) return;
 
   let refreshTimer = 0;
-  let activeEffect = "cloudy";
+  let weatherConfigPromise = null;
+  let weatherAssets = [];
+  let weatherById = new Map();
+  let activeEffect = "zwaar-bewolkt";
   const liveWeather = [null, null];
 
   function isPublicStart() {
@@ -43,6 +64,47 @@
       .replaceAll("'", "&#039;");
   }
 
+  function assetUrl(asset) {
+    return encodeURI(String(asset?.bestand || ""));
+  }
+
+  function normalizeAssets(items) {
+    return (Array.isArray(items) ? items : [])
+      .map((item) => ({
+        id: String(item?.id || "").trim(),
+        naam: String(item?.naam || "").trim(),
+        bestand: String(item?.bestand || "").trim(),
+        automatisch: item?.automatisch !== false,
+        origineel: String(item?.origineel || "").trim()
+      }))
+      .filter((item) => item.id && item.naam && item.bestand);
+  }
+
+  async function loadWeatherConfig(force = false) {
+    if (weatherConfigPromise && !force) return weatherConfigPromise;
+    weatherConfigPromise = (async () => {
+      let items = [];
+      try {
+        const response = await fetch(`${WEATHER_CONFIG_FILE}?v=${Date.now()}`, { cache: "no-store" });
+        if (!response.ok) throw new Error(`Weer.json HTTP ${response.status}`);
+        const data = await response.json();
+        items = normalizeAssets(data?.afbeeldingen);
+      } catch (error) {
+        console.warn("Weer.json kon niet worden geladen; lokale fallback wordt gebruikt.", error);
+      }
+
+      weatherAssets = items.length ? items : normalizeAssets(FALLBACK_ASSETS);
+      weatherById = new Map(weatherAssets.map((item) => [item.id, item]));
+      if (!weatherById.has(activeEffect)) activeEffect = weatherAssets[0]?.id || "zwaar-bewolkt";
+      return weatherAssets;
+    })();
+    return weatherConfigPromise;
+  }
+
+  function assetById(id) {
+    return weatherById.get(String(id || "")) || weatherAssets[0] || FALLBACK_ASSETS[0];
+  }
+
   function formatNumber(value, digits = 0) {
     const number = Number(value);
     if (!Number.isFinite(number)) return "–";
@@ -52,22 +114,57 @@
     }).format(number);
   }
 
-  function currentWeatherInfo(current = {}) {
+  function chooseWeatherEffect(current = {}) {
     const code = Number(current.weather_code);
-    const windSpeed = Number(current.wind_speed_10m);
+    const temperature = Number(current.temperature_2m);
+    const wind = Number(current.wind_speed_10m);
+    const precipitation = Number(current.precipitation);
+    const cloudCover = Number(current.cloud_cover);
+    const visibility = Number(current.visibility);
 
-    if ([95, 96, 99].includes(code)) return { label: "Onweer", icon: "⛈️", effect: "thunder" };
-    if ([71, 73, 75, 77, 85, 86].includes(code)) return { label: "Sneeuw", icon: "🌨️", effect: "snow" };
-    if ([51, 53, 55, 56, 57].includes(code)) return { label: "Motregen", icon: "🌦️", effect: "rain" };
-    if ([61, 63, 65, 66, 67].includes(code)) return { label: "Regen", icon: "🌧️", effect: "rain" };
-    if ([80, 81, 82].includes(code)) return { label: "Regenbuien", icon: "🌦️", effect: "rain" };
-    if (code === 45 || code === 48) return { label: "Mist", icon: "🌫️", effect: "fog" };
-    if (Number.isFinite(windSpeed) && windSpeed >= 50) return { label: "Harde wind", icon: "💨", effect: "wind" };
-    if (code === 0) return { label: "Onbewolkt", icon: "☀️", effect: "sun" };
-    if (code === 1) return { label: "Overwegend zonnig", icon: "🌤️", effect: "sun" };
-    if (code === 2) return { label: "Half bewolkt", icon: "⛅", effect: "cloudy" };
-    if (code === 3) return { label: "Bewolkt", icon: "☁️", effect: "cloudy" };
-    return { label: "Wisselend bewolkt", icon: "🌥️", effect: "cloudy" };
+    if (code === 96 || code === 99) return "hagelbui";
+    if (code === 95) return "onweer";
+
+    if ([71, 73, 75, 77, 85, 86].includes(code)) {
+      if (Number.isFinite(wind) && wind >= 50) return "sneeuwstorm";
+      if (Number.isFinite(temperature) && temperature > -0.5 && temperature <= 2) return "natte-sneeuw";
+      if (code === 75 || code === 86) return "zware-sneeuw";
+      return "lichte-sneeuw";
+    }
+
+    if ([56, 57, 66, 67].includes(code)) return "ijzel";
+    if ([51, 53, 55].includes(code)) return "motregen";
+    if (code === 65) return "zware-regen";
+    if (code === 61 || code === 63) return "lichte-regen";
+
+    if ([80, 81, 82].includes(code)) {
+      if (Number.isFinite(cloudCover) && cloudCover <= 60 && Number.isFinite(precipitation) && precipitation > 0) {
+        return "regenboog-na-regen";
+      }
+      return "plaatselijke-regenbui";
+    }
+
+    if (code === 45 || code === 48) {
+      if (Number.isFinite(visibility) && visibility <= 1000) return "dichte-mist";
+      return "nevel";
+    }
+
+    if (Number.isFinite(temperature) && temperature >= 30) return "hittegolf";
+    if (Number.isFinite(temperature) && temperature <= -10) return "strenge-vorst";
+    if (Number.isFinite(wind) && wind >= 50) return "harde-wind";
+
+    if (code === 0) return "heldere-zon";
+    if (code === 1) return Number.isFinite(cloudCover) && cloudCover > 20 ? "half-bewolkt" : "heldere-zon";
+    if (code === 2) return "half-bewolkt";
+    if (code === 3) return Number.isFinite(cloudCover) && cloudCover >= 95 ? "betrokken" : "zwaar-bewolkt";
+
+    if (Number.isFinite(cloudCover)) {
+      if (cloudCover < 20) return "heldere-zon";
+      if (cloudCover < 70) return "half-bewolkt";
+      if (cloudCover < 95) return "zwaar-bewolkt";
+      return "betrokken";
+    }
+    return "zwaar-bewolkt";
   }
 
   function locationKey(index) {
@@ -115,7 +212,9 @@
       "relative_humidity_2m",
       "precipitation",
       "weather_code",
-      "wind_speed_10m"
+      "wind_speed_10m",
+      "cloud_cover",
+      "visibility"
     ].join(","));
     url.searchParams.set("timezone", "Europe/Amsterdam");
     url.searchParams.set("forecast_days", "1");
@@ -124,11 +223,11 @@
     return response.json();
   }
 
-  function scenePanelMarkup(effect, locationName = "") {
-    const item = WEATHER_EFFECTS[effect] || WEATHER_EFFECTS.cloudy;
+  function scenePanelMarkup(effectId, locationName = "") {
+    const asset = assetById(effectId);
     return `
-      <div class="start-weather-scene-sky" data-weather-effect="${effect}">
-        <span class="start-weather-scene-icon" aria-hidden="true">${item.icon}</span>
+      <div class="start-weather-scene-sky" data-weather-effect="${escapeHtml(asset.id)}">
+        <img class="start-weather-scene-image" src="${escapeHtml(assetUrl(asset))}" alt="" aria-hidden="true">
         ${locationName ? `<strong class="start-weather-scene-location">${escapeHtml(locationName)}</strong>` : ""}
       </div>`;
   }
@@ -140,14 +239,14 @@
     scene.id = SCENE_ID;
     scene.className = "start-weather-scene-large roster-only-start";
     scene.setAttribute("aria-hidden", "true");
-    scene.innerHTML = scenePanelMarkup("cloudy");
+    scene.innerHTML = scenePanelMarkup(activeEffect);
     document.body.appendChild(scene);
     return scene;
   }
 
-  function markActiveWeatherButton(effect) {
+  function markActiveWeatherButton(effectId) {
     document.querySelectorAll("[data-weather-effect]").forEach((button) => {
-      button.classList.toggle("is-active", !!effect && button.dataset.weatherEffect === effect);
+      button.classList.toggle("is-active", !!effectId && button.dataset.weatherEffect === effectId);
     });
   }
 
@@ -174,16 +273,26 @@
     markActiveWeatherButton("");
   }
 
-  function setWeatherEffect(effect) {
-    const chosen = WEATHER_EFFECTS[effect] ? effect : "cloudy";
-    activeEffect = chosen;
+  async function setWeatherEffect(effectId) {
+    await loadWeatherConfig();
+    const asset = assetById(effectId);
+    activeEffect = asset.id;
     const scene = ensureScene();
     scene.dataset.weatherMode = "manual";
-    scene.innerHTML = scenePanelMarkup(chosen);
-    markActiveWeatherButton(chosen);
+    scene.innerHTML = scenePanelMarkup(asset.id);
+    markActiveWeatherButton(asset.id);
   }
 
-  function ensureWeatherControl(attempt = 0) {
+  function weatherMenuItemsMarkup() {
+    return weatherAssets.map((item) => `
+      <button type="button" class="weather-effects-item" data-weather-effect="${escapeHtml(item.id)}" role="menuitem">
+        <img class="weather-effects-thumb" src="${escapeHtml(assetUrl(item))}" alt="" aria-hidden="true">
+        <span>${escapeHtml(item.naam)}</span>
+      </button>`).join("");
+  }
+
+  async function ensureWeatherControl(attempt = 0) {
+    await loadWeatherConfig();
     let wrap = document.getElementById(CONTROL_ID);
     if (wrap) return wrap;
     const shell = document.getElementById("backgroundBrightnessBar");
@@ -201,10 +310,7 @@
         Weer-effecten <span aria-hidden="true">▾</span>
       </button>
       <div id="weatherEffectsMenu" class="weather-effects-menu" role="menu" hidden>
-        ${Object.entries(WEATHER_EFFECTS).map(([id, item]) => `
-          <button type="button" class="weather-effects-item" data-weather-effect="${id}" role="menuitem">
-            <span aria-hidden="true">${item.icon}</span><span>${item.label}</span>
-          </button>`).join("")}
+        ${weatherMenuItemsMarkup()}
       </div>`;
 
     const video = document.getElementById("videoLibraryWrap");
@@ -219,11 +325,11 @@
       menu.hidden = !open;
       button.setAttribute("aria-expanded", String(open));
     });
-    menu?.addEventListener("click", (event) => {
+    menu?.addEventListener("click", async (event) => {
       event.stopPropagation();
       const item = event.target.closest?.("[data-weather-effect]");
       if (!item) return;
-      setWeatherEffect(item.dataset.weatherEffect);
+      await setWeatherEffect(item.dataset.weatherEffect);
       menu.hidden = true;
       button.setAttribute("aria-expanded", "false");
     });
@@ -240,7 +346,7 @@
     return `
       <article class="public-weather-card" data-weather-card="${index}">
         <div class="public-weather-summary">
-          <span class="public-weather-icon" data-weather-icon aria-hidden="true">🌤️</span>
+          <span class="public-weather-icon" data-weather-icon aria-hidden="true"></span>
           <div class="public-weather-copy">
             <small>Actueel weer</small>
             <div class="public-weather-mainline">
@@ -310,14 +416,17 @@
     const card = document.querySelector(`[data-weather-card="${index}"]`);
     if (!card) return;
     const current = data?.current || {};
-    const info = currentWeatherInfo(current);
+    const effect = chooseWeatherEffect(current);
+    const asset = assetById(effect);
     const set = (selector, value) => {
       const node = card.querySelector(selector);
       if (node) node.textContent = value;
     };
-    set("[data-weather-icon]", info.icon);
+
+    const icon = card.querySelector("[data-weather-icon]");
+    if (icon) icon.innerHTML = `<img src="${escapeHtml(assetUrl(asset))}" alt="" aria-hidden="true">`;
     set("[data-weather-temperature]", `${formatNumber(current.temperature_2m)}°`);
-    set("[data-weather-condition]", info.label);
+    set("[data-weather-condition]", asset.naam);
     set("[data-weather-location]", readLocation(index).name);
     set("[data-weather-feels]", `${formatNumber(current.apparent_temperature)} °C`);
     set("[data-weather-humidity]", `${formatNumber(current.relative_humidity_2m)}%`);
@@ -326,16 +435,13 @@
     const note = card.querySelector("[data-weather-note]");
     if (note) note.textContent = `Bijgewerkt ${new Date().toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })} · Open-Meteo`;
 
-    liveWeather[index] = {
-      effect: info.effect,
-      label: info.label,
-      icon: info.icon
-    };
+    liveWeather[index] = { effect: asset.id };
     renderLiveWeatherScene();
   }
 
   async function loadCard(index) {
     if (!isPublicStart()) return;
+    await loadWeatherConfig();
     const card = document.querySelector(`[data-weather-card="${index}"]`);
     const condition = card?.querySelector("[data-weather-condition]");
     if (condition) condition.textContent = "Laden…";
@@ -354,10 +460,11 @@
     loadCard(1);
   }
 
-  function start() {
+  async function start() {
     if (!isPublicStart()) return;
+    await loadWeatherConfig();
     ensureScene();
-    ensureWeatherControl();
+    await ensureWeatherControl();
     if (!ensureWeatherBars()) return;
     refreshAll();
     clearInterval(refreshTimer);
@@ -368,7 +475,7 @@
   }
 
   window.addEventListener("rooster-unlocked", (event) => {
-    if (event?.detail?.publicPortal) requestAnimationFrame(start);
+    if (event?.detail?.publicPortal) requestAnimationFrame(() => start());
   });
   if (isPublicStart()) start();
 
@@ -376,6 +483,7 @@
     refresh: refreshAll,
     setEffect: setWeatherEffect,
     syncLive: renderLiveWeatherScene,
-    effects: () => Object.entries(WEATHER_EFFECTS).map(([id, item]) => ({ id, label: item.label }))
+    reloadConfig: () => loadWeatherConfig(true),
+    effects: () => weatherAssets.map((item) => ({ id: item.id, label: item.naam, automatisch: item.automatisch }))
   });
 })();
