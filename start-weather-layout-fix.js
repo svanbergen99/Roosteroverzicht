@@ -6,6 +6,7 @@
   const BODY_NO_ROOM_CLASS = "weather-scene-no-room";
   const GAP = 12;
   const MIN_SIZE = 220;
+  const WEATHER_TOP_OFFSET = 90;
   const HEADER_CLOCK_ID = "startHeaderClock";
   let normalizingScene = false;
 
@@ -157,10 +158,10 @@
     }
     if (noRoom) return;
 
-    // Eén transparante positioneringslaag over de paginabreedte. Daarin staat
-    // Locatie 1 uitsluitend links van de startpagina en Locatie 2 uitsluitend rechts.
+    // De weerscènes staan iets hoger dan Externe Websites zodat de locatienaam
+    // onderaan het effect ook bij volledig omhoog scrollen direct zichtbaar blijft.
     scene.style.left = "0px";
-    scene.style.top = `${Math.round(window.scrollY + externalRect.top)}px`;
+    scene.style.top = `${Math.max(0, Math.round(window.scrollY + externalRect.top - WEATHER_TOP_OFFSET))}px`;
     scene.style.width = `${viewportWidth}px`;
     scene.style.height = `${Math.max(leftSize, rightSize)}px`;
     scene.style.setProperty("--weather-left-size", `${leftSize}px`);
