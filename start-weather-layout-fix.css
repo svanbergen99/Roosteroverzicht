@@ -7,8 +7,7 @@ body.weather-scene-no-room #startWeatherScene {
 }
 
 /* Het grote weerbeeld staat vast IN de pagina-layout, niet vast aan de viewport.
-   start-weather-layout-fix.js zet het exact in de vrije linker ruimte naast
-   Externe websites. Daardoor scrollt het normaal met de pagina mee omhoog. */
+   Het positioneringsvak is onzichtbaar: alleen de transparante PNG zelf is zichtbaar. */
 .start-weather-scene-large {
   position: absolute !important;
   right: auto !important;
@@ -16,11 +15,11 @@ body.weather-scene-no-room #startWeatherScene {
   aspect-ratio: 1 / 1;
   pointer-events: none;
   overflow: hidden;
-  border: 1px solid rgba(255,255,255,.78);
-  border-radius: 24px;
-  background: rgba(226,232,240,.92);
-  box-shadow: 0 24px 70px rgba(15,23,42,.18), inset 0 0 0 1px rgba(255,255,255,.62);
-  backdrop-filter: blur(5px);
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
 }
 
 .start-weather-scene-large > .start-weather-scene-sky,
@@ -37,10 +36,12 @@ body.weather-scene-no-room #startWeatherScene {
   overflow: hidden;
   border: 0 !important;
   border-radius: 0 !important;
+  background: transparent !important;
   box-shadow: none !important;
+  backdrop-filter: none !important;
 }
 
-/* De PNG uit Weer.json vult het volledige weerpaneel. */
+/* De transparante PNG uit Weer.json is het volledige zichtbare weer-effect. */
 .start-weather-scene-image {
   position: relative;
   z-index: 3;
@@ -49,55 +50,17 @@ body.weather-scene-no-room #startWeatherScene {
   height: 100%;
   object-fit: contain;
   object-position: center;
-  filter: drop-shadow(0 16px 24px rgba(15,23,42,.18));
+  background: transparent !important;
+  filter: drop-shadow(0 12px 20px rgba(15,23,42,.16));
 }
 
-.start-weather-scene-sky[data-weather-effect="heldere-zon"],
-.start-weather-scene-sky[data-weather-effect="hittegolf"] {
-  background: linear-gradient(180deg, #7dd3fc 0%, #fde68a 100%) !important;
-}
-.start-weather-scene-sky[data-weather-effect="half-bewolkt"] {
-  background: linear-gradient(180deg, #8bd8fb 0%, #dbeafe 100%) !important;
-}
-.start-weather-scene-sky[data-weather-effect="zwaar-bewolkt"],
-.start-weather-scene-sky[data-weather-effect="betrokken"] {
-  background: linear-gradient(180deg, #94a3b8 0%, #dbe4ee 100%) !important;
-}
-.start-weather-scene-sky[data-weather-effect="motregen"],
-.start-weather-scene-sky[data-weather-effect="lichte-regen"],
-.start-weather-scene-sky[data-weather-effect="zware-regen"],
-.start-weather-scene-sky[data-weather-effect="plaatselijke-regenbui"],
-.start-weather-scene-sky[data-weather-effect="regenboog-na-regen"] {
-  background: linear-gradient(180deg, #64748b 0%, #bfdbfe 100%) !important;
-}
-.start-weather-scene-sky[data-weather-effect="onweer"],
-.start-weather-scene-sky[data-weather-effect="hagelbui"] {
-  background: linear-gradient(180deg, #273449 0%, #7c70a8 100%) !important;
-}
-.start-weather-scene-sky[data-weather-effect="lichte-sneeuw"],
-.start-weather-scene-sky[data-weather-effect="zware-sneeuw"],
-.start-weather-scene-sky[data-weather-effect="sneeuwstorm"],
-.start-weather-scene-sky[data-weather-effect="natte-sneeuw"],
-.start-weather-scene-sky[data-weather-effect="ijzel"],
-.start-weather-scene-sky[data-weather-effect="strenge-vorst"] {
-  background: linear-gradient(180deg, #dbeafe 0%, #f8fafc 100%) !important;
-}
-.start-weather-scene-sky[data-weather-effect="dichte-mist"],
-.start-weather-scene-sky[data-weather-effect="nevel"] {
-  background: linear-gradient(180deg, #cbd5e1 0%, #f8fafc 100%) !important;
-}
-.start-weather-scene-sky[data-weather-effect="harde-wind"] {
-  background: linear-gradient(180deg, #a5f3fc 0%, #e2e8f0 100%) !important;
-}
-.start-weather-scene-sky[data-weather-effect^="geen-"] {
-  background: linear-gradient(180deg, #e2e8f0 0%, #f8fafc 100%) !important;
-}
-
-/* Verschillend weer: exact twee gelijke helften, locatie 1 links en locatie 2 rechts. */
+/* Verschillend weer: exact twee gelijke transparante helften,
+   locatie 1 links en locatie 2 rechts. */
 .start-weather-scene-split {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   overflow: hidden;
+  background: transparent !important;
 }
 
 .start-weather-scene-split .start-weather-scene-sky {
@@ -107,7 +70,7 @@ body.weather-scene-no-room #startWeatherScene {
 }
 
 .start-weather-scene-split .start-weather-scene-sky + .start-weather-scene-sky {
-  border-left: 1px solid rgba(255,255,255,.72) !important;
+  border-left: 0 !important;
 }
 
 .start-weather-scene-split .start-weather-scene-image {
@@ -144,14 +107,22 @@ body.weather-scene-no-room #startWeatherScene {
   display: none !important;
 }
 
-/* Ook de kleine actuele-weerkaart en handmatige testlijst gebruiken de PNG's uit Weer.json. */
-.public-weather-icon img {
-  display: block;
-  width: 46px;
-  height: 46px;
-  object-fit: contain;
+/* Ook in de actuele-weerbalk staat de PNG zonder gekleurde tegel erachter. */
+.public-weather-icon {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
 }
 
+.public-weather-icon img {
+  display: block;
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  background: transparent !important;
+}
+
+/* De handmatige testlijst gebruikt dezelfde transparante PNG's. */
 .weather-effects-menu {
   max-height: min(72vh, 690px);
   overflow-y: auto;
@@ -167,6 +138,7 @@ body.weather-scene-no-room #startWeatherScene {
   width: 32px;
   height: 32px;
   object-fit: contain;
+  background: transparent !important;
 }
 
 body.weather-scene-no-room .start-weather-scene-large {
