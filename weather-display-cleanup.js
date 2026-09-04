@@ -2,7 +2,7 @@
   "use strict";
 
   const TIME_ZONE = "Europe/Amsterdam";
-  const WEATHER_SELECTOR = "[data-weather-live-clock], .start-weather-scene-location, .public-weather-location";
+  const WEATHER_SELECTOR = "[data-weather-live-clock], .start-weather-scene-location, .public-weather-location, [data-digital-date-day]";
   const CLOCK_CENTER_STYLE_ID = "clockDateCenterStyle";
 
   function ensureClockDateCentering() {
@@ -51,6 +51,11 @@
     document.querySelectorAll(".start-weather-scene-location, .public-weather-location").forEach((node) => {
       const shortName = shortLocationName(node.textContent);
       if (shortName && node.textContent !== shortName) node.textContent = shortName;
+    });
+
+    document.querySelectorAll("[data-digital-date-day]").forEach((node) => {
+      const cleanDay = String(node.textContent || "").replace(/[()]/g, "").trim();
+      if (cleanDay && node.textContent !== cleanDay) node.textContent = cleanDay;
     });
   }
 
