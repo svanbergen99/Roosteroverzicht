@@ -2,21 +2,21 @@
   "use strict";
 
   const TIME_ZONE = "Europe/Amsterdam";
-  const PAYMENTS = [
-    { month: "Januari", date: "2026-01-23" },
-    { month: "Februari", date: "2026-02-23" },
-    { month: "Maart", date: "2026-03-23" },
-    { month: "April", date: "2026-04-23" },
-    { month: "Mei", date: "2026-05-22" },
-    { month: "Juni", date: "2026-06-23" },
-    { month: "Juli", date: "2026-07-23" },
-    { month: "Augustus", date: "2026-08-21" },
-    { month: "September", date: "2026-09-23" },
-    { month: "Oktober", date: "2026-10-23" },
-    { month: "November", date: "2026-11-23" },
-    { month: "December", date: "2026-12-18" },
-    { month: "Januari (2027)", date: "2027-01-22" }
-  ];
+  const PAYMENTS = Object.freeze([
+    Object.freeze({ month: "Januari", date: "2026-01-23" }),
+    Object.freeze({ month: "Februari", date: "2026-02-23" }),
+    Object.freeze({ month: "Maart", date: "2026-03-23" }),
+    Object.freeze({ month: "April", date: "2026-04-23" }),
+    Object.freeze({ month: "Mei", date: "2026-05-22" }),
+    Object.freeze({ month: "Juni", date: "2026-06-23" }),
+    Object.freeze({ month: "Juli", date: "2026-07-23" }),
+    Object.freeze({ month: "Augustus", date: "2026-08-21" }),
+    Object.freeze({ month: "September", date: "2026-09-23" }),
+    Object.freeze({ month: "Oktober", date: "2026-10-23" }),
+    Object.freeze({ month: "November", date: "2026-11-23" }),
+    Object.freeze({ month: "December", date: "2026-12-18" }),
+    Object.freeze({ month: "Januari (2027)", date: "2027-01-22" })
+  ]);
 
   const app = document.getElementById("app");
   if (!app) return;
@@ -62,6 +62,10 @@
     return PAYMENTS.find((payment) => payment.date >= today) || null;
   }
 
+  function isPaymentDate(dateKey = amsterdamDateKey()) {
+    return PAYMENTS.some((payment) => payment.date === dateKey);
+  }
+
   function visiblePayments() {
     if (showAllPayments) return PAYMENTS;
     const monthKey = currentMonthKey();
@@ -83,7 +87,7 @@
     list.innerHTML = payments.map((payment) => {
       const isNext = upcoming?.date === payment.date;
       return `
-        <div class="public-salary-row${isNext ? " is-next" : ""}">
+        <div class="public-salary-row${isNext ? " is-next" : ""}" data-salary-date="${escapeHtml(payment.date)}">
           <span class="public-salary-month">${escapeHtml(payment.month)}${isNext ? '<span class="public-salary-next-label">Volgende</span>' : ""}</span>
           <strong>${escapeHtml(formatDate(payment.date))}</strong>
         </div>`;
@@ -142,6 +146,17 @@
 
     return section;
   }
+
+  window.RoosterSalaryPayments = Object.freeze({
+    today: () => amsterdamDateKey(),
+    isPaymentDate,
+    next: () => nextPayment(),
+    all: () => PAYMENTS.map((payment) => ({ ...payment }))
+  });
+
+  window.dispatchEvent(new CustomEvent("salary-payments-ready", {
+    detail: { today: amsterdamDateKey(), isPaymentDate: isPaymentDate() }
+  }));
 
   window.addEventListener("rooster-unlocked", ensureSection);
   if (!app.hidden) ensureSection();
