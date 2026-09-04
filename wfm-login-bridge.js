@@ -77,9 +77,8 @@
     overlay.querySelector("#wfmContinueLocalButton")?.addEventListener("click", closeOverlay);
   }
 
-  window.addEventListener("rooster-unlocked", (event) => {
+  window.addEventListener("rooster-user-selected", () => {
     if (promptShown) return;
-    if (event?.detail?.publicPortal) return;
     if (!document.body.classList.contains("permission-auth-enabled")) return;
     promptShown = true;
     window.setTimeout(showBridgeStep, 0);
