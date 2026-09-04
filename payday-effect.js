@@ -5,6 +5,7 @@
   const OVERLAY_ID = "paydayEffectOverlay";
   const STYLE_ID = "paydayEffectStyle";
   const SYMBOLS = ["💶", "💰", "🪙", "💸", "€", "€", "💶", "🤑"];
+  const DISPLAY_MS = 3200;
   let stopTimer = 0;
 
   function ensureStyle() {
@@ -15,15 +16,17 @@
       #${OVERLAY_ID} {
         position: fixed;
         inset: 0;
-        z-index: 10001;
+        z-index: 2147483646;
         overflow: hidden;
         pointer-events: none;
+        isolation: isolate;
         font-family: Arial, Helvetica, sans-serif;
       }
 
       #${OVERLAY_ID} .payday-flash {
         position: absolute;
         inset: -20%;
+        z-index: 1;
         background:
           radial-gradient(circle at center, rgba(255,255,255,.98) 0 4%, rgba(255,224,92,.76) 18%, rgba(255,183,0,.24) 38%, transparent 68%);
         animation: paydayFlash .72s ease-out both;
@@ -33,6 +36,7 @@
         position: absolute;
         left: 50%;
         top: 50%;
+        z-index: 2;
         width: 18vmin;
         height: 18vmin;
         border: max(5px, .55vmin) solid rgba(255, 215, 0, .9);
@@ -49,6 +53,7 @@
         position: absolute;
         left: 50%;
         top: 48%;
+        z-index: 50;
         width: min(96vw, 1200px);
         transform: translate(-50%, -50%);
         text-align: center;
@@ -86,7 +91,7 @@
         padding: .28em .7em;
         border: clamp(2px, .22vw, 4px) solid rgba(255,255,255,.95);
         border-radius: 999px;
-        background: rgba(38, 29, 0, .82);
+        background: rgba(38, 29, 0, .88);
         color: #fff5a8;
         font-size: clamp(22px, 4.1vw, 58px);
         font-weight: 1000;
@@ -97,6 +102,7 @@
 
       #${OVERLAY_ID} .payday-money {
         position: absolute;
+        z-index: 20;
         display: block;
         width: 1em;
         height: 1em;
@@ -166,6 +172,22 @@
         #${OVERLAY_ID} .payday-title { font-size: clamp(62px, 20vw, 118px); }
         #${OVERLAY_ID} .payday-subtitle { font-size: clamp(19px, 6.4vw, 34px); }
       }
+
+      /* Verminderde beweging mag de grote PAYDAY-melding niet laten verdwijnen. */
+      @media (prefers-reduced-motion: reduce) {
+        #${OVERLAY_ID} .payday-flash,
+        #${OVERLAY_ID} .payday-ring,
+        #${OVERLAY_ID} .payday-money {
+          display: none !important;
+        }
+        #${OVERLAY_ID} .payday-bam,
+        #${OVERLAY_ID} .payday-title,
+        #${OVERLAY_ID} .payday-subtitle {
+          animation: none !important;
+          opacity: 1 !important;
+          transform: none !important;
+        }
+      }
     `;
     document.head.appendChild(style);
   }
@@ -204,7 +226,7 @@
   }
 
   function startPayday() {
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
 
     stopPayday();
     window.RoosterBirthdayScene?.hide?.();
@@ -215,6 +237,11 @@
     const overlay = document.createElement("div");
     overlay.id = OVERLAY_ID;
     overlay.setAttribute("aria-hidden", "true");
+    // Inline !important wint ook van de later aangemaakte fullscreen-styles.
+    // Daardoor kan de centrale PAYDAY/CHING CHING-melding nooit achter de video belanden.
+    overlay.style.setProperty("position", "fixed", "important");
+    overlay.style.setProperty("inset", "0", "important");
+    overlay.style.setProperty("z-index", "2147483646", "important");
     overlay.innerHTML = `
       <div class="payday-flash"></div>
       <div class="payday-ring"></div>
@@ -226,14 +253,16 @@
         <div class="payday-subtitle">CHING CHING! € € €</div>
       </div>`;
 
-    const mobile = window.innerWidth < 680;
-    const rainCount = mobile ? 34 : 62;
-    const burstCount = mobile ? 24 : 46;
-    for (let i = 0; i < rainCount; i += 1) overlay.appendChild(moneyParticle("rain"));
-    for (let i = 0; i < burstCount; i += 1) overlay.appendChild(moneyParticle("burst"));
+    if (!reducedMotion) {
+      const mobile = window.innerWidth < 680;
+      const rainCount = mobile ? 34 : 62;
+      const burstCount = mobile ? 24 : 46;
+      for (let i = 0; i < rainCount; i += 1) overlay.appendChild(moneyParticle("rain"));
+      for (let i = 0; i < burstCount; i += 1) overlay.appendChild(moneyParticle("burst"));
+    }
 
     document.body.appendChild(overlay);
-    stopTimer = window.setTimeout(stopPayday, 3200);
+    stopTimer = window.setTimeout(stopPayday, DISPLAY_MS);
   }
 
   function closeEffectsMenu() {
