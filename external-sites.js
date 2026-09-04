@@ -10,12 +10,12 @@
     Object.freeze({
       title: "Belangrijke Websites Werk",
       links: Object.freeze([
-        LEAVE_REQUEST,
         Object.freeze({ label: "1MDW", url: "https://azkrplbs001.az.unix.corp:44300/sap(bD1ubCZjPTEwMCZkPW1pbg==)/bc/bsp/sap/crm_ui_start/default.htm" }),
-        Object.freeze({ label: "Brein", url: "https://brein-sio-particulier.custhelp.com/app/home/" }),
         Object.freeze({ label: "Compliance Check", url: "https://svanbergen99.github.io/Checklist/" }),
-        Object.freeze({ label: "Beschikbaarheid Doorgeven", url: "https://genesyswfm.hosting.corp/Puntensysteem" }),
+        LEAVE_REQUEST,
         Object.freeze({ label: "Beschikbaarheid Berekenen", url: "./ASES_Roosterplanner.html", internal: true }),
+        Object.freeze({ label: "Brein", url: "https://brein-sio-particulier.custhelp.com/app/home/" }),
+        Object.freeze({ label: "Beschikbaarheid Doorgeven", url: "https://genesyswfm.hosting.corp/Puntensysteem" }),
         Object.freeze({ label: "Rooster", url: "https://genesyswfm.hosting.corp/wfm/Login.jsp" }),
         Object.freeze({ label: "Wall board", url: "https://achmea-production-1-a3srealtime-eu-west-1-prod.kb.eu-west-1.aws.found.io/s/centraal-beheer/app/dashboards#/view/731a7b2c-c25f-4ff6-a032-5f62ef6d2272?_g=(filters:!())" }),
         Object.freeze({ label: "Noodprocedure formulier", url: "https://achmea.sharepoint.com/sites/SP-15261/Noodprocedures/Noodprocedures.aspx", warning: "Alleen gebruiken als Traffic toestemming geeft" }),
