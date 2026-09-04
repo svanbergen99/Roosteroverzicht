@@ -108,14 +108,15 @@ html[data-theme="dark"] .birthday-profile-control {
   color: #f8fafc !important;
 }
 
-/* Payday-tekst en geldregen moeten altijd vóór de video en de overige effecten staan. */
-#paydayEffectOverlay {
+/* Payday-tekst en geldregen moeten altijd vóór de video en de overige effecten staan.
+   De extra html-specificiteit zorgt dat dit ook de later geïnjecteerde fullscreen-CSS wint. */
+html #paydayEffectOverlay {
   z-index: 10620 !important;
 }
 
-#videoLibraryPlayerSection:fullscreen > #paydayEffectOverlay,
-#videoLibraryPlayerSection:-webkit-full-screen > #paydayEffectOverlay,
-#videoLibraryPlayerSection.video-library-auto-fullscreen-fallback > #paydayEffectOverlay {
+html #videoLibraryPlayerSection:fullscreen > #paydayEffectOverlay,
+html #videoLibraryPlayerSection:-webkit-full-screen > #paydayEffectOverlay,
+html #videoLibraryPlayerSection.video-library-auto-fullscreen-fallback > #paydayEffectOverlay {
   z-index: 10620 !important;
 }
 
