@@ -110,13 +110,13 @@
         right: auto !important;
         left: auto !important;
         z-index: 3 !important;
-        width: min(680px, calc(100% - 24px)) !important;
+        width: min(760px, calc(100% - 24px)) !important;
         min-width: 0 !important;
         min-height: 154px !important;
         margin: 0 auto 24px !important;
         padding: 18px 24px !important;
         display: grid !important;
-        grid-template-columns: minmax(110px, .9fr) minmax(250px, 2fr) minmax(130px, 1fr) !important;
+        grid-template-columns: minmax(150px, 1.05fr) minmax(270px, 2fr) minmax(150px, 1.05fr) !important;
         align-items: center !important;
         gap: 18px !important;
         overflow: visible !important;
@@ -153,26 +153,16 @@
         pointer-events: none;
       }
       #${CLOCK_ID}[hidden] { display: none !important; }
-      #${CLOCK_ID} small {
-        display: block;
-        margin-bottom: 7px;
-        font-size: 10px;
-        font-weight: 900;
-        letter-spacing: .16em;
-        color: #8d98a5;
-      }
       #${CLOCK_ID} .digital-clock-day,
       #${CLOCK_ID} .digital-clock-date {
         min-width: 0;
       }
       #${CLOCK_ID} .digital-clock-day strong {
         display: block;
-        overflow: hidden;
         color: #f64ce7;
-        font-size: clamp(19px, 1.8vw, 28px);
+        font-size: clamp(20px, 1.9vw, 30px);
         font-weight: 1000;
-        line-height: 1.05;
-        text-overflow: ellipsis;
+        line-height: 1.08;
         text-shadow: 0 0 10px rgba(246,76,231,.42);
         white-space: nowrap;
       }
@@ -201,41 +191,51 @@
         text-shadow: 0 0 9px rgba(255,228,76,.42);
       }
       #${CLOCK_ID} .digital-clock-date {
+        display: grid;
+        gap: 3px;
+        justify-items: end;
         text-align: right;
       }
-      #${CLOCK_ID} .digital-clock-date strong {
+      #${CLOCK_ID} .digital-clock-date-day,
+      #${CLOCK_ID} .digital-clock-date-month {
         display: block;
         color: #4eeaff;
         font-family: "Arial Black", "Segoe UI Black", "Courier New", monospace;
-        font-size: clamp(18px, 1.65vw, 26px);
         font-weight: 1000;
-        letter-spacing: .015em;
-        line-height: 1.05;
+        line-height: 1.02;
         text-shadow: 0 0 10px rgba(78,234,255,.34);
         white-space: nowrap;
+      }
+      #${CLOCK_ID} .digital-clock-date-day {
+        font-size: clamp(20px, 1.9vw, 30px);
+      }
+      #${CLOCK_ID} .digital-clock-date-month {
+        font-size: clamp(17px, 1.55vw, 24px);
+        text-transform: none;
       }
       @media (max-width: 720px) {
         #${CLOCK_ID}.start-digital-clock {
           width: 100% !important;
           min-height: 120px !important;
           padding: 14px 12px !important;
-          grid-template-columns: minmax(78px,.85fr) minmax(180px,1.8fr) minmax(96px,1fr) !important;
+          grid-template-columns: minmax(90px,1fr) minmax(180px,1.8fr) minmax(105px,1fr) !important;
           gap: 9px !important;
         }
         #${CLOCK_ID} .digital-clock-time { font-size: clamp(48px, 12vw, 72px); }
         #${CLOCK_ID} .digital-clock-day strong { font-size: clamp(14px, 3.7vw, 20px); }
-        #${CLOCK_ID} .digital-clock-date strong { font-size: clamp(13px, 3.4vw, 18px); }
+        #${CLOCK_ID} .digital-clock-date-day { font-size: clamp(14px, 3.7vw, 20px); }
+        #${CLOCK_ID} .digital-clock-date-month { font-size: clamp(12px, 3.1vw, 17px); }
       }
       @media (max-width: 480px) {
         #${CLOCK_ID}.start-digital-clock {
-          grid-template-columns: 1fr 2fr 1fr !important;
+          grid-template-columns: 1fr 1.8fr 1fr !important;
           min-height: 102px !important;
           margin-bottom: 18px !important;
         }
-        #${CLOCK_ID} small { font-size: 8px; letter-spacing: .08em; }
         #${CLOCK_ID} .digital-clock-time { font-size: 43px; }
         #${CLOCK_ID} .digital-clock-day strong { font-size: 12px; }
-        #${CLOCK_ID} .digital-clock-date strong { font-size: 11px; }
+        #${CLOCK_ID} .digital-clock-date-day { font-size: 12px; }
+        #${CLOCK_ID} .digital-clock-date-month { font-size: 10px; }
       }`;
     document.head.appendChild(style);
   }
@@ -256,20 +256,24 @@
     if (!clock.querySelector("[data-digital-time]")) {
       clock.innerHTML = `
         <div class="digital-clock-day">
-          <small>VANDAAG</small>
           <strong data-digital-day>---</strong>
         </div>
         <div class="digital-clock-time" data-digital-time aria-label="Huidige tijd">
           <span data-digital-hour>00</span><span class="digital-clock-colon">:</span><span data-digital-minute>00</span>
         </div>
         <div class="digital-clock-date">
-          <small>DATUM</small>
-          <strong data-digital-date>00-00-0000</strong>
+          <strong class="digital-clock-date-day" data-digital-date-day>(0)</strong>
+          <strong class="digital-clock-date-month" data-digital-date-month>Maand</strong>
         </div>`;
     }
 
     if (section && clock.nextElementSibling !== section) section.before(clock);
     return clock;
+  }
+
+  function capitalize(value) {
+    const text = String(value || "").trim();
+    return text ? text.charAt(0).toUpperCase() + text.slice(1) : "";
   }
 
   function updateDigitalClock() {
@@ -285,9 +289,8 @@
     const parts = new Intl.DateTimeFormat("nl-NL", {
       timeZone: TIME_ZONE,
       weekday: "long",
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
+      day: "numeric",
+      month: "long",
       hour: "2-digit",
       minute: "2-digit",
       hourCycle: "h23"
@@ -296,11 +299,13 @@
     const day = clock.querySelector("[data-digital-day]");
     const hour = clock.querySelector("[data-digital-hour]");
     const minute = clock.querySelector("[data-digital-minute]");
-    const date = clock.querySelector("[data-digital-date]");
-    if (day) day.textContent = read("weekday").toUpperCase();
+    const dateDay = clock.querySelector("[data-digital-date-day]");
+    const dateMonth = clock.querySelector("[data-digital-date-month]");
+    if (day) day.textContent = capitalize(read("weekday"));
     if (hour) hour.textContent = read("hour").padStart(2, "0");
     if (minute) minute.textContent = read("minute").padStart(2, "0");
-    if (date) date.textContent = `${read("day")}-${read("month")}-${read("year")}`;
+    if (dateDay) dateDay.textContent = `(${Number(read("day")) || read("day")})`;
+    if (dateMonth) dateMonth.textContent = capitalize(read("month"));
   }
 
   function startDigitalClock() {
