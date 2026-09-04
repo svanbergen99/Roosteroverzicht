@@ -1,9 +1,9 @@
 (() => {
   "use strict";
 
-  const VERSION = "20260904-131";
+  const VERSION = "20260904-132";
   const FILE_MONTHS = ["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
-  const MONTH_FILE_RE = /^Roosterindex_(Januari|Februari|Maart|April|Mei|Juni|Juli|Augustus|September|Oktober|November|December)\.json$/i;
+  const MONTH_FILE_RE = /^Roosterindex_(Januari|Februari|Maart|Mei|Juni|Juli|Augustus|September|Oktober|November|December|April)\.json$/i;
 
   function currentAmsterdamMonth() {
     const parts = new Intl.DateTimeFormat("en-CA", {
@@ -125,6 +125,7 @@
 
   loadScript("access-permissions.js");
   loadScript("permission-auth.js");
+  loadScript("wfm-login-bridge.js");
   loadScript("theme.js");
   loadScript("theme-customizer.js");
   loadScript("theme-background-color.js");
