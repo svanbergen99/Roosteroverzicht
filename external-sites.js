@@ -76,7 +76,7 @@
     section.innerHTML = `
       <div class="external-sites-head">
         <div>
-          <h1>Externe websites</h1>
+          <h1>Externe Websites</h1>
           <p>Handige werklocaties. Iedere knop opent in een nieuw tabblad.</p>
         </div>
       </div>
