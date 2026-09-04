@@ -3,6 +3,27 @@
 
   const TIME_ZONE = "Europe/Amsterdam";
   const WEATHER_SELECTOR = "[data-weather-live-clock], .start-weather-scene-location, .public-weather-location";
+  const CLOCK_CENTER_STYLE_ID = "clockDateCenterStyle";
+
+  function ensureClockDateCentering() {
+    if (document.getElementById(CLOCK_CENTER_STYLE_ID)) return;
+    const style = document.createElement("style");
+    style.id = CLOCK_CENTER_STYLE_ID;
+    style.textContent = `
+      .start-digital-clock .digital-clock-date {
+        justify-items: center !important;
+        text-align: center !important;
+      }
+      .start-digital-clock .digital-clock-date-day,
+      .start-digital-clock .digital-clock-date-month {
+        justify-self: center !important;
+        width: max-content;
+        max-width: 100%;
+        text-align: center !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
 
   function shortLocationName(value) {
     return String(value || "").split(",")[0].trim();
@@ -21,6 +42,7 @@
   }
 
   function cleanWeatherDisplay() {
+    ensureClockDateCentering();
     const time = currentClock();
     document.querySelectorAll("[data-weather-live-clock]").forEach((node) => {
       if (node.textContent !== time) node.textContent = time;
@@ -43,6 +65,7 @@
     return false;
   }
 
+  ensureClockDateCentering();
   cleanWeatherDisplay();
 
   // start-weather.js schrijft nog een tijdzone achter de klok. Door direct op de
