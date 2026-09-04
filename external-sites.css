@@ -223,6 +223,64 @@ html[data-theme="dark"] .vacation-leave-fields > div {
   background: #151b22;
 }
 
+/* Openbare startpagina: geen grote kaartachtergrond meer. Alleen de knoppen en
+   drie duidelijke titelbalken blijven als afzonderlijke elementen zichtbaar. */
+body.public-portal-mode .external-sites-card {
+  margin-top: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+body.public-portal-mode .external-sites-head {
+  display: block;
+  width: 100%;
+}
+body.public-portal-mode .external-sites-head > div {
+  width: 100%;
+  padding: 15px 18px;
+  border: 1px solid rgba(207, 196, 206, .72);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .92);
+  box-shadow: 0 7px 20px rgba(15, 23, 42, .10);
+  backdrop-filter: blur(7px);
+  text-align: center;
+}
+body.public-portal-mode .external-sites-head h1 {
+  text-align: center;
+}
+body.public-portal-mode .external-sites-head p {
+  text-align: center;
+}
+body.public-portal-mode .external-sites-groups {
+  gap: 18px;
+  margin-top: 14px;
+}
+body.public-portal-mode .external-sites-group {
+  background: transparent;
+}
+body.public-portal-mode .external-sites-group h2 {
+  margin: 0 0 10px;
+  padding: 11px 16px;
+  border: 1px solid rgba(207, 196, 206, .72);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .90);
+  box-shadow: 0 5px 16px rgba(15, 23, 42, .08);
+  backdrop-filter: blur(7px);
+  text-align: center;
+}
+html[data-theme="dark"] body.public-portal-mode .external-sites-card {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+html[data-theme="dark"] body.public-portal-mode .external-sites-head > div,
+html[data-theme="dark"] body.public-portal-mode .external-sites-group h2 {
+  border-color: rgba(70, 81, 95, .88);
+  background: rgba(27, 34, 43, .92);
+  box-shadow: 0 7px 20px rgba(0, 0, 0, .24);
+}
+
 @media (max-width: 760px) {
   .vacation-leave-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -240,4 +298,12 @@ html[data-theme="dark"] .vacation-leave-fields > div {
   .external-sites-grid { grid-template-columns: 1fr; }
   .vacation-leave-panel { grid-column: 1; }
   .vacation-leave-fields { grid-template-columns: 1fr; }
+
+  body.public-portal-mode .external-sites-card {
+    margin-top: 0;
+    padding: 0;
+  }
+  body.public-portal-mode .external-sites-head > div {
+    padding: 13px 12px;
+  }
 }
