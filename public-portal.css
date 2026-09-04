@@ -24,6 +24,9 @@ body.public-portal-mode #welcomeOverlay.welcome-with-kernwaarde {
   padding: 22px 20px 34px;
   overflow-x: hidden;
   overflow-y: auto;
+  /* De algemene .overlay maakt de pagina normaal 82% zwart. Op de beginpagina
+     willen we de achtergrond op de volledige ingestelde helderheid tonen. */
+  background: transparent !important;
 }
 
 body.public-portal-mode #welcomeOverlay.welcome-with-kernwaarde .welcome-card {
