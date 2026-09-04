@@ -1,0 +1,130 @@
+/* Verjaardagvideo is uitsluitend automatisch beschikbaar op de opgeslagen datum. */
+[data-auto-only-video="birthday"],
+.video-library-group.is-auto-only-video-group {
+  display: none !important;
+}
+
+.birthday-profile-control {
+  width: auto !important;
+  min-height: 40px !important;
+  padding: 9px 13px !important;
+  background: #fff !important;
+  color: var(--accent-dark) !important;
+  border: 1px solid #cfc4ce !important;
+  box-shadow: 0 2px 7px rgba(15, 23, 42, .05) !important;
+}
+
+.birthday-profile-control:hover {
+  background: var(--soft-accent) !important;
+  border-color: #bca9ba !important;
+}
+
+.birthday-profile-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 22000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, .72);
+}
+
+.birthday-profile-card {
+  width: min(460px, 100%);
+  padding: 24px;
+  border-radius: 20px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 28px 80px rgba(0,0,0,.34);
+}
+
+.birthday-profile-card h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.birthday-profile-card p {
+  margin: 8px 0 18px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.birthday-profile-fields {
+  display: grid;
+  grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr);
+  gap: 12px;
+}
+
+.birthday-profile-fields label {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  font-weight: 800;
+}
+
+.birthday-profile-fields select {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 11px;
+  border: 1px solid #c9d2dc;
+  border-radius: 11px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+}
+
+.birthday-profile-error {
+  min-height: 20px;
+  margin-top: 8px;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.birthday-profile-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.birthday-profile-actions .secondary {
+  background: #fff;
+  color: var(--accent-dark);
+  border: 1px solid #cfc4ce;
+}
+
+html[data-theme="dark"] .birthday-profile-card {
+  background: #1b222b;
+  color: #f8fafc;
+}
+
+html[data-theme="dark"] .birthday-profile-fields select,
+html[data-theme="dark"] .birthday-profile-actions .secondary,
+html[data-theme="dark"] .birthday-profile-control {
+  border-color: #465263 !important;
+  background: #1f2937 !important;
+  color: #f8fafc !important;
+}
+
+/* Payday-tekst en geldregen moeten altijd vóór de video en de overige effecten staan. */
+#paydayEffectOverlay {
+  z-index: 10620 !important;
+}
+
+#videoLibraryPlayerSection:fullscreen > #paydayEffectOverlay,
+#videoLibraryPlayerSection:-webkit-full-screen > #paydayEffectOverlay,
+#videoLibraryPlayerSection.video-library-auto-fullscreen-fallback > #paydayEffectOverlay {
+  z-index: 10620 !important;
+}
+
+@media (max-width: 620px) {
+  .birthday-profile-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .birthday-profile-actions > button {
+    flex: 1 1 100%;
+  }
+}
