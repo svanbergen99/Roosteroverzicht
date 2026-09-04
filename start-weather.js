@@ -28,9 +28,19 @@
 
   let refreshTimer = 0;
   let activeEffect = "cloudy";
+  const liveWeather = [null, null];
 
   function isPublicStart() {
     return document.body.classList.contains("public-portal-mode") && !app.hidden;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
   }
 
   function formatNumber(value, digits = 0) {
@@ -42,19 +52,22 @@
     }).format(number);
   }
 
-  function weatherCodeInfo(code) {
-    const value = Number(code);
-    if (value === 0) return { label: "Onbewolkt", icon: "☀️" };
-    if (value === 1) return { label: "Overwegend zonnig", icon: "🌤️" };
-    if (value === 2) return { label: "Half bewolkt", icon: "⛅" };
-    if (value === 3) return { label: "Bewolkt", icon: "☁️" };
-    if (value === 45 || value === 48) return { label: "Mist", icon: "🌫️" };
-    if ([51,53,55,56,57].includes(value)) return { label: "Motregen", icon: "🌦️" };
-    if ([61,63,65,66,67].includes(value)) return { label: "Regen", icon: "🌧️" };
-    if ([71,73,75,77,85,86].includes(value)) return { label: "Sneeuw", icon: "🌨️" };
-    if ([80,81,82].includes(value)) return { label: "Regenbuien", icon: "🌦️" };
-    if ([95,96,99].includes(value)) return { label: "Onweer", icon: "⛈️" };
-    return { label: "Wisselend bewolkt", icon: "🌥️" };
+  function currentWeatherInfo(current = {}) {
+    const code = Number(current.weather_code);
+    const windSpeed = Number(current.wind_speed_10m);
+
+    if ([95, 96, 99].includes(code)) return { label: "Onweer", icon: "⛈️", effect: "thunder" };
+    if ([71, 73, 75, 77, 85, 86].includes(code)) return { label: "Sneeuw", icon: "🌨️", effect: "snow" };
+    if ([51, 53, 55, 56, 57].includes(code)) return { label: "Motregen", icon: "🌦️", effect: "rain" };
+    if ([61, 63, 65, 66, 67].includes(code)) return { label: "Regen", icon: "🌧️", effect: "rain" };
+    if ([80, 81, 82].includes(code)) return { label: "Regenbuien", icon: "🌦️", effect: "rain" };
+    if (code === 45 || code === 48) return { label: "Mist", icon: "🌫️", effect: "fog" };
+    if (Number.isFinite(windSpeed) && windSpeed >= 50) return { label: "Harde wind", icon: "💨", effect: "wind" };
+    if (code === 0) return { label: "Onbewolkt", icon: "☀️", effect: "sun" };
+    if (code === 1) return { label: "Overwegend zonnig", icon: "🌤️", effect: "sun" };
+    if (code === 2) return { label: "Half bewolkt", icon: "⛅", effect: "cloudy" };
+    if (code === 3) return { label: "Bewolkt", icon: "☁️", effect: "cloudy" };
+    return { label: "Wisselend bewolkt", icon: "🌥️", effect: "cloudy" };
   }
 
   function locationKey(index) {
@@ -111,6 +124,15 @@
     return response.json();
   }
 
+  function scenePanelMarkup(effect, locationName = "") {
+    const item = WEATHER_EFFECTS[effect] || WEATHER_EFFECTS.cloudy;
+    return `
+      <div class="start-weather-scene-sky" data-weather-effect="${effect}">
+        <span class="start-weather-scene-icon" aria-hidden="true">${item.icon}</span>
+        ${locationName ? `<strong class="start-weather-scene-location">${escapeHtml(locationName)}</strong>` : ""}
+      </div>`;
+  }
+
   function ensureScene() {
     let scene = document.getElementById(SCENE_ID);
     if (scene) return scene;
@@ -118,28 +140,47 @@
     scene.id = SCENE_ID;
     scene.className = "start-weather-scene-large roster-only-start";
     scene.setAttribute("aria-hidden", "true");
-    scene.innerHTML = `
-      <div class="start-weather-scene-sky" data-weather-effect="cloudy">
-        <span class="start-weather-scene-icon">☁️</span>
-        <strong data-weather-scene-label>Bewolkt</strong>
-      </div>`;
+    scene.innerHTML = scenePanelMarkup("cloudy");
     document.body.appendChild(scene);
     return scene;
+  }
+
+  function markActiveWeatherButton(effect) {
+    document.querySelectorAll("[data-weather-effect]").forEach((button) => {
+      button.classList.toggle("is-active", !!effect && button.dataset.weatherEffect === effect);
+    });
+  }
+
+  function renderLiveWeatherScene() {
+    if (!liveWeather[0] || !liveWeather[1]) return;
+    const scene = ensureScene();
+    const first = liveWeather[0];
+    const second = liveWeather[1];
+    const sameEffect = first.effect === second.effect;
+
+    scene.dataset.weatherMode = sameEffect ? "single" : "split";
+    if (sameEffect) {
+      scene.innerHTML = scenePanelMarkup(first.effect);
+      activeEffect = first.effect;
+      markActiveWeatherButton(first.effect);
+      return;
+    }
+
+    scene.innerHTML = `
+      <div class="start-weather-scene-split">
+        ${scenePanelMarkup(first.effect, readLocation(0).name)}
+        ${scenePanelMarkup(second.effect, readLocation(1).name)}
+      </div>`;
+    markActiveWeatherButton("");
   }
 
   function setWeatherEffect(effect) {
     const chosen = WEATHER_EFFECTS[effect] ? effect : "cloudy";
     activeEffect = chosen;
     const scene = ensureScene();
-    const sky = scene.querySelector(".start-weather-scene-sky");
-    const icon = scene.querySelector(".start-weather-scene-icon");
-    const label = scene.querySelector("[data-weather-scene-label]");
-    if (sky) sky.dataset.weatherEffect = chosen;
-    if (icon) icon.textContent = WEATHER_EFFECTS[chosen].icon;
-    if (label) label.textContent = WEATHER_EFFECTS[chosen].label;
-    document.querySelectorAll("[data-weather-effect]").forEach((button) => {
-      button.classList.toggle("is-active", button.dataset.weatherEffect === chosen);
-    });
+    scene.dataset.weatherMode = "manual";
+    scene.innerHTML = scenePanelMarkup(chosen);
+    markActiveWeatherButton(chosen);
   }
 
   function ensureWeatherControl(attempt = 0) {
@@ -192,7 +233,6 @@
         button.setAttribute("aria-expanded", "false");
       }
     });
-    setWeatherEffect(activeEffect);
     return wrap;
   }
 
@@ -207,7 +247,7 @@
               <strong class="public-weather-temperature" data-weather-temperature>–°</strong>
               <span class="public-weather-condition" data-weather-condition>Laden…</span>
             </div>
-            <strong class="public-weather-location" data-weather-location>${location.name}</strong>
+            <strong class="public-weather-location" data-weather-location>${escapeHtml(location.name)}</strong>
           </div>
         </div>
         <div class="public-weather-details">
@@ -216,7 +256,7 @@
           <div class="public-weather-detail"><span>Wind</span><strong data-weather-wind>–</strong></div>
           <div class="public-weather-detail"><span>Neerslag</span><strong data-weather-rain>–</strong></div>
         </div>
-        <button class="public-weather-edit" type="button" data-weather-edit="${index}" aria-label="Locatie ${location.name} aanpassen" title="Locatie aanpassen">✎</button>
+        <button class="public-weather-edit" type="button" data-weather-edit="${index}" aria-label="Locatie ${escapeHtml(location.name)} aanpassen" title="Locatie aanpassen">✎</button>
         <div class="public-weather-note" data-weather-note>Weerdata: Open-Meteo</div>
       </article>`;
   }
@@ -253,6 +293,7 @@
           return;
         }
         saveLocation(index, location);
+        liveWeather[index] = null;
         const name = card?.querySelector("[data-weather-location]");
         if (name) name.textContent = location.name;
         edit.setAttribute("aria-label", `Locatie ${location.name} aanpassen`);
@@ -269,7 +310,7 @@
     const card = document.querySelector(`[data-weather-card="${index}"]`);
     if (!card) return;
     const current = data?.current || {};
-    const info = weatherCodeInfo(current.weather_code);
+    const info = currentWeatherInfo(current);
     const set = (selector, value) => {
       const node = card.querySelector(selector);
       if (node) node.textContent = value;
@@ -284,6 +325,13 @@
     set("[data-weather-rain]", `${formatNumber(current.precipitation, 1)} mm`);
     const note = card.querySelector("[data-weather-note]");
     if (note) note.textContent = `Bijgewerkt ${new Date().toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })} · Open-Meteo`;
+
+    liveWeather[index] = {
+      effect: info.effect,
+      label: info.label,
+      icon: info.icon
+    };
+    renderLiveWeatherScene();
   }
 
   async function loadCard(index) {
@@ -296,8 +344,14 @@
       updateCard(index, data);
     } catch (error) {
       console.warn("Weer kon niet worden geladen.", error);
+      liveWeather[index] = null;
       if (condition) condition.textContent = "Weer niet beschikbaar";
     }
+  }
+
+  function refreshAll() {
+    loadCard(0);
+    loadCard(1);
   }
 
   function start() {
@@ -305,13 +359,11 @@
     ensureScene();
     ensureWeatherControl();
     if (!ensureWeatherBars()) return;
-    loadCard(0);
-    loadCard(1);
+    refreshAll();
     clearInterval(refreshTimer);
     refreshTimer = setInterval(() => {
       if (!isPublicStart()) return;
-      loadCard(0);
-      loadCard(1);
+      refreshAll();
     }, REFRESH_MS);
   }
 
@@ -321,8 +373,9 @@
   if (isPublicStart()) start();
 
   window.RoosterStartWeather = Object.freeze({
-    refresh: () => { loadCard(0); loadCard(1); },
+    refresh: refreshAll,
     setEffect: setWeatherEffect,
+    syncLive: renderLiveWeatherScene,
     effects: () => Object.entries(WEATHER_EFFECTS).map(([id, item]) => ({ id, label: item.label }))
   });
 })();
