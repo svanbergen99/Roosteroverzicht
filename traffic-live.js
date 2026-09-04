@@ -137,6 +137,7 @@
       const response = await fetch(OBJECT_URL, {
         method: "GET",
         mode: "cors",
+        credentials: "include",
         cache: "no-store",
         headers: { "Accept": "application/json" }
       });
