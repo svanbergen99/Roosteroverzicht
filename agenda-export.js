@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20260904-111";
+  const VERSION = "20260904-112";
   const FILE_MONTHS = ["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
   const MONTH_FILE_RE = /^Roosterindex_(Januari|Februari|Maart|April|Mei|Juni|Juli|Augustus|September|Oktober|November|December)\.json$/i;
 
@@ -120,6 +120,7 @@
   loadStyle("roster-action-row.css");
   loadStyle("public-portal.css");
   loadStyle("start-weather.css");
+  loadStyle("occasion-auto.css");
 
   loadScript("access-permissions.js");
   loadScript("permission-auth.js");
@@ -147,11 +148,12 @@
   loadScript("video-popup-size.js");
   loadScript("video-fullscreen-effects.js");
   loadScript("video-effect-sync.js");
+  loadScript("occasion-auto.js");
   loadScript("holiday-video-auto.js");
-  loadScript("video-trim-save.js");
   loadScript("video-auto-close.js");
   loadScript("roster-start-access.js");
   loadScript("public-portal.js");
   loadScript("start-weather.js");
+  loadScript("weather-netherlands-fallback.js");
   loadScript("roster-home-button.js");
 })();
