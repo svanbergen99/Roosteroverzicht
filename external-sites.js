@@ -42,6 +42,11 @@
   const app = document.getElementById("app");
   if (!app) return;
 
+  const CLOCK_ID = "startHeaderClock";
+  const CLOCK_STYLE_ID = "startDigitalClockStyle";
+  const TIME_ZONE = "Europe/Amsterdam";
+  let clockTimer = 0;
+
   function escapeHtml(value) {
     return String(value ?? "")
       .replaceAll("&", "&amp;")
@@ -94,6 +99,222 @@
     return section;
   }
 
-  window.addEventListener("rooster-unlocked", ensureSection);
-  if (!app.hidden) ensureSection();
+  function ensureClockStyle() {
+    if (document.getElementById(CLOCK_STYLE_ID)) return;
+    const style = document.createElement("style");
+    style.id = CLOCK_STYLE_ID;
+    style.textContent = `
+      #${CLOCK_ID}.start-digital-clock {
+        position: relative !important;
+        top: auto !important;
+        right: auto !important;
+        left: auto !important;
+        z-index: 3 !important;
+        width: min(680px, calc(100% - 24px)) !important;
+        min-width: 0 !important;
+        min-height: 154px !important;
+        margin: 0 auto 24px !important;
+        padding: 18px 24px !important;
+        display: grid !important;
+        grid-template-columns: minmax(110px, .9fr) minmax(250px, 2fr) minmax(130px, 1fr) !important;
+        align-items: center !important;
+        gap: 18px !important;
+        overflow: visible !important;
+        border: 2px solid #20242a !important;
+        border-radius: 8px !important;
+        background: linear-gradient(180deg, #171a1f 0%, #050607 48%, #020304 100%) !important;
+        color: #fff !important;
+        box-shadow: 0 18px 34px rgba(0,0,0,.42), inset 0 0 0 1px rgba(255,255,255,.05) !important;
+        backdrop-filter: none !important;
+        isolation: isolate;
+        font-family: "Segoe UI", Arial, sans-serif !important;
+      }
+      #${CLOCK_ID}.start-digital-clock::before {
+        content: "";
+        position: absolute;
+        z-index: -1;
+        inset: 5px 8px auto;
+        height: 42%;
+        border-radius: 6px;
+        background: linear-gradient(180deg, rgba(255,255,255,.08), transparent);
+        pointer-events: none;
+      }
+      #${CLOCK_ID}.start-digital-clock::after {
+        content: "";
+        position: absolute;
+        z-index: -2;
+        left: 8%;
+        right: 8%;
+        bottom: -20px;
+        height: 28px;
+        border-radius: 50%;
+        background: rgba(255, 213, 77, .38);
+        filter: blur(17px);
+        pointer-events: none;
+      }
+      #${CLOCK_ID}[hidden] { display: none !important; }
+      #${CLOCK_ID} small {
+        display: block;
+        margin-bottom: 7px;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: .16em;
+        color: #8d98a5;
+      }
+      #${CLOCK_ID} .digital-clock-day,
+      #${CLOCK_ID} .digital-clock-date {
+        min-width: 0;
+      }
+      #${CLOCK_ID} .digital-clock-day strong {
+        display: block;
+        overflow: hidden;
+        color: #f64ce7;
+        font-size: clamp(19px, 1.8vw, 28px);
+        font-weight: 1000;
+        line-height: 1.05;
+        text-overflow: ellipsis;
+        text-shadow: 0 0 10px rgba(246,76,231,.42);
+        white-space: nowrap;
+      }
+      #${CLOCK_ID} .digital-clock-time {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Arial Black", "Segoe UI Black", "Courier New", monospace;
+        font-size: clamp(68px, 6.8vw, 104px);
+        font-weight: 1000;
+        line-height: .86;
+        letter-spacing: -.08em;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+        background: linear-gradient(90deg, #ff46dd 0%, #ff6f47 23%, #ffe84f 48%, #8eff5c 73%, #4eeaff 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        filter: drop-shadow(0 0 7px rgba(255,220,80,.22));
+      }
+      #${CLOCK_ID} .digital-clock-colon {
+        margin: 0 .04em 0 .08em;
+        color: #ffe44c;
+        -webkit-text-fill-color: #ffe44c;
+        text-shadow: 0 0 9px rgba(255,228,76,.42);
+      }
+      #${CLOCK_ID} .digital-clock-date {
+        text-align: right;
+      }
+      #${CLOCK_ID} .digital-clock-date strong {
+        display: block;
+        color: #4eeaff;
+        font-family: "Arial Black", "Segoe UI Black", "Courier New", monospace;
+        font-size: clamp(18px, 1.65vw, 26px);
+        font-weight: 1000;
+        letter-spacing: .015em;
+        line-height: 1.05;
+        text-shadow: 0 0 10px rgba(78,234,255,.34);
+        white-space: nowrap;
+      }
+      @media (max-width: 720px) {
+        #${CLOCK_ID}.start-digital-clock {
+          width: 100% !important;
+          min-height: 120px !important;
+          padding: 14px 12px !important;
+          grid-template-columns: minmax(78px,.85fr) minmax(180px,1.8fr) minmax(96px,1fr) !important;
+          gap: 9px !important;
+        }
+        #${CLOCK_ID} .digital-clock-time { font-size: clamp(48px, 12vw, 72px); }
+        #${CLOCK_ID} .digital-clock-day strong { font-size: clamp(14px, 3.7vw, 20px); }
+        #${CLOCK_ID} .digital-clock-date strong { font-size: clamp(13px, 3.4vw, 18px); }
+      }
+      @media (max-width: 480px) {
+        #${CLOCK_ID}.start-digital-clock {
+          grid-template-columns: 1fr 2fr 1fr !important;
+          min-height: 102px !important;
+          margin-bottom: 18px !important;
+        }
+        #${CLOCK_ID} small { font-size: 8px; letter-spacing: .08em; }
+        #${CLOCK_ID} .digital-clock-time { font-size: 43px; }
+        #${CLOCK_ID} .digital-clock-day strong { font-size: 12px; }
+        #${CLOCK_ID} .digital-clock-date strong { font-size: 11px; }
+      }`;
+    document.head.appendChild(style);
+  }
+
+  function ensureDigitalClock(section = document.getElementById("externalSitesSection")) {
+    ensureClockStyle();
+    let clock = document.getElementById(CLOCK_ID);
+    if (!clock) {
+      clock = document.createElement("section");
+      clock.id = CLOCK_ID;
+      app.appendChild(clock);
+    }
+
+    clock.removeAttribute("data-weather-live-clock");
+    clock.className = "start-weather-header-clock start-digital-clock roster-only-start";
+    clock.setAttribute("aria-label", "Digitale klok met dag van de week en datum");
+
+    if (!clock.querySelector("[data-digital-time]")) {
+      clock.innerHTML = `
+        <div class="digital-clock-day">
+          <small>VANDAAG</small>
+          <strong data-digital-day>---</strong>
+        </div>
+        <div class="digital-clock-time" data-digital-time aria-label="Huidige tijd">
+          <span data-digital-hour>00</span><span class="digital-clock-colon">:</span><span data-digital-minute>00</span>
+        </div>
+        <div class="digital-clock-date">
+          <small>DATUM</small>
+          <strong data-digital-date>00-00-0000</strong>
+        </div>`;
+    }
+
+    if (section && clock.nextElementSibling !== section) section.before(clock);
+    return clock;
+  }
+
+  function updateDigitalClock() {
+    const section = document.getElementById("externalSitesSection");
+    const clock = ensureDigitalClock(section);
+    const visible = document.body.classList.contains("public-portal-mode") &&
+      !app.hidden &&
+      !document.body.classList.contains("roster-login-active") &&
+      !document.body.classList.contains("roster-access-active");
+    clock.hidden = !visible;
+    if (!visible) return;
+
+    const parts = new Intl.DateTimeFormat("nl-NL", {
+      timeZone: TIME_ZONE,
+      weekday: "long",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23"
+    }).formatToParts(new Date());
+    const read = (type) => parts.find((part) => part.type === type)?.value || "";
+    const day = clock.querySelector("[data-digital-day]");
+    const hour = clock.querySelector("[data-digital-hour]");
+    const minute = clock.querySelector("[data-digital-minute]");
+    const date = clock.querySelector("[data-digital-date]");
+    if (day) day.textContent = read("weekday").toUpperCase();
+    if (hour) hour.textContent = read("hour").padStart(2, "0");
+    if (minute) minute.textContent = read("minute").padStart(2, "0");
+    if (date) date.textContent = `${read("day")}-${read("month")}-${read("year")}`;
+  }
+
+  function startDigitalClock() {
+    updateDigitalClock();
+    if (clockTimer) return;
+    clockTimer = window.setInterval(updateDigitalClock, 1000);
+  }
+
+  function start() {
+    const section = ensureSection();
+    ensureDigitalClock(section);
+    startDigitalClock();
+  }
+
+  window.addEventListener("rooster-unlocked", start);
+  if (!app.hidden) start();
 })();
