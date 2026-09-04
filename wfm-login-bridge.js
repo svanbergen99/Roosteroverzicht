@@ -3,71 +3,36 @@
 
   const WFM_ORIGIN = "https://genesyswfm.hosting.corp";
   const LOGIN_URL = `${WFM_ORIGIN}/wfm/Login.jsp`;
-  const USER_INFO_URL = `${WFM_ORIGIN}/wfm/api/v3/system/userinfo`;
 
   let promptShown = false;
   let overlay = null;
-  let loginPopup = null;
-  let closeWatcher = 0;
-
-  function popupFeatures(width = 500, height = 650) {
-    const left = Math.max(0, Math.round((window.screenX || 0) + ((window.outerWidth || screen.width) - width) / 2));
-    const top = Math.max(0, Math.round((window.screenY || 0) + ((window.outerHeight || screen.height) - height) / 2));
-    return [
-      "popup=yes",
-      `width=${width}`,
-      `height=${height}`,
-      `left=${left}`,
-      `top=${top}`,
-      "resizable=yes",
-      "scrollbars=yes"
-    ].join(",");
-  }
+  let frame = null;
 
   function setStatus(message) {
-    const status = overlay?.querySelector("#wfmBridgeStatus");
-    if (status) status.textContent = message;
+    const node = overlay?.querySelector("#wfmEmbedStatus");
+    if (node) node.textContent = message;
   }
 
-  function stopCloseWatcher() {
-    if (closeWatcher) window.clearInterval(closeWatcher);
-    closeWatcher = 0;
-  }
-
-  function watchLoginPopup() {
-    stopCloseWatcher();
-    closeWatcher = window.setInterval(() => {
-      if (!loginPopup || !loginPopup.closed) return;
-      stopCloseWatcher();
-      setStatus("De WFM-loginpopup is gesloten. Gebruik ‘WFM API-test openen’ om te controleren of de officiële sessie toegang geeft tot userinfo.");
-    }, 700);
-  }
-
-  function openLogin() {
-    loginPopup = window.open(LOGIN_URL, "roosterWfmLogin", popupFeatures(500, 650));
-    if (!loginPopup) {
-      setStatus("De browser blokkeerde de popup. Sta popups voor deze pagina toe en probeer opnieuw.");
+  function openExternal() {
+    const popup = window.open(LOGIN_URL, "roosterWfmExternal", "popup=yes,width=1100,height=800,resizable=yes,scrollbars=yes");
+    if (!popup) {
+      setStatus("Edge blokkeerde het venster. Sta popups voor deze pagina toe en probeer opnieuw.");
       return;
     }
-    try { loginPopup.focus(); } catch (_) {}
-    setStatus("Officiële WFM-login geopend. Vul Username en Password alleen daar in. Roosteroverzicht kan deze gegevens niet lezen.");
-    watchLoginPopup();
+    try { popup.focus(); } catch (_) {}
+    setStatus("WFM is extern geopend. Gebruik dit alleen als de ingebouwde weergave door WFM wordt geblokkeerd.");
   }
 
-  function openApiTest() {
-    const apiPopup = window.open(USER_INFO_URL, "roosterWfmApiTest", popupFeatures(720, 620));
-    if (!apiPopup) {
-      setStatus("De browser blokkeerde de API-testpopup. Sta popups toe en probeer opnieuw.");
-      return;
-    }
-    try { apiPopup.focus(); } catch (_) {}
-    setStatus("API-test geopend op de officiële WFM-host. Als je daar JSON/gebruiker-info ziet, is de WFM API bereikbaar met jouw sessie. Bij 401/403/loginpagina is extra WFM-configuratie nodig.");
+  function reloadFrame() {
+    if (!frame) return;
+    setStatus("WFM wordt opnieuw geladen…");
+    frame.src = LOGIN_URL;
   }
 
   function closeOverlay() {
-    stopCloseWatcher();
     overlay?.remove();
     overlay = null;
+    frame = null;
   }
 
   function showBridgeStep() {
@@ -79,25 +44,37 @@
     overlay.setAttribute("role", "dialog");
     overlay.setAttribute("aria-modal", "true");
     overlay.innerHTML = `
-      <div class="unlock-card permission-auth-card">
-        <h1>Genesys Workforce Management</h1>
-        <p>Je Team Wachtwoord is geaccepteerd. Log nu rechtstreeks in op de officiële WFM-site.</p>
-        <p><strong>Roosteroverzicht leest of bewaart je WFM Username/Password niet.</strong></p>
-        <button id="wfmOpenLoginButton" class="full-button" type="button">Inloggen bij Genesys WFM</button>
-        <button id="wfmApiTestButton" class="permission-auth-back" type="button">WFM API-test openen</button>
-        <button id="wfmContinueLocalButton" class="permission-auth-back" type="button">Doorgaan met huidig rooster</button>
-        <div id="wfmBridgeStatus" class="permission-auth-error" aria-live="polite"></div>
-      </div>`;
+      <section class="wfm-embed-card">
+        <header class="wfm-embed-head">
+          <div class="wfm-embed-title">
+            <h1>Genesys Workforce Management</h1>
+            <p>Officiële WFM-pagina ingebouwd in Roosteroverzicht · <span class="wfm-official-origin">${WFM_ORIGIN}</span></p>
+          </div>
+          <div class="wfm-embed-actions">
+            <button id="wfmReloadButton" class="permission-auth-back" type="button">Opnieuw laden</button>
+            <button id="wfmOpenExternalButton" class="permission-auth-back" type="button">Extern openen ↗</button>
+            <button id="wfmContinueLocalButton" class="full-button" type="button">Doorgaan naar rooster</button>
+          </div>
+        </header>
+        <div class="wfm-embed-frame-wrap">
+          <iframe id="wfmEmbeddedFrame" class="wfm-embed-frame" title="Officiële Genesys Workforce Management" src="${LOGIN_URL}" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+        </div>
+        <footer class="wfm-embed-footer">
+          <span id="wfmEmbedStatus" class="wfm-embed-status">WFM wordt geladen…</span>
+          <span class="wfm-embed-note">Username en Password worden uitsluitend in de officiële WFM-pagina ingevoerd. Roosteroverzicht kan de inhoud van dit externe frame niet uitlezen.</span>
+        </footer>
+      </section>`;
 
     document.body.appendChild(overlay);
     overlay.hidden = false;
+    frame = overlay.querySelector("#wfmEmbeddedFrame");
 
-    overlay.querySelector("#wfmOpenLoginButton")?.addEventListener("click", openLogin);
-    overlay.querySelector("#wfmApiTestButton")?.addEventListener("click", openApiTest);
+    frame?.addEventListener("load", () => {
+      setStatus("WFM-pagina geladen. Als je al bent ingelogd, hoort je WFM-scherm hier direct zichtbaar te worden.");
+    });
+    overlay.querySelector("#wfmReloadButton")?.addEventListener("click", reloadFrame);
+    overlay.querySelector("#wfmOpenExternalButton")?.addEventListener("click", openExternal);
     overlay.querySelector("#wfmContinueLocalButton")?.addEventListener("click", closeOverlay);
-
-    setStatus("Klik eerst op ‘Inloggen bij Genesys WFM’. Het popupvenster is bewust compact zodat vooral de officiële login zichtbaar is.");
-    requestAnimationFrame(() => overlay?.querySelector("#wfmOpenLoginButton")?.focus());
   }
 
   window.addEventListener("rooster-unlocked", (event) => {
@@ -109,8 +86,8 @@
   });
 
   window.RoosterWfmBridge = Object.freeze({
-    openLogin,
-    openApiTest,
-    getUrls: () => ({ login: LOGIN_URL, userInfo: USER_INFO_URL })
+    openEmbedded: showBridgeStep,
+    openExternal,
+    getUrl: () => LOGIN_URL
   });
 })();
