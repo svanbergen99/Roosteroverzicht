@@ -1,0 +1,29 @@
+name: Assemble Traffic image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/assemble-traffic-image.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Assemble PNG and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .tmp-traffic/part1 .tmp-traffic/part2 .tmp-traffic/part3 .tmp-traffic/part4 .tmp-traffic/part5 > "Traffic Vrijdag 4 september.png"
+          rm -rf .tmp-traffic
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Add Traffic Vrijdag 4 september image"
+          git push origin HEAD:main
