@@ -2,7 +2,7 @@
   "use strict";
 
   const TIME_ZONE = "Europe/Amsterdam";
-  const EMPLOYEE_FILE = "Mederwerkerbestand.json";
+  const EMPLOYEE_FILE = "Medewerkerbestand.json";
   const BIRTHDAY_PREFIX = "roosteroverzicht.birthday.v1.";
   const BIRTHDAY_PLAY_PREFIX = "roosteroverzicht.birthday.played.v1.";
   const PAYDAY_PLAY_PREFIX = "roosteroverzicht.payday.played.v1.";
@@ -76,7 +76,7 @@
         }
         centralBirthdays = next;
       } catch (error) {
-        console.warn("Mederwerkerbestand.json kon niet worden gelezen.", error);
+        console.warn("Medewerkerbestand.json kon niet worden gelezen.", error);
       }
       return centralBirthdays;
     })();
@@ -85,8 +85,11 @@
 
   function readLocalBirthday(name) {
     if (!name) return "";
-    try { return validMonthDay(localStorage.getItem(birthdayKey(name)) || ""); }
-    catch (_) { return ""; }
+    try {
+      return validMonthDay(localStorage.getItem(birthdayKey(name)) || "");
+    } catch (_) {
+      return "";
+    }
   }
 
   function readBirthday(name) {
@@ -110,7 +113,11 @@
     if (!valid) return "";
     const [month, day] = valid.split("-").map(Number);
     const date = new Date(Date.UTC(2000, month - 1, day, 12));
-    return new Intl.DateTimeFormat("nl-NL", { day: "numeric", month: "long", timeZone: "UTC" }).format(date);
+    return new Intl.DateTimeFormat("nl-NL", {
+      day: "numeric",
+      month: "long",
+      timeZone: "UTC"
+    }).format(date);
   }
 
   function isBirthdayVideoPath(path) {
@@ -165,6 +172,7 @@
       "Januari", "Februari", "Maart", "April", "Mei", "Juni",
       "Juli", "Augustus", "September", "Oktober", "November", "December"
     ].map((label, index) => `<option value="${String(index + 1).padStart(2, "0")}">${label}</option>`).join("");
+
     const dayOptions = Array.from({ length: 31 }, (_, index) => {
       const value = String(index + 1).padStart(2, "0");
       return `<option value="${value}">${index + 1}</option>`;
@@ -173,7 +181,7 @@
     dialog.innerHTML = `
       <section class="birthday-profile-card">
         <h2 id="birthdayProfileTitle">Verjaardag instellen</h2>
-        <p>De datum wordt aan de geselecteerde collega gekoppeld. De pagina leest ook centraal opgeslagen verjaardagen uit ${EMPLOYEE_FILE}.</p>
+        <p>De datum wordt aan de geselecteerde collega gekoppeld. De pagina leest centraal opgeslagen verjaardagen uit ${EMPLOYEE_FILE}.</p>
         <div class="birthday-profile-fields">
           <label>Dag<select data-birthday-day>${dayOptions}</select></label>
           <label>Maand<select data-birthday-month>${monthOptions}</select></label>
@@ -190,7 +198,9 @@
     document.body.appendChild(dialog);
     const close = () => { dialog.hidden = true; };
     dialog.querySelector("[data-birthday-cancel]")?.addEventListener("click", close);
-    dialog.addEventListener("click", (event) => { if (event.target === dialog) close(); });
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog) close();
+    });
 
     dialog.querySelector("[data-birthday-save]")?.addEventListener("click", () => {
       const month = dialog.querySelector("[data-birthday-month]")?.value || "";
@@ -229,7 +239,7 @@
     if (monthSelect) monthSelect.value = month;
     if (daySelect) daySelect.value = day;
     if (error) error.textContent = "";
-    if (note) note.textContent = "Invoer wordt nu lokaal onthouden; centraal schrijven naar GitHub vereist nog een beveiligde schrijfservice.";
+    if (note) note.textContent = "Invoer wordt voorlopig lokaal onthouden; centraal schrijven vereist nog een beveiligde schrijfservice.";
     dialog.hidden = false;
   }
 
@@ -252,6 +262,7 @@
       tools.prepend(button);
       button.addEventListener("click", () => openBirthdayDialog(selectedEmployeeName()));
     }
+
     const formatted = formatBirthday(readBirthday(name));
     button.textContent = formatted ? `🎂 Verjaardag: ${formatted}` : "🎂 Verjaardag instellen";
     button.title = formatted ? "Verjaardag wijzigen" : "Verjaardag instellen";
@@ -265,7 +276,9 @@
 
     const today = amsterdamDateKey();
     const playedKey = `${BIRTHDAY_PLAY_PREFIX}${today}.${nameHash(name)}`;
-    try { if (sessionStorage.getItem(playedKey) === "1") return; } catch (_) {}
+    try {
+      if (sessionStorage.getItem(playedKey) === "1") return;
+    } catch (_) {}
 
     const played = await playAutomaticVideo(isBirthdayVideoPath);
     if (played) {
@@ -287,15 +300,16 @@
     if (!salary?.isPaymentDate?.()) return;
     const today = salary.today?.() || amsterdamDateKey();
     const playedKey = `${PAYDAY_PLAY_PREFIX}${today}`;
-    try { if (sessionStorage.getItem(playedKey) === "1") return; } catch (_) {}
+    try {
+      if (sessionStorage.getItem(playedKey) === "1") return;
+    } catch (_) {}
+
     const played = await playAutomaticVideo(isPaydayVideoPath);
     if (played) {
       try { sessionStorage.setItem(playedKey, "1"); } catch (_) {}
     }
   }
 
-  // Alleen de losse effectknop Verjaardag wordt verborgen. Verjaardag.mp4 blijft
-  // bewust zichtbaar en aanklikbaar in de Video-dropdown.
   document.addEventListener("click", (event) => {
     const effect = event.target.closest?.('[data-effect="birthday"]');
     if (!effect) return;
