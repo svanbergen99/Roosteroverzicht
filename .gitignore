@@ -1,0 +1,11 @@
+# Local environment/secrets
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Node dependencies
+node_modules/
+**/node_modules/
