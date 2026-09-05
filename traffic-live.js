@@ -106,6 +106,43 @@
     }).format(date);
   }
 
+  function runCollectorDemo(panel, button) {
+    if (!panel || !button) return;
+
+    let demo = panel.querySelector("#trafficCollectorDemo");
+    if (!demo) {
+      demo = document.createElement("div");
+      demo.id = "trafficCollectorDemo";
+      demo.className = "traffic-live-placeholder";
+      demo.style.margin = "12px 14px 0";
+      demo.style.textAlign = "left";
+      panel.querySelector(".traffic-live-head")?.after(demo);
+    }
+
+    button.disabled = true;
+    button.textContent = "Traffic starten…";
+    button.style.opacity = ".7";
+    button.style.cursor = "wait";
+    demo.innerHTML = "<strong>Demo:</strong> extensie controleren…";
+
+    window.setTimeout(() => {
+      if (!demo.isConnected) return;
+      demo.innerHTML = "<strong>Demo:</strong> Kibana wordt op de achtergrond gestart…";
+    }, 650);
+
+    window.setTimeout(() => {
+      if (!demo.isConnected || !button.isConnected) return;
+      demo.innerHTML = "<strong>Demo:</strong> collector actief. Je blijft gewoon in Roosteroverzicht. <span style=\"font-weight:700;color:#64748b\">Dit is nu alleen een visuele test.</span>";
+      button.disabled = false;
+      button.textContent = "Traffic actief";
+      button.style.opacity = "1";
+      button.style.cursor = "pointer";
+      button.style.borderColor = "#b7dfc5";
+      button.style.background = "#eefaf2";
+      button.style.color = "#24713d";
+    }, 1400);
+  }
+
   function ensurePanel() {
     if (!isRosterPage()) return null;
 
@@ -122,12 +159,19 @@
             <h2 id="trafficLiveTitle" class="traffic-live-title">Live verkeersinformatie</h2>
           </div>
           <div class="traffic-live-head-actions">
+            <button id="trafficCollectorTestButton" class="traffic-live-key-button" type="button">Test Traffic</button>
             <span id="trafficLiveStatus" class="traffic-live-status">Automatisch verbinden…</span>
           </div>
         </div>
         <div id="trafficLiveBody" class="traffic-live-body">
           <div class="traffic-live-placeholder">Na het ontgrendelen wordt de live Traffic-data automatisch geladen.</div>
         </div>`;
+    }
+
+    const testButton = panel.querySelector("#trafficCollectorTestButton");
+    if (testButton && testButton.dataset.demoBound !== "true") {
+      testButton.dataset.demoBound = "true";
+      testButton.addEventListener("click", () => runCollectorDemo(panel, testButton));
     }
 
     const bar = document.getElementById("trafficTodayBar");
