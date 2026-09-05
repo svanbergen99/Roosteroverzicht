@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20260905-140";
+  const VERSION = "20260905-141";
   const FILE_MONTHS = ["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
   const MONTH_FILE_RE = /^Roosterindex_(Januari|Februari|Maart|Mei|Juni|Juli|Augustus|September|Oktober|November|December|April)\.json$/i;
 
