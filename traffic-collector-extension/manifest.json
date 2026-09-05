@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Roosteroverzicht Traffic Collector",
+  "short_name": "Traffic",
+  "version": "0.1.0",
+  "description": "Start de Traffic collector vanuit Roosteroverzicht en houdt Kibana geminimaliseerd op de achtergrond.",
+  "minimum_chrome_version": "109",
+  "permissions": ["storage", "tabs", "windows"],
+  "host_permissions": [
+    "https://svanbergen99.github.io/Roosteroverzicht/*",
+    "https://achmea-production-1-a3srealtime-eu-west-1-prod.kb.eu-west-1.aws.found.io/*",
+    "https://roosteroverzicht-traffic-bridge-production.up.railway.app/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://svanbergen99.github.io/Roosteroverzicht/*"],
+      "js": ["rooster-content.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://achmea-production-1-a3srealtime-eu-west-1-prod.kb.eu-west-1.aws.found.io/*"],
+      "js": ["kibana-content.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://achmea-production-1-a3srealtime-eu-west-1-prod.kb.eu-west-1.aws.found.io/*"],
+      "js": ["page-hook.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ],
+  "action": {
+    "default_title": "Roosteroverzicht Traffic Collector"
+  }
+}
