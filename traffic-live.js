@@ -3,15 +3,26 @@
 
   const BRIDGE_BASE = "https://fluffy-palm-tree-6v4w9vj6xxx9f5g56-8787.app.github.dev";
   const LIVE_URL = `${BRIDGE_BASE}/api/traffic-live`;
+  const ACCESS_CONFIG_URL = "traffic-access.json";
   const REFRESH_MS = 5000;
   const TIME_ZONE = "Europe/Amsterdam";
+  const ACCESS_AAD = "roosteroverzicht-traffic-read-key-v1";
 
   const app = document.getElementById("app");
   const searchCard = document.querySelector(".search-card");
+  const unlockForm = document.getElementById("unlockForm");
+  const rosterId = document.getElementById("rosterId");
+  const rosterPassword = document.getElementById("rosterPassword");
   if (!app || !searchCard) return;
 
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+
   let readKey = "";
-  let promptAttempted = false;
+  let pendingId = "";
+  let pendingPassword = "";
+  let accessConfigPromise = null;
+  let unlockBusy = false;
   let refreshTimer = null;
   let requestBusy = false;
   let lastSnapshot = null;
@@ -29,6 +40,13 @@
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+  }
+
+  function base64ToBytes(value) {
+    const binary = atob(String(value || ""));
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    return bytes;
   }
 
   function number(value) {
@@ -104,17 +122,12 @@
             <h2 id="trafficLiveTitle" class="traffic-live-title">Live verkeersinformatie</h2>
           </div>
           <div class="traffic-live-head-actions">
-            <span id="trafficLiveStatus" class="traffic-live-status">Nog niet verbonden</span>
-            <button id="trafficLiveKeyButton" class="traffic-live-key-button" type="button">Verbinden</button>
+            <span id="trafficLiveStatus" class="traffic-live-status">Automatisch verbinden…</span>
           </div>
         </div>
         <div id="trafficLiveBody" class="traffic-live-body">
-          <div class="traffic-live-placeholder">Na het ontgrendelen wordt de live Traffic-data geladen.</div>
+          <div class="traffic-live-placeholder">Na het ontgrendelen wordt de live Traffic-data automatisch geladen.</div>
         </div>`;
-
-      panel.querySelector("#trafficLiveKeyButton")?.addEventListener("click", () => {
-        promptForReadKey(true);
-      });
     }
 
     const bar = document.getElementById("trafficTodayBar");
@@ -135,13 +148,6 @@
     if (!status) return;
     status.textContent = text;
     status.dataset.state = state;
-  }
-
-  function setKeyButton(text, hidden = false) {
-    const button = ensurePanel()?.querySelector("#trafficLiveKeyButton");
-    if (!button) return;
-    button.textContent = text;
-    button.hidden = hidden;
   }
 
   function table(title, columns, rows) {
@@ -218,12 +224,84 @@
     } else {
       setStatus(updated ? `Live • ${updated}` : "Live", "live");
     }
-    setKeyButton("Verbonden", true);
   }
 
   function renderMessage(message) {
     const body = ensurePanel()?.querySelector("#trafficLiveBody");
     if (body) body.innerHTML = `<div class="traffic-live-placeholder">${escapeHtml(message)}</div>`;
+  }
+
+  async function getAccessConfig() {
+    if (!accessConfigPromise) {
+      accessConfigPromise = fetch(`${ACCESS_CONFIG_URL}?v=${Date.now()}`, { cache: "no-store" }).then(async (response) => {
+        if (response.status === 404) {
+          const error = new Error("Traffic-toegang is nog niet gekoppeld.");
+          error.code = "ACCESS_NOT_CONFIGURED";
+          throw error;
+        }
+        if (!response.ok) throw new Error(`Traffic-toegang kon niet worden geladen (HTTP ${response.status}).`);
+        const config = await response.json();
+        if (config?.kind !== "roosteroverzicht-traffic-access" || config?.encrypted !== true || !config.crypto || !config.payload) {
+          throw new Error("Traffic-toegang heeft een ongeldig formaat.");
+        }
+        return config;
+      }).catch((error) => {
+        accessConfigPromise = null;
+        throw error;
+      });
+    }
+    return accessConfigPromise;
+  }
+
+  async function decryptReadKey(id, password) {
+    const config = await getAccessConfig();
+    const cryptoInfo = config.crypto || {};
+    const secret = encoder.encode(`${id}\u0000${password}`);
+    const keyMaterial = await crypto.subtle.importKey("raw", secret, "PBKDF2", false, ["deriveKey"]);
+    const key = await crypto.subtle.deriveKey({
+      name: "PBKDF2",
+      hash: cryptoInfo.hash || "SHA-256",
+      salt: base64ToBytes(cryptoInfo.salt),
+      iterations: Number(cryptoInfo.iterations) || 250000
+    }, keyMaterial, {
+      name: "AES-GCM",
+      length: Number(cryptoInfo.keyLength) || 256
+    }, false, ["decrypt"]);
+
+    const additionalData = encoder.encode(cryptoInfo.aad || ACCESS_AAD);
+    const plaintext = await crypto.subtle.decrypt({
+      name: "AES-GCM",
+      iv: base64ToBytes(cryptoInfo.iv),
+      additionalData
+    }, key, base64ToBytes(config.payload));
+
+    const value = decoder.decode(plaintext).trim();
+    if (!value || value.length > 500) throw new Error("Traffic read key kon niet worden ontsleuteld.");
+    return value;
+  }
+
+  async function unlockTrafficAccess() {
+    if (!isRosterPage() || readKey || unlockBusy || !pendingId || !pendingPassword) return;
+    unlockBusy = true;
+    setStatus("Automatisch verbinden…", "loading");
+
+    try {
+      readKey = await decryptReadKey(pendingId, pendingPassword);
+      pendingId = "";
+      pendingPassword = "";
+      startPolling();
+    } catch (error) {
+      readKey = "";
+      const notConfigured = error?.code === "ACCESS_NOT_CONFIGURED";
+      setStatus(notConfigured ? "Nog niet gekoppeld" : "Automatische toegang mislukt", "error");
+      renderMessage(notConfigured
+        ? "Traffic-toegang moet eenmalig worden gekoppeld. Daarna is geen aparte Traffic-sleutel meer nodig."
+        : "Traffic Live kon niet automatisch met de roosterlogin worden ontgrendeld.");
+      pendingId = "";
+      pendingPassword = "";
+    } finally {
+      unlockBusy = false;
+    }
   }
 
   async function loadTraffic() {
@@ -243,9 +321,8 @@
 
       if (response.status === 401) {
         readKey = "";
-        setStatus("Sleutel ongeldig", "error");
-        setKeyButton("Sleutel opnieuw invoeren", false);
-        renderMessage("De Traffic read key is niet geldig.");
+        setStatus("Traffic-toegang ongeldig", "error");
+        renderMessage("De gekoppelde Traffic-toegang is niet meer geldig en moet opnieuw worden gekoppeld.");
         stopPolling();
         return;
       }
@@ -262,7 +339,6 @@
     } catch (_) {
       setStatus("Bridge niet bereikbaar", "error");
       if (!lastSnapshot) renderMessage("Traffic Live kan de bridge momenteel niet bereiken.");
-      setKeyButton(readKey ? "Opnieuw proberen" : "Verbinden", false);
     } finally {
       requestBusy = false;
     }
@@ -281,26 +357,6 @@
     refreshTimer = null;
   }
 
-  function promptForReadKey(force = false) {
-    if (!isRosterPage()) return;
-    if (readKey && !force) {
-      startPolling();
-      return;
-    }
-
-    const value = String(window.prompt("Voer je TRAFFIC_READ_KEY in. Deze sleutel wordt niet opgeslagen in de repo.") || "").trim();
-    if (!value) {
-      setStatus("Niet verbonden", "");
-      setKeyButton("Verbinden", false);
-      return;
-    }
-
-    readKey = value;
-    setStatus("Verbinden…", "loading");
-    setKeyButton("Verbinden…", true);
-    startPolling();
-  }
-
   function sync() {
     if (!isRosterPage()) {
       stopPolling();
@@ -309,18 +365,24 @@
     }
 
     ensurePanel();
-    if (!promptAttempted) {
-      promptAttempted = true;
-      window.setTimeout(() => promptForReadKey(false), 120);
-    } else if (readKey) {
-      startPolling();
-    }
+    if (readKey) startPolling();
   }
 
-  window.addEventListener("rooster-unlocked", () => window.setTimeout(sync, 0));
+  unlockForm?.addEventListener("submit", () => {
+    pendingId = rosterId?.value?.trim() || "";
+    pendingPassword = rosterPassword?.value || "";
+  }, true);
+
+  window.addEventListener("rooster-unlocked", (event) => {
+    if (event?.detail?.publicPortal) return;
+    window.setTimeout(() => {
+      sync();
+      unlockTrafficAccess();
+    }, 0);
+  });
+
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) return;
-    if (isRosterPage() && readKey) loadTraffic();
+    if (!document.hidden && isRosterPage() && readKey) loadTraffic();
   });
 
   const observer = new MutationObserver(sync);
@@ -335,8 +397,8 @@
 
   window.RoosterTrafficLive = Object.freeze({
     refresh: loadTraffic,
-    reconnect: () => promptForReadKey(true),
     getBridgeUrl: () => BRIDGE_BASE,
-    getLastSnapshot: () => lastSnapshot
+    getLastSnapshot: () => lastSnapshot,
+    isAccessReady: () => Boolean(readKey)
   });
 })();
