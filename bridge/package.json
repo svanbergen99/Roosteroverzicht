@@ -1,0 +1,13 @@
+{
+  "name": "roosteroverzicht-traffic-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Beveiligde read-only bridge tussen Roosteroverzicht en het officiële Traffic/Kibana-dashboard.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
