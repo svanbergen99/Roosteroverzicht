@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Traffic toegang koppelen</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;font-family:Arial,Helvetica,sans-serif;background:#f3f5f8;color:#172033}.card{width:min(680px,100%);padding:28px;border-radius:20px;background:#fff;box-shadow:0 18px 52px rgba(15,23,42,.14)}h1{margin:0 0 10px;font-size:28px}p{line-height:1.5;color:#64748b}.note{padding:12px 14px;border-radius:12px;background:#f7f8fa;color:#475569;font-size:14px}label{display:block;margin:16px 0 7px;font-weight:700}input,textarea{width:100%;padding:12px 13px;border:1px solid #cbd5e1;border-radius:10px;font:inherit}button{margin-top:18px;padding:12px 16px;border:0;border-radius:10px;background:#7b2f73;color:#fff;font:inherit;font-weight:700;cursor:pointer}button+button{margin-left:8px;background:#475569}textarea{min-height:230px;margin-top:16px;font-family:Consolas,monospace;font-size:12px;resize:vertical}[hidden]{display:none!important}.error{margin-top:12px;color:#b42336;font-weight:700}.ok{margin-top:12px;color:#166534;font-weight:700}
+</style>
+</head>
+<body>
+<main class="card">
+<h1>Traffic toegang eenmalig koppelen</h1>
+<p>Deze pagina versleutelt de <code>TRAFFIC_READ_KEY</code> lokaal in je browser met dezelfde ID + wachtwoord-combinatie die het rooster ontgrendelt. Er wordt niets verstuurd.</p>
+<div class="note">De uiteindelijke JSON bevat alleen versleutelde gegevens. De Traffic read key, rooster-ID en het roosterwachtwoord worden niet opgeslagen.</div>
+<form id="setupForm" autocomplete="off">
+<label for="rosterId">Rooster ID</label>
+<input id="rosterId" type="text" autocomplete="off" required>
+<label for="rosterPassword">Rooster wachtwoord</label>
+<input id="rosterPassword" type="password" autocomplete="new-password" required>
+<label for="trafficReadKey">TRAFFIC_READ_KEY</label>
+<input id="trafficReadKey" type="password" autocomplete="new-password" required>
+<button type="submit">Versleutelde koppeling maken</button>
+</form>
+<div id="status" aria-live="polite"></div>
+<section id="result" hidden>
+<textarea id="output" readonly></textarea>
+<button id="copyButton" type="button">JSON kopiëren</button>
+</section>
+</main>
+<script>
+(() => {
+  "use strict";
+
+  const encoder = new TextEncoder();
+  const ACCESS_AAD = "roosteroverzicht-traffic-read-key-v1";
+  const form = document.getElementById("setupForm");
+  const rosterId = document.getElementById("rosterId");
+  const rosterPassword = document.getElementById("rosterPassword");
+  const trafficReadKey = document.getElementById("trafficReadKey");
+  const status = document.getElementById("status");
+  const result = document.getElementById("result");
+  const output = document.getElementById("output");
+  const copyButton = document.getElementById("copyButton");
+
+  function bytesToBase64(bytes) {
+    let binary = "";
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return btoa(binary);
+  }
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    status.className = "";
+    status.textContent = "Versleutelen…";
+    result.hidden = true;
+
+    const id = rosterId.value.trim();
+    const password = rosterPassword.value;
+    const readKey = trafficReadKey.value.trim();
+    if (!id || !password || !readKey) return;
+
+    try {
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const secret = encoder.encode(`${id}\u0000${password}`);
+      const keyMaterial = await crypto.subtle.importKey("raw", secret, "PBKDF2", false, ["deriveKey"]);
+      const key = await crypto.subtle.deriveKey({
+        name: "PBKDF2",
+        hash: "SHA-256",
+        salt,
+        iterations: 250000
+      }, keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt"]);
+
+      const encrypted = await crypto.subtle.encrypt({
+        name: "AES-GCM",
+        iv,
+        additionalData: encoder.encode(ACCESS_AAD)
+      }, key, encoder.encode(readKey));
+
+      const config = {
+        schemaVersion: 1,
+        kind: "roosteroverzicht-traffic-access",
+        encrypted: true,
+        crypto: {
+          version: 1,
+          kdf: "PBKDF2",
+          hash: "SHA-256",
+          iterations: 250000,
+          salt: bytesToBase64(salt),
+          cipher: "AES-GCM",
+          keyLength: 256,
+          iv: bytesToBase64(iv),
+          aad: ACCESS_AAD
+        },
+        payload: bytesToBase64(new Uint8Array(encrypted))
+      };
+
+      output.value = JSON.stringify(config, null, 2);
+      rosterPassword.value = "";
+      trafficReadKey.value = "";
+      result.hidden = false;
+      status.className = "ok";
+      status.textContent = "Klaar. Alleen de versleutelde JSON hieronder hoeft nog in traffic-access.json te worden gezet.";
+    } catch (error) {
+      console.error(error);
+      status.className = "error";
+      status.textContent = "Versleutelen is mislukt.";
+    }
+  });
+
+  copyButton.addEventListener("click", async () => {
+    await navigator.clipboard.writeText(output.value);
+    status.className = "ok";
+    status.textContent = "Versleutelde JSON gekopieerd.";
+  });
+})();
+</script>
+</body>
+</html>
