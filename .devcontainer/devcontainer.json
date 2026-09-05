@@ -1,0 +1,15 @@
+{
+  "name": "Roosteroverzicht Traffic Bridge",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20-bookworm",
+  "forwardPorts": [8787],
+  "portsAttributes": {
+    "8787": {
+      "label": "Traffic Bridge",
+      "onAutoForward": "notify"
+    }
+  },
+  "postCreateCommand": "cd bridge && npm install",
+  "remoteEnv": {
+    "PORT": "8787"
+  }
+}
