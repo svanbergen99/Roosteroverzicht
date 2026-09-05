@@ -6,6 +6,7 @@ COPY package.json ./
 RUN npm install --omit=dev
 
 COPY server.js ./server.js
+COPY elastic-sync.js ./elastic-sync.js
 
 ENV NODE_ENV=production
 ENV PORT=8787
