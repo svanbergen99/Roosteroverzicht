@@ -6,44 +6,49 @@ Deze map bevat de beveiligde read-only bridge tussen Roosteroverzicht en het off
 
 De browserpagina van Roosteroverzicht mag geen Kibana-sessiecookie (`sid`) of andere geheime credentials bevatten. De bridge haalt daarom server-side alleen de benodigde informatie op en geeft een klein JSON-resultaat terug.
 
-Eerste endpoint:
+Endpoints:
 
-- `GET /api/traffic-header` — haalt de officiële Traffic-header uit het opgeslagen Markdown-paneel van dashboard `731a7b2c-c25f-4ff6-a032-5f62ef6d2272`.
-- `GET /api/health` — controleert of de bridge draait en of een goedgekeurde Kibana-authenticatie is geconfigureerd.
+- `GET /api/traffic-header` — haalt de officiële Traffic-header op.
+- `GET /api/health` — controleert of de bridge draait en of alle vereiste configuratie aanwezig is.
 
 ## Beveiliging
 
-- De browser-`sid` wordt bewust niet ondersteund.
-- Secrets horen alleen in de secret/configuration store van de gekozen host.
-- `KIBANA_AUTHORIZATION` accepteert alleen een goedgekeurde `ApiKey ...` of `Bearer ...` waarde.
+- Browsercookies, waaronder `sid`, worden bewust niet ondersteund.
+- Alle `KIBANA_*` waarden worden alleen via environment variables gelezen.
+- In Codespaces horen die waarden in **Codespaces Secrets**, niet in bestanden of terminalcommando's.
+- `KIBANA_AUTHORIZATION` accepteert alleen een expliciet goedgekeurde `ApiKey ...` of `Bearer ...` waarde.
 - CORS wordt beperkt tot `ALLOWED_ORIGIN`.
-- De bridge retourneert alleen de benodigde Traffic-informatie, niet de volledige Kibana-response.
+- De bridge retourneert alleen de benodigde Traffic-header en beperkte tijdmetadata, niet de volledige upstream-response.
 
-## Lokaal starten
+## Vereiste Codespaces Secrets
+
+Maak voor deze repository de volgende secrets aan en vul de echte waarden alleen daar in:
+
+- `KIBANA_ORIGIN`
+- `KIBANA_SPACE`
+- `KIBANA_DASHBOARD_ID`
+- `KIBANA_DASHBOARD_VERSION`
+- `KIBANA_TRAFFIC_PANEL_ID`
+- `KIBANA_AUTHORIZATION`
+
+De repository bevat bewust geen echte Kibana-hostnaam, dashboard-ID, paneel-ID of autorisatiewaarde in de bridge-configuratie.
+
+## Starten in Codespaces
 
 Node.js 20 of nieuwer:
 
 ```bash
-cd bridge
-npm start
+node bridge/server.js
 ```
 
-Zonder `KIBANA_AUTHORIZATION` blijft de bridge bewust in veilige niet-gekoppelde modus. `/api/health` werkt dan wel; `/api/traffic-header` geeft `503 NOT_CONFIGURED`.
+Controle:
 
-## Nog nodig voor echte koppeling
-
-Er is nog één geautoriseerde backend-identiteit nodig die dit Kibana-endpoint mag lezen:
-
-`POST /s/centraal-beheer/api/content_management/rpc/get`
-
-met payload:
-
-```json
-{
-  "contentTypeId": "dashboard",
-  "id": "731a7b2c-c25f-4ff6-a032-5f62ef6d2272",
-  "version": 3
-}
+```bash
+curl http://localhost:8787/api/health
 ```
 
-Zodra die officiële read-only authenticatie beschikbaar is, kan de bridge de header live synchroniseren. Daarna kunnen dezelfde principes worden uitgebreid naar de `internal/bsearch` live metrics.
+Zonder de vereiste Codespaces Secrets blijft de bridge bewust in veilige niet-gekoppelde modus. `/api/health` werkt dan wel en meldt `configured: false`; `/api/traffic-header` geeft `503 NOT_CONFIGURED`.
+
+## Volgende stap
+
+Zodra een officieel goedgekeurde read-only backend-identiteit beschikbaar is, zet je die uitsluitend als `KIBANA_AUTHORIZATION` in Codespaces Secrets. Daarna kan de bridge de officiële header live synchroniseren. Dezelfde beveiligingsopzet kan later worden uitgebreid naar de live Traffic-metrics.
