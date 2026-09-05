@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Beveiligde read-only bridge tussen Roosteroverzicht en het officiële Traffic/Kibana-dashboard.",
+  "description": "Beveiligde bridge voor Traffic Live met Elasticsearch-sync.",
   "scripts": {
-    "start": "node server.js"
+    "start": "node elastic-sync.js"
   },
   "engines": {
     "node": ">=20"
