@@ -13,6 +13,9 @@
       Object.freeze({ start: "start", end: "12:00", name: "Hendrik Steenhouwer" }),
       Object.freeze({ start: "12:00", end: "15:00", name: "Ewoud Oord" }),
       Object.freeze({ start: "15:00", end: "sluit", name: "Maaike Overweg" })
+    ]),
+    "2026-09-05": Object.freeze([
+      Object.freeze({ start: "start", end: "sluit", name: "Marjan van Staalduinen" })
     ])
   });
 
