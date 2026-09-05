@@ -98,6 +98,10 @@ function hasPushConfig() {
   return Boolean(readEnv("KIBANA_CONFIG") && readEnv("TRAFFIC_PUSH_KEY"));
 }
 
+function hasReadConfig() {
+  return Boolean(readEnv("TRAFFIC_READ_KEY"));
+}
+
 function safeSecretEqual(expected, supplied) {
   const left = Buffer.from(String(expected || ""));
   const right = Buffer.from(String(supplied || ""));
@@ -293,6 +297,7 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === "OPTIONS") {
     const isPush = url.pathname === "/api/traffic-push";
+    const isLiveRead = url.pathname === "/api/traffic-live";
     const expectedOrigin = isPush ? pushOrigin : ALLOWED_ORIGIN;
 
     if (!allowedCorsOrigin(origin, expectedOrigin)) {
@@ -301,10 +306,16 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    const allowedHeaders = isPush
+      ? "content-type, x-traffic-push-key"
+      : isLiveRead
+        ? "content-type, x-traffic-read-key"
+        : "content-type";
+
     res.writeHead(204, {
       "access-control-allow-origin": origin,
       "access-control-allow-methods": isPush ? "POST, OPTIONS" : "GET, OPTIONS",
-      "access-control-allow-headers": isPush ? "content-type, x-traffic-push-key" : "content-type",
+      "access-control-allow-headers": allowedHeaders,
       "access-control-max-age": "600",
       vary: "Origin"
     });
@@ -319,6 +330,7 @@ const server = http.createServer(async (req, res) => {
       configured,
       serviceAuthConfigured: hasServiceAuthConfig(),
       pushConfigured: hasPushConfig(),
+      readConfigured: hasReadConfig(),
       hasLiveSnapshot: Boolean(latestTrafficSnapshot),
       service: "roosteroverzicht-traffic-bridge"
     }, origin);
@@ -378,6 +390,34 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === "GET" && url.pathname === "/api/traffic-live") {
+    if (!hasReadConfig()) {
+      json(res, 503, {
+        ok: false,
+        code: "READ_NOT_CONFIGURED",
+        message: "Traffic live read is nog niet geconfigureerd."
+      }, origin);
+      return;
+    }
+
+    if (origin && origin !== ALLOWED_ORIGIN) {
+      json(res, 403, {
+        ok: false,
+        code: "ORIGIN_DENIED",
+        message: "Deze origin mag Traffic Live niet uitlezen."
+      }, origin);
+      return;
+    }
+
+    const suppliedReadKey = req.headers["x-traffic-read-key"];
+    if (!safeSecretEqual(readEnv("TRAFFIC_READ_KEY"), suppliedReadKey)) {
+      json(res, 401, {
+        ok: false,
+        code: "INVALID_READ_KEY",
+        message: "Ongeldige Traffic read key."
+      }, origin);
+      return;
+    }
+
     if (!latestTrafficSnapshot) {
       json(res, 503, {
         ok: false,
