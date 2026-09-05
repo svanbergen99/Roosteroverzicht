@@ -1,10 +1,11 @@
 import http from "node:http";
-import { timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 const PORT = Number(process.env.PORT || 8787);
 const ALLOWED_ORIGIN = String(process.env.ALLOWED_ORIGIN || "https://svanbergen99.github.io").trim();
 const MAX_PUSH_BODY_BYTES = 32 * 1024;
 const LIVE_STALE_MS = 20 * 1000;
+const COLLECTOR_TOKEN_TTL_MS = 8 * 60 * 60 * 1000;
 
 let latestTrafficSnapshot = null;
 
@@ -112,6 +113,10 @@ function allowedCorsOrigin(origin, allowedOrigin) {
   return Boolean(origin && allowedOrigin && origin === allowedOrigin);
 }
 
+function isExtensionOrigin(origin) {
+  return /^chrome-extension:\/\/[a-z0-9]+$/i.test(String(origin || ""));
+}
+
 function json(res, status, body, origin, allowedOrigin = ALLOWED_ORIGIN) {
   const headers = {
     "content-type": "application/json; charset=utf-8",
@@ -127,6 +132,55 @@ function json(res, status, body, origin, allowedOrigin = ALLOWED_ORIGIN) {
 
   res.writeHead(status, headers);
   res.end(JSON.stringify(body));
+}
+
+function collectorTokenSignature(payloadPart) {
+  return createHmac("sha256", readEnv("TRAFFIC_PUSH_KEY"))
+    .update(payloadPart)
+    .digest("base64url");
+}
+
+function issueCollectorToken() {
+  if (!hasPushConfig() || !hasReadConfig()) {
+    throw configError("Collector-toegang is nog niet geconfigureerd.", "NOT_CONFIGURED");
+  }
+
+  const expiresAt = Date.now() + COLLECTOR_TOKEN_TTL_MS;
+  const payload = Buffer.from(JSON.stringify({
+    v: 1,
+    scope: "traffic-push",
+    exp: expiresAt,
+    nonce: randomBytes(12).toString("base64url")
+  }), "utf8").toString("base64url");
+
+  return {
+    token: `${payload}.${collectorTokenSignature(payload)}`,
+    expiresAt: new Date(expiresAt).toISOString()
+  };
+}
+
+function verifyCollectorToken(token) {
+  const raw = String(token || "").trim();
+  if (!raw || raw.length > 4096 || !hasPushConfig()) return false;
+
+  const parts = raw.split(".");
+  if (parts.length !== 2) return false;
+  const [payloadPart, signature] = parts;
+  if (!payloadPart || !signature) return false;
+
+  const expectedSignature = collectorTokenSignature(payloadPart);
+  if (!safeSecretEqual(expectedSignature, signature)) return false;
+
+  try {
+    const payload = JSON.parse(Buffer.from(payloadPart, "base64url").toString("utf8"));
+    const expiresAt = Number(payload?.exp);
+    if (payload?.v !== 1 || payload?.scope !== "traffic-push") return false;
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return false;
+    if (expiresAt > Date.now() + COLLECTOR_TOKEN_TTL_MS + 60 * 1000) return false;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function stripMarkdownHeading(markdown) {
@@ -298,23 +352,25 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "OPTIONS") {
     const isPush = url.pathname === "/api/traffic-push";
     const isLiveRead = url.pathname === "/api/traffic-live";
-    const expectedOrigin = isPush ? pushOrigin : ALLOWED_ORIGIN;
+    const isCollectorToken = url.pathname === "/api/traffic-collector-token";
+    const pushOriginAllowed = isPush && (allowedCorsOrigin(origin, pushOrigin) || isExtensionOrigin(origin));
+    const regularOriginAllowed = (isLiveRead || isCollectorToken) && allowedCorsOrigin(origin, ALLOWED_ORIGIN);
 
-    if (!allowedCorsOrigin(origin, expectedOrigin)) {
+    if (!pushOriginAllowed && !regularOriginAllowed) {
       res.writeHead(403);
       res.end();
       return;
     }
 
     const allowedHeaders = isPush
-      ? "content-type, x-traffic-push-key"
-      : isLiveRead
+      ? "content-type, x-traffic-push-key, x-traffic-collector-token"
+      : (isLiveRead || isCollectorToken)
         ? "content-type, x-traffic-read-key"
         : "content-type";
 
     res.writeHead(204, {
       "access-control-allow-origin": origin,
-      "access-control-allow-methods": isPush ? "POST, OPTIONS" : "GET, OPTIONS",
+      "access-control-allow-methods": isPush || isCollectorToken ? "POST, OPTIONS" : "GET, OPTIONS",
       "access-control-allow-headers": allowedHeaders,
       "access-control-max-age": "600",
       vary: "Origin"
@@ -337,6 +393,48 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "POST" && url.pathname === "/api/traffic-collector-token") {
+    if (!hasReadConfig() || !hasPushConfig()) {
+      json(res, 503, {
+        ok: false,
+        code: "COLLECTOR_NOT_CONFIGURED",
+        message: "Traffic collector-toegang is nog niet geconfigureerd."
+      }, origin);
+      return;
+    }
+
+    if (!allowedCorsOrigin(origin, ALLOWED_ORIGIN)) {
+      json(res, 403, {
+        ok: false,
+        code: "ORIGIN_DENIED",
+        message: "Deze origin mag geen collector starten."
+      }, origin);
+      return;
+    }
+
+    const suppliedReadKey = req.headers["x-traffic-read-key"];
+    if (!safeSecretEqual(readEnv("TRAFFIC_READ_KEY"), suppliedReadKey)) {
+      json(res, 401, {
+        ok: false,
+        code: "INVALID_READ_KEY",
+        message: "Ongeldige Traffic read key."
+      }, origin);
+      return;
+    }
+
+    try {
+      const token = issueCollectorToken();
+      json(res, 200, { ok: true, ...token }, origin);
+    } catch (error) {
+      json(res, 503, {
+        ok: false,
+        code: error?.code || "COLLECTOR_NOT_CONFIGURED",
+        message: error?.message || "Collector-toegang kon niet worden uitgegeven."
+      }, origin);
+    }
+    return;
+  }
+
   if (req.method === "POST" && url.pathname === "/api/traffic-push") {
     if (!hasPushConfig()) {
       json(res, 503, {
@@ -347,7 +445,21 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (origin && origin !== pushOrigin) {
+    const suppliedKey = req.headers["x-traffic-push-key"];
+    const suppliedCollectorToken = req.headers["x-traffic-collector-token"];
+    const pushKeyValid = safeSecretEqual(readEnv("TRAFFIC_PUSH_KEY"), suppliedKey);
+    const collectorTokenValid = verifyCollectorToken(suppliedCollectorToken);
+
+    if (!pushKeyValid && !collectorTokenValid) {
+      json(res, 401, {
+        ok: false,
+        code: "INVALID_PUSH_AUTH",
+        message: "Ongeldige Traffic push-authenticatie."
+      }, origin, isExtensionOrigin(origin) ? origin : pushOrigin);
+      return;
+    }
+
+    if (pushKeyValid && origin && origin !== pushOrigin) {
       json(res, 403, {
         ok: false,
         code: "ORIGIN_DENIED",
@@ -356,15 +468,16 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    const suppliedKey = req.headers["x-traffic-push-key"];
-    if (!safeSecretEqual(readEnv("TRAFFIC_PUSH_KEY"), suppliedKey)) {
-      json(res, 401, {
+    if (collectorTokenValid && origin && origin !== pushOrigin && !isExtensionOrigin(origin)) {
+      json(res, 403, {
         ok: false,
-        code: "INVALID_PUSH_KEY",
-        message: "Ongeldige Traffic push key."
-      }, origin, pushOrigin);
+        code: "ORIGIN_DENIED",
+        message: "Deze collector-origin wordt niet geaccepteerd."
+      }, origin);
       return;
     }
+
+    const responseOrigin = collectorTokenValid && isExtensionOrigin(origin) ? origin : pushOrigin;
 
     try {
       const body = await readJsonBody(req);
@@ -377,14 +490,14 @@ const server = http.createServer(async (req, res) => {
       json(res, 202, {
         ok: true,
         receivedAt: latestTrafficSnapshot.receivedAt
-      }, origin, pushOrigin);
+      }, origin, responseOrigin);
     } catch (error) {
       const status = error?.code === "PAYLOAD_TOO_LARGE" ? 413 : 400;
       json(res, status, {
         ok: false,
         code: error?.code || "INVALID_SNAPSHOT",
         message: error?.message || "Ongeldige Traffic snapshot"
-      }, origin, pushOrigin);
+      }, origin, responseOrigin);
     }
     return;
   }
