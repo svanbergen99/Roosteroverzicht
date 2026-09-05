@@ -1,14 +1,15 @@
 import http from "node:http";
+import { timingSafeEqual } from "node:crypto";
 
 const PORT = Number(process.env.PORT || 8787);
 const ALLOWED_ORIGIN = String(process.env.ALLOWED_ORIGIN || "https://svanbergen99.github.io").trim();
+const MAX_PUSH_BODY_BYTES = 32 * 1024;
+const LIVE_STALE_MS = 20 * 1000;
+
+let latestTrafficSnapshot = null;
 
 function readEnv(name) {
   return String(process.env[name] || "").trim();
-}
-
-function hasRequiredConfig() {
-  return Boolean(readEnv("KIBANA_CONFIG") && readEnv("KIBANA_AUTHORIZATION"));
 }
 
 function configError(message, code = "INVALID_CONFIG") {
@@ -17,12 +18,10 @@ function configError(message, code = "INVALID_CONFIG") {
   return error;
 }
 
-function getKibanaConfig() {
+function getKibanaBaseConfig() {
   const rawConfig = readEnv("KIBANA_CONFIG");
-  const authorization = readEnv("KIBANA_AUTHORIZATION");
-
-  if (!rawConfig || !authorization) {
-    throw configError("Bridge is nog niet gekoppeld aan de officiële databron.", "NOT_CONFIGURED");
+  if (!rawConfig) {
+    throw configError("KIBANA_CONFIG ontbreekt.", "NOT_CONFIGURED");
   }
 
   let parsed;
@@ -65,23 +64,51 @@ function getKibanaConfig() {
     throw configError("De dashboardversie in KIBANA_CONFIG is ongeldig.");
   }
 
+  return Object.freeze({
+    origin: parsedOrigin.origin,
+    space,
+    dashboardId,
+    dashboardVersion,
+    trafficPanelId
+  });
+}
+
+function getKibanaConfig() {
+  const base = getKibanaBaseConfig();
+  const authorization = readEnv("KIBANA_AUTHORIZATION");
+
+  if (!authorization) {
+    throw configError("Bridge is nog niet gekoppeld aan server-side Kibana-authenticatie.", "NOT_CONFIGURED");
+  }
+
   // Alleen expliciet goedgekeurde service-authenticatie ondersteunen.
   // Browsercookies (waaronder sid) worden bewust niet geaccepteerd.
   if (!/^ApiKey\s+\S+/i.test(authorization) && !/^Bearer\s+\S+/i.test(authorization)) {
     throw configError("KIBANA_AUTHORIZATION moet een goedgekeurde ApiKey- of Bearer-header zijn.");
   }
 
-  return Object.freeze({
-    origin: parsedOrigin.origin,
-    space,
-    dashboardId,
-    dashboardVersion,
-    trafficPanelId,
-    authorization
-  });
+  return Object.freeze({ ...base, authorization });
 }
 
-function json(res, status, body, origin) {
+function hasServiceAuthConfig() {
+  return Boolean(readEnv("KIBANA_CONFIG") && readEnv("KIBANA_AUTHORIZATION"));
+}
+
+function hasPushConfig() {
+  return Boolean(readEnv("KIBANA_CONFIG") && readEnv("TRAFFIC_PUSH_KEY"));
+}
+
+function safeSecretEqual(expected, supplied) {
+  const left = Buffer.from(String(expected || ""));
+  const right = Buffer.from(String(supplied || ""));
+  return left.length > 0 && left.length === right.length && timingSafeEqual(left, right);
+}
+
+function allowedCorsOrigin(origin, allowedOrigin) {
+  return Boolean(origin && allowedOrigin && origin === allowedOrigin);
+}
+
+function json(res, status, body, origin, allowedOrigin = ALLOWED_ORIGIN) {
   const headers = {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store",
@@ -89,7 +116,7 @@ function json(res, status, body, origin) {
     "referrer-policy": "no-referrer"
   };
 
-  if (origin && origin === ALLOWED_ORIGIN) {
+  if (allowedCorsOrigin(origin, allowedOrigin)) {
     headers["access-control-allow-origin"] = origin;
     headers.vary = "Origin";
   }
@@ -159,12 +186,116 @@ async function fetchTrafficHeader() {
   };
 }
 
+function readJsonBody(req) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+
+    req.on("data", (chunk) => {
+      size += chunk.length;
+      if (size > MAX_PUSH_BODY_BYTES) {
+        const error = new Error("Traffic snapshot is te groot.");
+        error.code = "PAYLOAD_TOO_LARGE";
+        reject(error);
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+
+    req.on("end", () => {
+      try {
+        const raw = Buffer.concat(chunks).toString("utf8");
+        resolve(JSON.parse(raw || "{}"));
+      } catch {
+        const error = new Error("Traffic snapshot bevat geen geldige JSON.");
+        error.code = "INVALID_JSON";
+        reject(error);
+      }
+    });
+
+    req.on("error", reject);
+  });
+}
+
+function sanitizeJsonValue(value, depth = 0) {
+  if (depth > 6) throw configError("Traffic snapshot is te diep genest.", "INVALID_SNAPSHOT");
+  if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw configError("Traffic snapshot bevat een ongeldig getal.", "INVALID_SNAPSHOT");
+    return value;
+  }
+  if (Array.isArray(value)) {
+    if (value.length > 250) throw configError("Traffic snapshot bevat te veel waarden.", "INVALID_SNAPSHOT");
+    return value.map((item) => sanitizeJsonValue(item, depth + 1));
+  }
+  if (typeof value === "object") {
+    const result = {};
+    const entries = Object.entries(value);
+    if (entries.length > 100) throw configError("Traffic snapshot bevat te veel velden.", "INVALID_SNAPSHOT");
+    for (const [key, item] of entries) {
+      if (["__proto__", "prototype", "constructor"].includes(key)) continue;
+      result[key] = sanitizeJsonValue(item, depth + 1);
+    }
+    return result;
+  }
+  throw configError("Traffic snapshot bevat een niet-ondersteunde waarde.", "INVALID_SNAPSHOT");
+}
+
+function normalizeTrafficSnapshot(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw configError("Traffic snapshot moet een JSON-object zijn.", "INVALID_SNAPSHOT");
+  }
+
+  const snapshot = {};
+
+  if (body.trafficHeader !== undefined) {
+    const header = String(body.trafficHeader || "").trim();
+    if (!header || header.length > 500) {
+      throw configError("trafficHeader is leeg of te lang.", "INVALID_SNAPSHOT");
+    }
+    snapshot.trafficHeader = header;
+  }
+
+  if (body.panels !== undefined) {
+    if (!body.panels || typeof body.panels !== "object" || Array.isArray(body.panels)) {
+      throw configError("panels moet een JSON-object zijn.", "INVALID_SNAPSHOT");
+    }
+    snapshot.panels = sanitizeJsonValue(body.panels);
+  }
+
+  if (!snapshot.trafficHeader && !snapshot.panels) {
+    throw configError("Traffic snapshot bevat geen Traffic-data.", "INVALID_SNAPSHOT");
+  }
+
+  const capturedAt = body.capturedAt ? new Date(body.capturedAt) : new Date();
+  if (Number.isNaN(capturedAt.getTime())) {
+    throw configError("capturedAt is ongeldig.", "INVALID_SNAPSHOT");
+  }
+
+  snapshot.capturedAt = capturedAt.toISOString();
+  snapshot.source = "browser-collector";
+  return snapshot;
+}
+
+function getPushOrigin() {
+  try {
+    return getKibanaBaseConfig().origin;
+  } catch {
+    return "";
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   const origin = req.headers.origin || "";
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+  const pushOrigin = getPushOrigin();
 
   if (req.method === "OPTIONS") {
-    if (origin !== ALLOWED_ORIGIN) {
+    const isPush = url.pathname === "/api/traffic-push";
+    const expectedOrigin = isPush ? pushOrigin : ALLOWED_ORIGIN;
+
+    if (!allowedCorsOrigin(origin, expectedOrigin)) {
       res.writeHead(403);
       res.end();
       return;
@@ -172,8 +303,8 @@ const server = http.createServer(async (req, res) => {
 
     res.writeHead(204, {
       "access-control-allow-origin": origin,
-      "access-control-allow-methods": "GET, OPTIONS",
-      "access-control-allow-headers": "content-type",
+      "access-control-allow-methods": isPush ? "POST, OPTIONS" : "GET, OPTIONS",
+      "access-control-allow-headers": isPush ? "content-type, x-traffic-push-key" : "content-type",
       "access-control-max-age": "600",
       vary: "Origin"
     });
@@ -182,10 +313,86 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === "GET" && url.pathname === "/api/health") {
+    const configured = hasServiceAuthConfig() || hasPushConfig();
     json(res, 200, {
       ok: true,
-      configured: hasRequiredConfig(),
+      configured,
+      serviceAuthConfigured: hasServiceAuthConfig(),
+      pushConfigured: hasPushConfig(),
+      hasLiveSnapshot: Boolean(latestTrafficSnapshot),
       service: "roosteroverzicht-traffic-bridge"
+    }, origin);
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/traffic-push") {
+    if (!hasPushConfig()) {
+      json(res, 503, {
+        ok: false,
+        code: "PUSH_NOT_CONFIGURED",
+        message: "Traffic push is nog niet geconfigureerd."
+      }, origin, pushOrigin);
+      return;
+    }
+
+    if (origin && origin !== pushOrigin) {
+      json(res, 403, {
+        ok: false,
+        code: "ORIGIN_DENIED",
+        message: "Deze origin mag geen Traffic-data pushen."
+      }, origin, pushOrigin);
+      return;
+    }
+
+    const suppliedKey = req.headers["x-traffic-push-key"];
+    if (!safeSecretEqual(readEnv("TRAFFIC_PUSH_KEY"), suppliedKey)) {
+      json(res, 401, {
+        ok: false,
+        code: "INVALID_PUSH_KEY",
+        message: "Ongeldige Traffic push key."
+      }, origin, pushOrigin);
+      return;
+    }
+
+    try {
+      const body = await readJsonBody(req);
+      const snapshot = normalizeTrafficSnapshot(body);
+      latestTrafficSnapshot = Object.freeze({
+        ...snapshot,
+        receivedAt: new Date().toISOString()
+      });
+
+      json(res, 202, {
+        ok: true,
+        receivedAt: latestTrafficSnapshot.receivedAt
+      }, origin, pushOrigin);
+    } catch (error) {
+      const status = error?.code === "PAYLOAD_TOO_LARGE" ? 413 : 400;
+      json(res, status, {
+        ok: false,
+        code: error?.code || "INVALID_SNAPSHOT",
+        message: error?.message || "Ongeldige Traffic snapshot"
+      }, origin, pushOrigin);
+    }
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/traffic-live") {
+    if (!latestTrafficSnapshot) {
+      json(res, 503, {
+        ok: false,
+        code: "NO_LIVE_DATA",
+        message: "Er is nog geen live Traffic snapshot ontvangen."
+      }, origin);
+      return;
+    }
+
+    const ageMs = Math.max(0, Date.now() - new Date(latestTrafficSnapshot.receivedAt).getTime());
+    json(res, 200, {
+      ok: true,
+      ...latestTrafficSnapshot,
+      ageMs,
+      stale: ageMs > LIVE_STALE_MS
     }, origin);
     return;
   }
