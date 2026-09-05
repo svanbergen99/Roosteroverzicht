@@ -1,12 +1,84 @@
 import http from "node:http";
 
 const PORT = Number(process.env.PORT || 8787);
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "https://svanbergen99.github.io";
-const KIBANA_ORIGIN = process.env.KIBANA_ORIGIN || "https://achmea-production-1-a3srealtime-eu-west-1-prod.kb.eu-west-1.aws.found.io";
-const KIBANA_SPACE = process.env.KIBANA_SPACE || "/s/centraal-beheer";
-const DASHBOARD_ID = process.env.KIBANA_DASHBOARD_ID || "731a7b2c-c25f-4ff6-a032-5f62ef6d2272";
-const DASHBOARD_VERSION = Number(process.env.KIBANA_DASHBOARD_VERSION || 3);
-const TRAFFIC_PANEL_ID = process.env.KIBANA_TRAFFIC_PANEL_ID || "aeb4840f-bb0e-4ac1-bac1-6e7892075291";
+const ALLOWED_ORIGIN = String(process.env.ALLOWED_ORIGIN || "https://svanbergen99.github.io").trim();
+
+const REQUIRED_KIBANA_ENV = Object.freeze([
+  "KIBANA_ORIGIN",
+  "KIBANA_SPACE",
+  "KIBANA_DASHBOARD_ID",
+  "KIBANA_DASHBOARD_VERSION",
+  "KIBANA_TRAFFIC_PANEL_ID",
+  "KIBANA_AUTHORIZATION"
+]);
+
+function readEnv(name) {
+  return String(process.env[name] || "").trim();
+}
+
+function missingKibanaConfig() {
+  return REQUIRED_KIBANA_ENV.filter((name) => !readEnv(name));
+}
+
+function getKibanaConfig() {
+  const missing = missingKibanaConfig();
+  if (missing.length) {
+    const error = new Error("Bridge is nog niet gekoppeld aan de officiële databron.");
+    error.code = "NOT_CONFIGURED";
+    throw error;
+  }
+
+  const origin = readEnv("KIBANA_ORIGIN");
+  const space = readEnv("KIBANA_SPACE");
+  const dashboardId = readEnv("KIBANA_DASHBOARD_ID");
+  const dashboardVersion = Number(readEnv("KIBANA_DASHBOARD_VERSION"));
+  const trafficPanelId = readEnv("KIBANA_TRAFFIC_PANEL_ID");
+  const authorization = readEnv("KIBANA_AUTHORIZATION");
+
+  let parsedOrigin;
+  try {
+    parsedOrigin = new URL(origin);
+  } catch {
+    const error = new Error("KIBANA_ORIGIN is ongeldig geconfigureerd.");
+    error.code = "INVALID_CONFIG";
+    throw error;
+  }
+
+  if (parsedOrigin.protocol !== "https:" || parsedOrigin.pathname !== "/") {
+    const error = new Error("KIBANA_ORIGIN moet een HTTPS-origin zonder pad zijn.");
+    error.code = "INVALID_CONFIG";
+    throw error;
+  }
+
+  if (!space.startsWith("/")) {
+    const error = new Error("KIBANA_SPACE is ongeldig geconfigureerd.");
+    error.code = "INVALID_CONFIG";
+    throw error;
+  }
+
+  if (!Number.isInteger(dashboardVersion) || dashboardVersion < 1) {
+    const error = new Error("KIBANA_DASHBOARD_VERSION is ongeldig geconfigureerd.");
+    error.code = "INVALID_CONFIG";
+    throw error;
+  }
+
+  // Alleen expliciet goedgekeurde service-authenticatie ondersteunen.
+  // Browsercookies (waaronder sid) worden bewust niet geaccepteerd.
+  if (!/^ApiKey\s+\S+/i.test(authorization) && !/^Bearer\s+\S+/i.test(authorization)) {
+    const error = new Error("KIBANA_AUTHORIZATION moet een goedgekeurde ApiKey- of Bearer-header zijn.");
+    error.code = "INVALID_CONFIG";
+    throw error;
+  }
+
+  return Object.freeze({
+    origin: parsedOrigin.origin,
+    space,
+    dashboardId,
+    dashboardVersion,
+    trafficPanelId,
+    authorization
+  });
+}
 
 function json(res, status, body, origin) {
   const headers = {
@@ -25,29 +97,17 @@ function json(res, status, body, origin) {
   res.end(JSON.stringify(body));
 }
 
-function getAuthorizationHeader() {
-  const value = String(process.env.KIBANA_AUTHORIZATION || "").trim();
-  if (!value) return "";
-
-  // Alleen expliciet geautoriseerde service-authenticatie ondersteunen.
-  // Een browser-sid/cookie wordt bewust niet gebruikt of opgeslagen.
-  if (!/^ApiKey\s+\S+/i.test(value) && !/^Bearer\s+\S+/i.test(value)) {
-    throw new Error("KIBANA_AUTHORIZATION moet een goedgekeurde ApiKey- of Bearer-header zijn.");
-  }
-  return value;
-}
-
 function stripMarkdownHeading(markdown) {
   return String(markdown || "")
     .replace(/^\s*#{1,6}\s*/u, "")
     .trim();
 }
 
-function findTrafficPanel(dashboard) {
+function findTrafficPanel(dashboard, trafficPanelId) {
   const panels = dashboard?.result?.result?.item?.attributes?.panels;
   if (!Array.isArray(panels)) return null;
 
-  return panels.find((panel) => panel?.panelIndex === TRAFFIC_PANEL_ID)
+  return panels.find((panel) => panel?.panelIndex === trafficPanelId)
     || panels.find((panel) => {
       const markdown = panel?.panelConfig?.savedVis?.params?.markdown;
       return typeof markdown === "string" && /\bTraffic\b/i.test(markdown);
@@ -56,54 +116,45 @@ function findTrafficPanel(dashboard) {
 }
 
 async function fetchTrafficHeader() {
-  const authorization = getAuthorizationHeader();
-  if (!authorization) {
-    const error = new Error("Bridge is nog niet gekoppeld: KIBANA_AUTHORIZATION ontbreekt.");
-    error.code = "NOT_CONFIGURED";
-    throw error;
-  }
+  const config = getKibanaConfig();
+  const url = `${config.origin}${config.space}/api/content_management/rpc/get`;
 
-  const url = `${KIBANA_ORIGIN}${KIBANA_SPACE}/api/content_management/rpc/get`;
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      authorization,
+      authorization: config.authorization,
       "content-type": "application/json",
       "kbn-xsrf": "roosteroverzicht-traffic-bridge"
     },
     body: JSON.stringify({
       contentTypeId: "dashboard",
-      id: DASHBOARD_ID,
-      version: DASHBOARD_VERSION
+      id: config.dashboardId,
+      version: config.dashboardVersion
     }),
     signal: AbortSignal.timeout(10000)
   });
 
   if (!response.ok) {
-    const error = new Error(`Kibana gaf HTTP ${response.status}.`);
-    error.code = "KIBANA_ERROR";
-    error.status = response.status;
+    const error = new Error(`Officiële databron gaf HTTP ${response.status}.`);
+    error.code = "UPSTREAM_ERROR";
     throw error;
   }
 
   const dashboard = await response.json();
-  const panel = findTrafficPanel(dashboard);
+  const panel = findTrafficPanel(dashboard, config.trafficPanelId);
   const markdown = panel?.panelConfig?.savedVis?.params?.markdown;
 
   if (!markdown) {
-    const error = new Error("Traffic Markdown-paneel is niet gevonden in het dashboard.");
+    const error = new Error("Traffic-paneel is niet gevonden in het officiële dashboard.");
     error.code = "PANEL_NOT_FOUND";
     throw error;
   }
 
   return {
     trafficHeader: stripMarkdownHeading(markdown),
-    rawMarkdown: markdown,
-    dashboardId: DASHBOARD_ID,
-    panelId: panel.panelIndex || TRAFFIC_PANEL_ID,
     dashboardUpdatedAt: dashboard?.result?.result?.item?.updatedAt || null,
     fetchedAt: new Date().toISOString(),
-    source: "official-kibana-dashboard"
+    source: "official-dashboard"
   };
 }
 
@@ -117,6 +168,7 @@ const server = http.createServer(async (req, res) => {
       res.end();
       return;
     }
+
     res.writeHead(204, {
       "access-control-allow-origin": origin,
       "access-control-allow-methods": "GET, OPTIONS",
@@ -131,7 +183,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "GET" && url.pathname === "/api/health") {
     json(res, 200, {
       ok: true,
-      configured: Boolean(String(process.env.KIBANA_AUTHORIZATION || "").trim()),
+      configured: missingKibanaConfig().length === 0,
       service: "roosteroverzicht-traffic-bridge"
     }, origin);
     return;
