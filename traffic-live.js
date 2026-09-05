@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const BRIDGE_BASE = "https://fluffy-palm-tree-6v4w9vj6xxx9f5g56-8787.app.github.dev";
+  const BRIDGE_BASE = "https://roosteroverzicht-traffic-bridge-production.up.railway.app";
   const LIVE_URL = `${BRIDGE_BASE}/api/traffic-live`;
   const ACCESS_CONFIG_URL = "traffic-access.json";
   const REFRESH_MS = 5000;
