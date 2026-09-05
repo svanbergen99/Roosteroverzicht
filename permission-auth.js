@@ -2,8 +2,7 @@
   "use strict";
 
   const TEAM_IDS = Object.freeze([
-    "KCDTeam01", "KCDTeam02", "KCDTeam03", "KCDTeam04", "KCDTeam05", "KCDTeam06",
-    "WOTeam01", "WOTeam02", "WOTeam03", "WOTeam04", "WOTeam05", "WOTeam06", "WOTeam07", "WOTeam08"
+    "KCDTeam01", "KCDTeam02", "KCDTeam03", "KCDTeam04", "KCDTeam05", "KCDTeam06"
   ]);
   const PERMISSIONS = Array.isArray(window.RoosterAccessPermissions) ? window.RoosterAccessPermissions : [];
   const encoder = new TextEncoder();
@@ -46,6 +45,14 @@
       .replaceAll("'", "&#039;");
   }
 
+  function displayEmployeeName(value) {
+    const parts = String(value || "").trim().split(/\s+/).filter(Boolean);
+    if (parts.length < 2) return parts.join(" ");
+    const firstName = parts.at(-1);
+    const surname = parts.slice(0, -1).join(" ");
+    return `${firstName} ${surname}`.trim();
+  }
+
   function nameSignature(value) {
     return String(value || "")
       .toLocaleLowerCase("nl-NL")
@@ -76,10 +83,9 @@
   }
 
   function firstNameFromInput(value) {
-    const parts = String(value || "").trim().split(/\s+/).filter(Boolean);
+    const parts = displayEmployeeName(value).split(/\s+/).filter(Boolean);
     if (!parts.length) return "Collega";
-    const prefixes = new Set(["van", "de", "der", "den", "het", "'t", "ten", "ter", "von"]);
-    const candidate = prefixes.has(parts[0].toLocaleLowerCase("nl-NL")) && parts.length > 1 ? parts.at(-1) : parts[0];
+    const candidate = parts[0];
     return `${candidate.charAt(0).toLocaleUpperCase("nl-NL")}${candidate.slice(1)}`;
   }
 
@@ -112,13 +118,10 @@
   }
 
   function teamOptionsHtml() {
-    const kcd = TEAM_IDS.filter((team) => team.startsWith("KCD")).map((team) =>
+    const kcd = TEAM_IDS.map((team) =>
       `<option value="${team}"${selectedTeam === team ? " selected" : ""}>${team}</option>`
     ).join("");
-    const wo = TEAM_IDS.filter((team) => team.startsWith("WO")).map((team) =>
-      `<option value="${team}"${selectedTeam === team ? " selected" : ""}>${team}</option>`
-    ).join("");
-    return `<option value="">Kies een team</option><optgroup label="KCD Teams">${kcd}</optgroup><optgroup label="WO Teams">${wo}</optgroup>`;
+    return `<option value="">Kies een team</option><optgroup label="KCD Teams">${kcd}</optgroup>`;
   }
 
   function showTeamStep() {
@@ -219,7 +222,7 @@
         if (name) names.add(name);
       }
     }
-    if (names.size) return [...names].sort((a, b) => a.localeCompare(b, "nl"));
+    if (names.size) return [...names].sort((a, b) => displayEmployeeName(a).localeCompare(displayEmployeeName(b), "nl"));
     if (attempt >= 50) return [];
     await new Promise((resolve) => setTimeout(resolve, 100));
     return collectUnlockedEmployeeNames(attempt + 1);
@@ -230,14 +233,17 @@
     if (!q) return [];
     return names
       .map((name) => {
-        const normalized = searchSignature(name);
+        const displayName = displayEmployeeName(name);
+        const normalized = searchSignature(displayName);
+        const rawNormalized = searchSignature(name);
         const words = normalized.split(/\s+/).filter(Boolean);
         let score = 99;
         if (normalized.startsWith(q)) score = 0;
         else if (words[0]?.startsWith(q)) score = 1;
         else if (words.some((word) => word.startsWith(q))) score = 2;
         else if (normalized.includes(q)) score = 3;
-        return { name, score };
+        else if (rawNormalized.includes(q)) score = 4;
+        return { name, displayName, score };
       })
       .filter((item) => item.score < 99)
       .sort((a, b) => itemCompare(a, b))
@@ -247,7 +253,7 @@
 
   function itemCompare(a, b) {
     if (a.score !== b.score) return a.score - b.score;
-    return a.name.localeCompare(b.name, "nl");
+    return a.displayName.localeCompare(b.displayName, "nl");
   }
 
   async function finalizeEmployeeSelection(fullName) {
@@ -322,7 +328,7 @@
 
     function chooseName(name) {
       selectedName = name;
-      input.value = name;
+      input.value = displayEmployeeName(name);
       hideSuggestions();
       error.textContent = "";
     }
@@ -336,7 +342,7 @@
         return;
       }
       suggestions.innerHTML = currentMatches.map((name, index) =>
-        `<button class="permission-auth-name-option" type="button" role="option" data-name-index="${index}">${escapeHtml(name)}</button>`
+        `<button class="permission-auth-name-option" type="button" role="option" data-name-index="${index}">${escapeHtml(displayEmployeeName(name))}</button>`
       ).join("");
       suggestions.hidden = false;
       suggestions.querySelectorAll("[data-name-index]").forEach((button) => {
@@ -384,7 +390,9 @@
       event.preventDefault();
       error.textContent = "";
       const typed = searchSignature(input.value);
-      const exact = selectedName || names.find((name) => searchSignature(name) === typed) || "";
+      const exact = selectedName || names.find((name) =>
+        searchSignature(displayEmployeeName(name)) === typed || searchSignature(name) === typed
+      ) || "";
       if (!exact) {
         error.textContent = "Kies je volledige naam uit de suggestielijst.";
         input.focus();
@@ -468,7 +476,7 @@
           </div>
         </div>
         <div class="manager-colleagues-grid">
-          ${names.map((name, index) => `<button class="today-workers-button manager-colleague-button" type="button" data-colleague-index="${index}">${escapeHtml(name)}</button>`).join("")}
+          ${names.map((name, index) => `<button class="today-workers-button manager-colleague-button" type="button" data-colleague-index="${index}">${escapeHtml(displayEmployeeName(name))}</button>`).join("")}
         </div>
       </div>`;
     rosterResult.hidden = false;
