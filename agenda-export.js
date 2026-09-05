@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20260905-139";
+  const VERSION = "20260905-140";
   const FILE_MONTHS = ["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
   const MONTH_FILE_RE = /^Roosterindex_(Januari|Februari|Maart|Mei|Juni|Juli|Augustus|September|Oktober|November|December|April)\.json$/i;
 
@@ -135,6 +135,7 @@
   loadScript("background-brightness.js");
   loadScript("public-salary-payments.js");
   loadScript("external-sites.js");
+  loadScript("wallboard-window.js");
   loadScript("traffic-live.js");
   loadScript("leave-source-filename.js");
   loadScript("external-sites-tweaks.js");
