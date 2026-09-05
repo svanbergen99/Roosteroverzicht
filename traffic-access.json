@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "kind": "roosteroverzicht-traffic-access",
+  "encrypted": true,
+  "crypto": {
+    "version": 1,
+    "kdf": "PBKDF2",
+    "hash": "SHA-256",
+    "iterations": 250000,
+    "salt": "NGZfoJB9ibOXYF8qx4jpVQ==",
+    "cipher": "AES-GCM",
+    "keyLength": 256,
+    "iv": "Wgn59q25hOEphys+",
+    "aad": "roosteroverzicht-traffic-read-key-v1"
+  },
+  "payload": "z5Va/9QmFDpuZJcVqKUAWzkDdd9I6uSFks+tbuG+ZSEDXG1xPXzHcRWeyi6b9p4n+aJKeZb5ExGZC4gIP0QOc2zGLU/WwL8="
+}
