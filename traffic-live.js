@@ -3,10 +3,13 @@
 
   const BRIDGE_BASE = "https://roosteroverzicht-traffic-bridge-production.up.railway.app";
   const LIVE_URL = `${BRIDGE_BASE}/api/traffic-live`;
+  const COLLECTOR_TOKEN_URL = `${BRIDGE_BASE}/api/traffic-collector-token`;
   const ACCESS_CONFIG_URL = "traffic-access.json";
   const REFRESH_MS = 5000;
   const TIME_ZONE = "Europe/Amsterdam";
   const ACCESS_AAD = "roosteroverzicht-traffic-read-key-v1";
+  const COLLECTOR_PAGE_SOURCE = "roosteroverzicht-traffic-page";
+  const COLLECTOR_EXTENSION_SOURCE = "roosteroverzicht-traffic-extension";
 
   const app = document.getElementById("app");
   const searchCard = document.querySelector(".search-card");
@@ -26,6 +29,10 @@
   let refreshTimer = null;
   let requestBusy = false;
   let lastSnapshot = null;
+  let collectorStartBusy = false;
+  let collectorPopup = null;
+  let collectorRequestTimer = null;
+  let collectorRequestId = "";
 
   function isRosterPage() {
     return !app.hidden &&
@@ -106,42 +113,241 @@
     }).format(date);
   }
 
-  function runCollectorDemo(panel, button) {
-    if (!panel || !button) return;
+  function ensureCollectorStyles() {
+    if (document.getElementById("trafficCollectorPopupStyles")) return;
+    const style = document.createElement("style");
+    style.id = "trafficCollectorPopupStyles";
+    style.textContent = `
+      .traffic-collector-popup{position:fixed;z-index:2147483000;top:92px;right:22px;width:min(360px,calc(100vw - 28px));overflow:hidden;border:1px solid rgba(71,85,105,.22);border-radius:16px;background:rgba(255,255,255,.985);box-shadow:0 22px 60px rgba(15,23,42,.2);font-family:inherit;color:#172033}
+      .traffic-collector-popup[hidden]{display:none!important}
+      .traffic-collector-popup-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 13px;background:linear-gradient(135deg,#f8fafc,#f4edf3);border-bottom:1px solid #e2e8f0;cursor:move;user-select:none;touch-action:none}
+      .traffic-collector-popup-title{min-width:0}.traffic-collector-popup-kicker{font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#6b3a67}.traffic-collector-popup-title strong{display:block;margin-top:2px;font-size:14px;line-height:1.25}
+      .traffic-collector-popup-close{flex:0 0 auto;width:30px;height:30px;border:1px solid #d8dee7;border-radius:9px;background:#fff;color:#64748b;font-size:18px;line-height:1;cursor:pointer}
+      .traffic-collector-popup-body{padding:14px}.traffic-collector-popup-state{display:flex;align-items:center;gap:10px;padding:11px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc}
+      .traffic-collector-popup-dot{width:10px;height:10px;flex:0 0 10px;border-radius:999px;background:#94a3b8;box-shadow:0 0 0 4px rgba(148,163,184,.14)}
+      .traffic-collector-popup[data-state="starting"] .traffic-collector-popup-dot,.traffic-collector-popup[data-state="waiting"] .traffic-collector-popup-dot{background:#8b5a86;box-shadow:0 0 0 4px rgba(139,90,134,.14)}
+      .traffic-collector-popup[data-state="active"] .traffic-collector-popup-dot{background:#2f8a4d;box-shadow:0 0 0 4px rgba(47,138,77,.14)}
+      .traffic-collector-popup[data-state="error"] .traffic-collector-popup-dot,.traffic-collector-popup[data-state="stopped"] .traffic-collector-popup-dot{background:#c2414f;box-shadow:0 0 0 4px rgba(194,65,79,.14)}
+      .traffic-collector-popup-copy{min-width:0}.traffic-collector-popup-copy strong{display:block;font-size:13px}.traffic-collector-popup-copy span{display:block;margin-top:2px;color:#64748b;font-size:11.5px;line-height:1.4}
+      .traffic-collector-popup-note{margin-top:10px;color:#64748b;font-size:11px;line-height:1.45}.traffic-collector-popup-note b{color:#334155}
+      @media(max-width:560px){.traffic-collector-popup{left:14px!important;right:14px!important;top:72px;width:auto}}
+    `;
+    document.head.appendChild(style);
+  }
 
-    let demo = panel.querySelector("#trafficCollectorDemo");
-    if (!demo) {
-      demo = document.createElement("div");
-      demo.id = "trafficCollectorDemo";
-      demo.className = "traffic-live-placeholder";
-      demo.style.margin = "12px 14px 0";
-      demo.style.textAlign = "left";
-      panel.querySelector(".traffic-live-head")?.after(demo);
-    }
+  function makeCollectorPopupDraggable(popup) {
+    const handle = popup.querySelector(".traffic-collector-popup-head");
+    if (!handle || handle.dataset.dragBound === "true") return;
+    handle.dataset.dragBound = "true";
 
-    button.disabled = true;
-    button.textContent = "Traffic starten…";
-    button.style.opacity = ".7";
-    button.style.cursor = "wait";
-    demo.innerHTML = "<strong>Demo:</strong> extensie controleren…";
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
 
-    window.setTimeout(() => {
-      if (!demo.isConnected) return;
-      demo.innerHTML = "<strong>Demo:</strong> Kibana wordt op de achtergrond gestart…";
-    }, 650);
+    handle.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || event.target.closest("button")) return;
+      const rect = popup.getBoundingClientRect();
+      dragging = true;
+      startX = event.clientX;
+      startY = event.clientY;
+      startLeft = rect.left;
+      startTop = rect.top;
+      popup.style.left = `${rect.left}px`;
+      popup.style.top = `${rect.top}px`;
+      popup.style.right = "auto";
+      handle.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+    });
 
-    window.setTimeout(() => {
-      if (!demo.isConnected || !button.isConnected) return;
-      demo.innerHTML = "<strong>Demo:</strong> collector actief. Je blijft gewoon in Roosteroverzicht. <span style=\"font-weight:700;color:#64748b\">Dit is nu alleen een visuele test.</span>";
-      button.disabled = false;
+    handle.addEventListener("pointermove", (event) => {
+      if (!dragging) return;
+      const maxLeft = Math.max(8, window.innerWidth - popup.offsetWidth - 8);
+      const maxTop = Math.max(8, window.innerHeight - popup.offsetHeight - 8);
+      const left = Math.min(maxLeft, Math.max(8, startLeft + event.clientX - startX));
+      const top = Math.min(maxTop, Math.max(8, startTop + event.clientY - startY));
+      popup.style.left = `${left}px`;
+      popup.style.top = `${top}px`;
+    });
+
+    const endDrag = (event) => {
+      if (!dragging) return;
+      dragging = false;
+      try { handle.releasePointerCapture?.(event.pointerId); } catch (_) {}
+    };
+    handle.addEventListener("pointerup", endDrag);
+    handle.addEventListener("pointercancel", endDrag);
+  }
+
+  function ensureCollectorPopup() {
+    ensureCollectorStyles();
+    if (collectorPopup?.isConnected) return collectorPopup;
+
+    collectorPopup = document.createElement("aside");
+    collectorPopup.id = "trafficCollectorPopup";
+    collectorPopup.className = "traffic-collector-popup";
+    collectorPopup.dataset.state = "idle";
+    collectorPopup.setAttribute("role", "status");
+    collectorPopup.innerHTML = `
+      <div class="traffic-collector-popup-head">
+        <div class="traffic-collector-popup-title">
+          <div class="traffic-collector-popup-kicker">Edge extensie</div>
+          <strong>Roosteroverzicht Traffic Collector</strong>
+        </div>
+        <button class="traffic-collector-popup-close" type="button" aria-label="Verberg collectorvenster">×</button>
+      </div>
+      <div class="traffic-collector-popup-body">
+        <div class="traffic-collector-popup-state">
+          <span class="traffic-collector-popup-dot" aria-hidden="true"></span>
+          <div class="traffic-collector-popup-copy">
+            <strong id="trafficCollectorPopupTitle">Klaar om te starten</strong>
+            <span id="trafficCollectorPopupMessage">De extensie maakt straks op de achtergrond verbinding met Kibana.</span>
+          </div>
+        </div>
+        <div class="traffic-collector-popup-note"><b>Kibana blijft buiten beeld:</b> de extensie gebruikt een geminimaliseerd achtergrondvenster. Je blijft gewoon in Roosteroverzicht werken.</div>
+      </div>`;
+    document.body.appendChild(collectorPopup);
+    collectorPopup.querySelector(".traffic-collector-popup-close")?.addEventListener("click", () => {
+      collectorPopup.hidden = true;
+    });
+    makeCollectorPopupDraggable(collectorPopup);
+    return collectorPopup;
+  }
+
+  function setCollectorPopupStatus(state, title, message) {
+    const popup = ensureCollectorPopup();
+    popup.hidden = false;
+    popup.dataset.state = state || "idle";
+    const titleEl = popup.querySelector("#trafficCollectorPopupTitle");
+    const messageEl = popup.querySelector("#trafficCollectorPopupMessage");
+    if (titleEl) titleEl.textContent = title || "Traffic Collector";
+    if (messageEl) messageEl.textContent = message || "";
+  }
+
+  function setCollectorButtonState(state) {
+    const button = document.getElementById("trafficCollectorTestButton");
+    if (!button) return;
+    if (state === "active") {
       button.textContent = "Traffic actief";
-      button.style.opacity = "1";
-      button.style.cursor = "pointer";
       button.style.borderColor = "#b7dfc5";
       button.style.background = "#eefaf2";
       button.style.color = "#24713d";
-    }, 1400);
+      button.disabled = false;
+      return;
+    }
+    if (state === "starting" || state === "waiting") {
+      button.textContent = "Traffic starten…";
+      button.disabled = true;
+      return;
+    }
+    button.textContent = "Test Traffic";
+    button.style.borderColor = "";
+    button.style.background = "";
+    button.style.color = "";
+    button.disabled = false;
   }
+
+  async function requestCollectorToken() {
+    if (!readKey) throw new Error("Traffic-toegang is nog niet klaar. Wacht een paar seconden en probeer opnieuw.");
+    const response = await fetch(COLLECTOR_TOKEN_URL, {
+      method: "POST",
+      credentials: "omit",
+      cache: "no-store",
+      headers: {
+        "content-type": "application/json",
+        "x-traffic-read-key": readKey
+      }
+    });
+
+    let data = null;
+    try { data = await response.json(); } catch (_) {}
+    if (!response.ok || !data?.token) {
+      throw new Error(data?.message || `Collector-toegang gaf HTTP ${response.status}.`);
+    }
+    return data.token;
+  }
+
+  function sendCollectorStart(token) {
+    return new Promise((resolve, reject) => {
+      if (collectorRequestTimer) window.clearTimeout(collectorRequestTimer);
+      collectorRequestId = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+      collectorRequestTimer = window.setTimeout(() => {
+        collectorRequestTimer = null;
+        collectorRequestId = "";
+        reject(new Error("De Traffic Collector-extensie is niet geïnstalleerd of reageert niet."));
+      }, 3000);
+
+      const onResponse = (event) => {
+        if (event.source !== window || event.origin !== window.location.origin) return;
+        const message = event.data;
+        if (!message || message.source !== COLLECTOR_EXTENSION_SOURCE || message.type !== "collector-response") return;
+        if (message.requestId !== collectorRequestId) return;
+        window.removeEventListener("message", onResponse);
+        if (collectorRequestTimer) window.clearTimeout(collectorRequestTimer);
+        collectorRequestTimer = null;
+        collectorRequestId = "";
+        if (message.ok) resolve(message);
+        else reject(new Error(message.message || "De extensie kon de collector niet starten."));
+      };
+
+      window.addEventListener("message", onResponse);
+      window.postMessage({
+        source: COLLECTOR_PAGE_SOURCE,
+        type: "collector-start",
+        requestId: collectorRequestId,
+        token
+      }, window.location.origin);
+    });
+  }
+
+  async function startTrafficCollector() {
+    if (collectorStartBusy) return;
+    collectorStartBusy = true;
+    setCollectorButtonState("starting");
+    setCollectorPopupStatus("starting", "Extensie controleren…", "Beveiligde collector-toegang wordt voorbereid.");
+
+    try {
+      const token = await requestCollectorToken();
+      setCollectorPopupStatus("starting", "Kibana voorbereiden…", "De extensie start Kibana geminimaliseerd op de achtergrond.");
+      const response = await sendCollectorStart(token);
+      const state = response?.status || "waiting";
+      setCollectorPopupStatus(state, state === "active" ? "Collector actief" : "Verbonden met extensie", response?.message || "Wachten op de eerste Traffic-update…");
+      setCollectorButtonState(state);
+    } catch (error) {
+      setCollectorPopupStatus("error", "Collector kon niet starten", error?.message || "Onbekende extensiefout.");
+      setCollectorButtonState("error");
+    } finally {
+      collectorStartBusy = false;
+      const button = document.getElementById("trafficCollectorTestButton");
+      if (button && button.disabled && button.textContent === "Traffic starten…") button.disabled = false;
+    }
+  }
+
+  function handleCollectorExtensionMessage(event) {
+    if (event.source !== window || event.origin !== window.location.origin) return;
+    const message = event.data;
+    if (!message || message.source !== COLLECTOR_EXTENSION_SOURCE) return;
+    if (message.type !== "collector-status") return;
+
+    const state = message.status || "idle";
+    const time = message.lastPushAt ? formatUpdatedAt(message.lastPushAt) : "";
+    const title = state === "active"
+      ? `Collector actief${time ? ` • ${time}` : ""}`
+      : state === "waiting"
+        ? "Kibana verbonden"
+        : state === "starting"
+          ? "Collector starten…"
+          : state === "stopped"
+            ? "Collector gestopt"
+            : state === "error"
+              ? "Collectorfout"
+              : "Traffic Collector";
+    setCollectorPopupStatus(state, title, message.message || "");
+    setCollectorButtonState(state);
+  }
+
+  window.addEventListener("message", handleCollectorExtensionMessage);
 
   function ensurePanel() {
     if (!isRosterPage()) return null;
@@ -169,9 +375,9 @@
     }
 
     const testButton = panel.querySelector("#trafficCollectorTestButton");
-    if (testButton && testButton.dataset.demoBound !== "true") {
-      testButton.dataset.demoBound = "true";
-      testButton.addEventListener("click", () => runCollectorDemo(panel, testButton));
+    if (testButton && testButton.dataset.collectorBound !== "true") {
+      testButton.dataset.collectorBound = "true";
+      testButton.addEventListener("click", startTrafficCollector);
     }
 
     const bar = document.getElementById("trafficTodayBar");
@@ -405,6 +611,7 @@
     if (!isRosterPage()) {
       stopPolling();
       document.getElementById("trafficLivePanel")?.remove();
+      if (collectorPopup?.isConnected) collectorPopup.hidden = true;
       return;
     }
 
@@ -441,6 +648,7 @@
 
   window.RoosterTrafficLive = Object.freeze({
     refresh: loadTraffic,
+    startCollector: startTrafficCollector,
     getBridgeUrl: () => BRIDGE_BASE,
     getLastSnapshot: () => lastSnapshot,
     isAccessReady: () => Boolean(readKey)
