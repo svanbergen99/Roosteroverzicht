@@ -3,71 +3,72 @@ import http from "node:http";
 const PORT = Number(process.env.PORT || 8787);
 const ALLOWED_ORIGIN = String(process.env.ALLOWED_ORIGIN || "https://svanbergen99.github.io").trim();
 
-const REQUIRED_KIBANA_ENV = Object.freeze([
-  "KIBANA_ORIGIN",
-  "KIBANA_SPACE",
-  "KIBANA_DASHBOARD_ID",
-  "KIBANA_DASHBOARD_VERSION",
-  "KIBANA_TRAFFIC_PANEL_ID",
-  "KIBANA_AUTHORIZATION"
-]);
-
 function readEnv(name) {
   return String(process.env[name] || "").trim();
 }
 
-function missingKibanaConfig() {
-  return REQUIRED_KIBANA_ENV.filter((name) => !readEnv(name));
+function hasRequiredConfig() {
+  return Boolean(readEnv("KIBANA_CONFIG") && readEnv("KIBANA_AUTHORIZATION"));
+}
+
+function configError(message, code = "INVALID_CONFIG") {
+  const error = new Error(message);
+  error.code = code;
+  return error;
 }
 
 function getKibanaConfig() {
-  const missing = missingKibanaConfig();
-  if (missing.length) {
-    const error = new Error("Bridge is nog niet gekoppeld aan de officiële databron.");
-    error.code = "NOT_CONFIGURED";
-    throw error;
+  const rawConfig = readEnv("KIBANA_CONFIG");
+  const authorization = readEnv("KIBANA_AUTHORIZATION");
+
+  if (!rawConfig || !authorization) {
+    throw configError("Bridge is nog niet gekoppeld aan de officiële databron.", "NOT_CONFIGURED");
   }
 
-  const origin = readEnv("KIBANA_ORIGIN");
-  const space = readEnv("KIBANA_SPACE");
-  const dashboardId = readEnv("KIBANA_DASHBOARD_ID");
-  const dashboardVersion = Number(readEnv("KIBANA_DASHBOARD_VERSION"));
-  const trafficPanelId = readEnv("KIBANA_TRAFFIC_PANEL_ID");
-  const authorization = readEnv("KIBANA_AUTHORIZATION");
+  let parsed;
+  try {
+    parsed = JSON.parse(rawConfig);
+  } catch {
+    throw configError("KIBANA_CONFIG bevat geen geldige JSON.");
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw configError("KIBANA_CONFIG moet een JSON-object zijn.");
+  }
+
+  const origin = String(parsed.origin || "").trim();
+  const space = String(parsed.space || "").trim();
+  const dashboardId = String(parsed.dashboardId || "").trim();
+  const dashboardVersion = Number(parsed.dashboardVersion);
+  const trafficPanelId = String(parsed.trafficPanelId || "").trim();
+
+  if (!origin || !space || !dashboardId || !trafficPanelId) {
+    throw configError("KIBANA_CONFIG mist een vereiste instelling.");
+  }
 
   let parsedOrigin;
   try {
     parsedOrigin = new URL(origin);
   } catch {
-    const error = new Error("KIBANA_ORIGIN is ongeldig geconfigureerd.");
-    error.code = "INVALID_CONFIG";
-    throw error;
+    throw configError("De Kibana-origin in KIBANA_CONFIG is ongeldig.");
   }
 
   if (parsedOrigin.protocol !== "https:" || parsedOrigin.pathname !== "/") {
-    const error = new Error("KIBANA_ORIGIN moet een HTTPS-origin zonder pad zijn.");
-    error.code = "INVALID_CONFIG";
-    throw error;
+    throw configError("De Kibana-origin moet een HTTPS-origin zonder pad zijn.");
   }
 
   if (!space.startsWith("/")) {
-    const error = new Error("KIBANA_SPACE is ongeldig geconfigureerd.");
-    error.code = "INVALID_CONFIG";
-    throw error;
+    throw configError("De Kibana-space in KIBANA_CONFIG is ongeldig.");
   }
 
   if (!Number.isInteger(dashboardVersion) || dashboardVersion < 1) {
-    const error = new Error("KIBANA_DASHBOARD_VERSION is ongeldig geconfigureerd.");
-    error.code = "INVALID_CONFIG";
-    throw error;
+    throw configError("De dashboardversie in KIBANA_CONFIG is ongeldig.");
   }
 
   // Alleen expliciet goedgekeurde service-authenticatie ondersteunen.
   // Browsercookies (waaronder sid) worden bewust niet geaccepteerd.
   if (!/^ApiKey\s+\S+/i.test(authorization) && !/^Bearer\s+\S+/i.test(authorization)) {
-    const error = new Error("KIBANA_AUTHORIZATION moet een goedgekeurde ApiKey- of Bearer-header zijn.");
-    error.code = "INVALID_CONFIG";
-    throw error;
+    throw configError("KIBANA_AUTHORIZATION moet een goedgekeurde ApiKey- of Bearer-header zijn.");
   }
 
   return Object.freeze({
@@ -183,7 +184,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "GET" && url.pathname === "/api/health") {
     json(res, 200, {
       ok: true,
-      configured: missingKibanaConfig().length === 0,
+      configured: hasRequiredConfig(),
       service: "roosteroverzicht-traffic-bridge"
     }, origin);
     return;
