@@ -9,6 +9,7 @@
     }
   },
   "postCreateCommand": "cd bridge && npm install",
+  "postStartCommand": "bash -lc 'if ! curl -fsS http://127.0.0.1:8787/api/health >/dev/null 2>&1; then nohup npm --prefix bridge start >/tmp/traffic-bridge.log 2>&1 & fi; sleep 2; if command -v gh >/dev/null 2>&1 && [ -n \"$CODESPACE_NAME\" ]; then gh codespace ports visibility 8787:public -c \"$CODESPACE_NAME\" || true; fi'",
   "remoteEnv": {
     "PORT": "8787"
   }
