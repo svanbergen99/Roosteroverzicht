@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Beveiligde roosterplanner</title>
+<style>
+:root{--ink:#172b2a;--muted:#667977;--paper:#f3f1e9;--card:#fffdf8;--accent:#176b58;--peak:#e7934a;--line:#d9ded6}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:14px Arial,sans-serif}main{max-width:1600px;margin:auto;padding:28px}header{display:flex;justify-content:space-between;align-items:end;gap:18px;margin-bottom:22px}h1{font-size:48px;letter-spacing:-2px;margin:4px 0 8px}.eyebrow{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);font-weight:bold}.muted{color:var(--muted)}button,input,select{font:inherit}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 25px #173d3210}.gate{max-width:620px;margin:12vh auto;padding:26px}.gate h1{font-size:30px;letter-spacing:-1px}.dashboard{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px}.controls,.metric{padding:18px}.controls{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:15px}.controls strong{display:block;font-size:20px;margin:5px 0}.controls input[type=range]{width:100%;accent-color:var(--accent)}input[type=number],input[type=time],select{display:block;width:100%;margin-top:7px;padding:8px;border:1px solid var(--line);border-radius:8px;background:white;color:var(--ink)}button{border:0;border-radius:8px;padding:9px 12px;cursor:pointer;background:var(--ink);color:white}.light{background:#edf1ec;color:var(--ink)}.reset{background:#b64035}.metric{display:flex;flex-direction:column}.metric small{font-weight:bold;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}.metric b{font-size:29px;margin:13px 0}.score.ok{background:var(--accent);color:white}.score.ok small{color:#d9eee5}.bar{height:5px;background:#0002;border-radius:4px;margin-top:auto}.bar i{display:block;height:100%;background:#cde66a;border-radius:4px}.planner{overflow:hidden;padding-top:18px}.planner h2,.planner p{margin:0 18px 5px}.wrap{overflow:auto;border-top:1px solid var(--line);margin-top:15px}.grid{display:grid;min-width:max-content}.contents{display:contents}.head,.time,.totalhead{height:50px;background:#edf0e9;border-right:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:10px;position:sticky;top:0;z-index:2}.head{left:0;z-index:4;justify-content:flex-start;padding-left:14px}.totalhead{right:0;z-index:4}.day{position:sticky;left:0;z-index:3;background:var(--card);padding:10px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}.day b{display:block;margin-bottom:7px}.day button{font-size:9px;padding:4px 6px}.slot{height:70px;border-radius:0;border-right:1px solid #edf0eb;border-bottom:1px solid var(--line);background:white;color:#71807b;padding:0;font-size:11px;font-weight:bold}.slot:hover{background:#eef5ef}.slot.on{background:var(--accent);color:white}.slot.on.peak{background:var(--peak)}.rowtotal{position:sticky;right:0;z-index:3;background:var(--card);padding:10px;border-left:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;flex-direction:column}.rowtotal em{font-size:9px;color:#a04420;font-style:normal}.presetinfo{grid-column:1/-1;background:#edf4ee;border-radius:9px;padding:9px 12px;font-size:12px;color:var(--accent)}.quick{grid-column:1/-1;border:1px solid var(--line);border-radius:12px;padding:14px;background:#fafbf7}.quick h3{margin:0 0 10px}.quickrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}.daychecks{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}.daychecks label{background:#edf1ec;color:var(--ink);padding:7px 9px;border-radius:7px}.daychecks input{margin-right:5px}.quick button{width:100%}.pausewarning{display:none;margin:10px 0;background:#fff0dc;border:1px solid #efb773;color:#8b4d15;padding:10px;border-radius:8px;font-weight:bold}.pausewarning.show{display:block}.note{font-size:11px;color:var(--muted);margin-top:20px}@media(max-width:900px){main{padding:15px}.dashboard{grid-template-columns:1fr 1fr}.controls{grid-column:1/-1}}@media(max-width:550px){h1{font-size:36px}.controls{grid-template-columns:1fr}.quickrow{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<section id="gate" class="gate card">
+  <span class="eyebrow">Beveiligde planner</span>
+  <h1>Plannergegevens zijn vergrendeld</h1>
+  <p id="gateMessage" class="muted">Deze pagina ontvangt de plannergegevens alleen vanuit een ontgrendelde Roosteroverzicht-sessie.</p>
+</section>
+<div id="plannerApp" hidden>
+<header>
+  <div><span class="eyebrow">Interactieve planner</span><h1 id="plannerTitle">Roosterplanner</h1><div id="plannerSubtitle" class="muted"></div></div>
+  <button class="reset" id="resetAll" type="button">RESET</button>
+</header>
+<section class="dashboard">
+  <div class="controls card">
+    <label>Max. contracturen <strong id="contractLabel"></strong><input id="contract" type="range"></label>
+    <label>Benodigde punten<input id="target" type="number"></label>
+    <label>Werkuren per dag<select id="workday"><option value="8">8 uur werken</option><option value="8.5">8,5 uur werken</option></select></label>
+    <label>Pauzeduur<select id="breaktime"><option value="0.5">30 minuten pauze</option><option value="1">1 uur pauze</option></select></label>
+    <label><input id="chat" type="checkbox"> Beschikbaarheid tot 21:00 tonen</label>
+    <div id="presetInfo" class="presetinfo"></div>
+    <div class="quick">
+      <h3>Snel een tijdsperiode invullen</h3>
+      <div class="quickrow"><label>Begintijd<input id="quickStart" type="time" min="08:00" max="20:45" step="900"></label><label>Eindtijd<input id="quickEnd" type="time" min="08:15" max="21:00" step="900"></label></div>
+      <div id="dayChecks" class="daychecks"></div>
+      <div id="pauseWarning" class="pausewarning"></div>
+      <button id="applyQuick" type="button">Plaats tijd in rooster</button>
+    </div>
+  </div>
+  <div id="score" class="metric score card"><small id="scoreTitle">Nog punten nodig</small><b id="points">0</b><span id="difference"></span><div class="bar"><i id="progress" style="width:0"></i></div></div>
+  <div class="metric card"><small>Beschikbaar</small><b id="hours">0 uur</b><span id="daysCount">over 0 dagen</span></div>
+  <div class="metric card"><small>Staffel</small><b id="staffel"></b><span>automatisch berekend</span></div>
+</section>
+<section class="planner card"><h2>Beschikbaarheid</h2><p class="muted">Klik losse kwartieren aan of gebruik de snelkeuze per dag.</p><div class="wrap"><div id="grid" class="grid"></div></div></section>
+<p class="note">De plannergegevens worden alleen tijdens deze ontgrendelde sessie in het browsergeheugen gebruikt.</p>
+</div>
+</main>
+<script>
+(() => {
+  "use strict";
+
+  const gate = document.getElementById("gate");
+  const gateMessage = document.getElementById("gateMessage");
+  const plannerApp = document.getElementById("plannerApp");
+  const times = Array.from({length:52},(_,i)=>{const m=480+i*15;return `${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;});
+  let cfg = null;
+  let days = [];
+  let pointsTable = {};
+  let scale = {};
+  let data = [];
+
+  const byId = (id) => document.getElementById(id);
+  const contract = byId("contract");
+  const target = byId("target");
+  const workday = byId("workday");
+  const breaktime = byId("breaktime");
+  const chat = byId("chat");
+  const grid = byId("grid");
+
+  function validConfig(value) {
+    return value && typeof value === "object" && Array.isArray(value.days) && value.days.length && value.points && typeof value.points === "object" && value.scale && typeof value.scale === "object";
+  }
+
+  function preset() {
+    const duration = Number(workday.value) + Number(breaktime.value);
+    const end = 40;
+    const start = Math.max(0, end - Math.round(duration * 4));
+    return { start, end, label: `${times[start]}–18:00` };
+  }
+
+  function resetDay(dayIndex) {
+    data[dayIndex] = Array(52).fill(false);
+    build();
+  }
+
+  function clearAll() {
+    data = days.map(() => Array(52).fill(false));
+    build();
+  }
+
+  function toggle(dayIndex, slotIndex) {
+    data[dayIndex][slotIndex] = !data[dayIndex][slotIndex];
+    build();
+  }
+
+  function build() {
+    if (!cfg) return;
+    const count = chat.checked ? 52 : 40;
+    const p = preset();
+    grid.style.gridTemplateColumns = `150px repeat(${count},46px) 145px`;
+    grid.innerHTML = '<div class="head">Dag</div>'
+      + times.slice(0,count).map((t)=>`<div class="time">${t}</div>`).join("")
+      + '<div class="totalhead">Totaal</div>'
+      + days.map((day,di)=>{
+          const rowPoints = Array.isArray(pointsTable[day]) ? pointsTable[day] : [];
+          return `<div class="contents"><div class="day"><b>${day}</b><button class="light" type="button" data-reset-day="${di}">Reset dag</button></div>${times.slice(0,count).map((t,i)=>{const pt=Number(rowPoints[i] ?? 0);return `<button type="button" title="${day} ${t}" class="slot ${data[di][i]?"on":""} ${pt>=4?"peak":""}" data-day="${di}" data-slot="${i}">${pt}${data[di][i]?" ✓":""}</button>`;}).join("")}<div class="rowtotal" id="row${di}"></div></div>`;
+        }).join("");
+    byId("presetInfo").textContent = `Dagkeuze: ${p.label} (${String(workday.value).replace(".",",")} uur werken + ${breaktime.value === "1" ? "1 uur" : "30 minuten"} pauze)`;
+    calc();
+  }
+
+  function calc() {
+    let total=0, slots=0, used=0;
+    const maxSlots=(Number(workday.value)+Number(breaktime.value))*4;
+    days.forEach((day,di)=>{
+      const rowPoints = Array.isArray(pointsTable[day]) ? pointsTable[day] : [];
+      const selected=data[di].filter(Boolean).length;
+      const rowTotal=data[di].reduce((sum,on,i)=>sum+(on?Number(rowPoints[i] ?? 0):0),0);
+      const warnings=[];
+      if(selected && selected<12) warnings.push("minder dan 3 uur");
+      if(selected>maxSlots) warnings.push("langer dan gekozen werkdag + pauze");
+      const row=byId(`row${di}`);
+      if(row) row.innerHTML=`<b>${rowTotal} pt</b><span>${(selected/4).toLocaleString("nl-NL")} uur beschikbaar</span>${warnings.map((x)=>`<em>${x}</em>`).join("")}`;
+      total+=rowTotal; slots+=selected; if(selected) used++;
+    });
+    const needed=Number(target.value)||0;
+    byId("points").textContent=String(total);
+    byId("scoreTitle").textContent=total>=needed?"Voldoende punten":"Nog punten nodig";
+    byId("difference").textContent=`van ${needed} punten · ${total-needed>=0?"+":""}${total-needed}`;
+    byId("score").classList.toggle("ok",total>=needed);
+    byId("progress").style.width=`${Math.min(100,needed?total/needed*100:0)}%`;
+    byId("hours").textContent=`${(slots/4).toLocaleString("nl-NL")} uur`;
+    byId("daysCount").textContent=`over ${used}${used===1?" dag":" dagen"}`;
+  }
+
+  function timeSlot(value) {
+    if(!value) return NaN;
+    const [h,m]=value.split(":").map(Number);
+    const minutes=h*60+m-480;
+    return minutes%15?NaN:minutes/15;
+  }
+
+  function updateQuickWarning() {
+    const duration=(timeSlot(byId("quickEnd").value)-timeSlot(byId("quickStart").value))/4;
+    const warning=byId("pauseWarning");
+    if(duration>=6){warning.textContent=`Let op: dienst langer dan 6 uur, je moet +${breaktime.value==="1"?"60":"30"} minuten beschikbaar staan vanwege de gekozen pauzeduur.`;warning.classList.add("show");}
+    else warning.classList.remove("show");
+  }
+
+  function applyQuickPeriod() {
+    const a=timeSlot(byId("quickStart").value), b=timeSlot(byId("quickEnd").value);
+    const selected=[...document.querySelectorAll(".quickday:checked")].map((node)=>Number(node.value));
+    if(!Number.isInteger(a)||!Number.isInteger(b)||a<0||b>52||b<=a){alert("Kies een geldige begin- en eindtijd in stappen van 15 minuten.");return;}
+    if(!selected.length){alert("Kies minimaal één dag.");return;}
+    selected.forEach((dayIndex)=>{data[dayIndex]=Array(52).fill(false);for(let i=a;i<b;i++)data[dayIndex][i]=true;});
+    build(); updateQuickWarning();
+  }
+
+  function initialize(config) {
+    if(!validConfig(config)) return;
+    cfg=config;
+    days=config.days.map(String);
+    pointsTable=config.points;
+    scale=config.scale;
+    data=days.map(()=>Array(52).fill(false));
+
+    const scaleKeys=Object.keys(scale).map(Number).filter(Number.isFinite).sort((a,b)=>a-b);
+    if(!scaleKeys.length) return;
+    const defaults=config.defaults&&typeof config.defaults==="object"?config.defaults:{};
+    const defaultContract=Number(defaults.contractHours);
+    const contractValue=scaleKeys.includes(defaultContract)?defaultContract:scaleKeys[0];
+    contract.min=String(scaleKeys[0]); contract.max=String(scaleKeys.at(-1)); contract.step="1"; contract.value=String(contractValue);
+    target.value=String(Number(scale[contractValue]) || Number(defaults.targetPoints) || 0);
+    workday.value=String(Number(defaults.workdayHours) || 8);
+    breaktime.value=String(Number(defaults.breakHours) || 0.5);
+    byId("contractLabel").textContent=`${contractValue} uur`;
+    byId("staffel").textContent=`${target.value} punten`;
+    byId("plannerTitle").textContent=String(config.title || "Roosterplanner");
+    byId("plannerSubtitle").textContent=String(config.subtitle || "");
+    document.title=String(config.title || "Roosterplanner");
+
+    const presetInfo=preset();
+    byId("quickStart").value=times[presetInfo.start] || "09:30";
+    byId("quickEnd").value="18:00";
+    byId("dayChecks").innerHTML=days.map((day,index)=>`<label><input class="quickday" type="checkbox" value="${index}" ${index<4?"checked":""}>${day.slice(0,2)}</label>`).join("");
+
+    gate.hidden=true;
+    plannerApp.hidden=false;
+    build();
+  }
+
+  grid.addEventListener("click",(event)=>{
+    const reset=event.target.closest?.("[data-reset-day]");
+    if(reset){resetDay(Number(reset.dataset.resetDay));return;}
+    const slot=event.target.closest?.("[data-day][data-slot]");
+    if(slot) toggle(Number(slot.dataset.day),Number(slot.dataset.slot));
+  });
+
+  contract.addEventListener("input",()=>{const value=Number(contract.value);const next=Number(scale[value]);byId("contractLabel").textContent=`${value} uur`;if(Number.isFinite(next)){target.value=String(next);byId("staffel").textContent=`${next} punten`;}calc();});
+  target.addEventListener("input",calc);
+  chat.addEventListener("change",build);
+  workday.addEventListener("change",()=>{build();updateQuickWarning();});
+  breaktime.addEventListener("change",()=>{build();updateQuickWarning();});
+  byId("quickStart").addEventListener("change",updateQuickWarning);
+  byId("quickEnd").addEventListener("change",updateQuickWarning);
+  byId("applyQuick").addEventListener("click",applyQuickPeriod);
+  byId("resetAll").addEventListener("click",clearAll);
+
+  window.addEventListener("message",(event)=>{
+    if(event.origin!==window.location.origin || event.source!==window.opener) return;
+    if(!event.data || event.data.type!=="rooster-private-planner-config") return;
+    initialize(event.data.config);
+  });
+
+  if(window.opener){
+    try{window.opener.postMessage({type:"rooster-private-planner-request"},window.location.origin);}catch(_){gateMessage.textContent="Plannergegevens konden niet bij de ontgrendelde pagina worden opgevraagd.";}
+  }else{
+    gateMessage.textContent="Open deze planner via de beveiligde knop in Roosteroverzicht nadat je team is ontgrendeld.";
+  }
+})();
+</script>
+</body>
+</html>
