@@ -12,6 +12,14 @@
     }, window.location.origin);
   }
 
+  function requestConfig() {
+    return chrome.runtime.sendMessage({ type: "kibana-content-ready" })
+      .then((response) => {
+        if (response?.ok && response.config) postConfig(response.config);
+      })
+      .catch(() => {});
+  }
+
   window.addEventListener("message", (event) => {
     if (event.source !== window || event.origin !== window.location.origin) return;
     const message = event.data;
@@ -24,9 +32,7 @@
     }).catch(() => {});
   });
 
-  chrome.runtime.sendMessage({ type: "kibana-content-ready" })
-    .then((response) => {
-      if (response?.ok && response.config) postConfig(response.config);
-    })
-    .catch(() => {});
+  requestConfig();
+  window.setTimeout(requestConfig, 250);
+  window.setTimeout(requestConfig, 1000);
 })();
