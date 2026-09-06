@@ -2,7 +2,6 @@
   "use strict";
 
   const TIME_ZONE = "Europe/Amsterdam";
-  const EMAIL_DOMAIN = "centraalbeheer.nl";
   const REFRESH_MS = 60000;
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
@@ -17,6 +16,7 @@
   let capturedPassword = "";
   let contactsLoading = null;
   let contacts = [];
+  let emailDomain = "";
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -56,7 +56,7 @@
       .replace(/[^a-z0-9-]+/g, ".")
       .replace(/^\.+|\.+$/g, "")
       .replace(/\.{2,}/g, ".");
-    return localPart ? `${localPart}@${EMAIL_DOMAIN}` : "";
+    return localPart && emailDomain ? `${localPart}@${emailDomain}` : "";
   }
 
   function amsterdamToday() {
@@ -118,6 +118,10 @@
         const parsed = JSON.parse(decoder.decode(plaintext));
         if (parsed?.kind !== "roosterhulp-index" || !Array.isArray(parsed.employees)) return [];
 
+        const privateConfig = parsed.privateConfig && typeof parsed.privateConfig === "object" && !Array.isArray(parsed.privateConfig)
+          ? parsed.privateConfig
+          : {};
+        emailDomain = String(privateConfig.organization?.emailDomain || privateConfig.emailDomain || "").trim();
         contacts = secureContactsFromIndex(parsed);
         return contacts;
       } catch (_) {
