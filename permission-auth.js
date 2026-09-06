@@ -1,9 +1,6 @@
 (() => {
   "use strict";
 
-  const TEAM_IDS = Object.freeze([
-    "KCDTeam01", "KCDTeam02", "KCDTeam03", "KCDTeam04", "KCDTeam05", "KCDTeam06"
-  ]);
   const PERMISSIONS = Array.isArray(window.RoosterAccessPermissions) ? window.RoosterAccessPermissions : [];
   const encoder = new TextEncoder();
 
@@ -117,13 +114,6 @@
     requestAnimationFrame(() => ensureOverlay().querySelector(selector)?.focus());
   }
 
-  function teamOptionsHtml() {
-    const kcd = TEAM_IDS.map((team) =>
-      `<option value="${team}"${selectedTeam === team ? " selected" : ""}>${team}</option>`
-    ).join("");
-    return `<option value="">Kies een team</option><optgroup label="KCD Teams">${kcd}</optgroup>`;
-  }
-
   function showTeamStep() {
     authPending = false;
     nameStepBusy = false;
@@ -131,27 +121,24 @@
     const target = ensureOverlay();
     target.innerHTML = `
       <form id="permissionTeamForm" class="unlock-card permission-auth-card" autocomplete="off">
-        <h1>Selecteer je team</h1>
-        <p>Kies het team waarvoor je roosterinzicht wilt openen.</p>
-        <label for="permissionTeamSelect">Team</label>
-        <select id="permissionTeamSelect" class="permission-auth-team-select" required>
-          ${teamOptionsHtml()}
-        </select>
+        <h1>Team toegang</h1>
+        <p>Vul je Team-ID in. Dit ID staat niet in de openbare bron en wordt alleen gebruikt om het beveiligde rooster te ontsleutelen.</p>
+        <label for="permissionTeamInput">Team-ID</label>
+        <input id="permissionTeamInput" type="text" autocomplete="off" spellcheck="false" required>
         <button class="full-button" type="submit">Verder</button>
         <div id="permissionTeamError" class="permission-auth-error" aria-live="polite"></div>
       </form>`;
     target.hidden = false;
-
     const form = target.querySelector("#permissionTeamForm");
-    const select = target.querySelector("#permissionTeamSelect");
+    const input = target.querySelector("#permissionTeamInput");
     const error = target.querySelector("#permissionTeamError");
     form?.addEventListener("submit", (event) => {
       event.preventDefault();
       error.textContent = "";
-      const value = select?.value || "";
-      if (!TEAM_IDS.includes(value)) {
-        error.textContent = "Selecteer eerst een team.";
-        select?.focus();
+      const value = input?.value?.trim() || "";
+      if (!value) {
+        error.textContent = "Vul eerst je Team-ID in.";
+        input?.focus();
         return;
       }
       selectedTeam = value;
@@ -161,7 +148,7 @@
       unlockCompleted = false;
       showPasswordStep();
     });
-    focusSoon("#permissionTeamSelect");
+    focusSoon("#permissionTeamInput");
   }
 
   function showPasswordStep() {
