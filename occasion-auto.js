@@ -2,7 +2,6 @@
   "use strict";
 
   const TIME_ZONE = "Europe/Amsterdam";
-  const EMPLOYEE_FILE = "Medewerkerbestand.json";
   const BIRTHDAY_PREFIX = "roosteroverzicht.birthday.v1.";
   const BIRTHDAY_PLAY_PREFIX = "roosteroverzicht.birthday.played.v1.";
   const PAYDAY_PLAY_PREFIX = "roosteroverzicht.payday.played.v1.";
@@ -63,23 +62,19 @@
 
   async function loadCentralBirthdays(force = false) {
     if (centralBirthdayPromise && !force) return centralBirthdayPromise;
-    centralBirthdayPromise = (async () => {
-      try {
-        const response = await fetch(`${EMPLOYEE_FILE}?v=${Date.now()}`, { cache: "no-store" });
-        if (!response.ok) return centralBirthdays;
-        const data = await response.json();
-        const next = new Map();
-        for (const employee of Array.isArray(data?.medewerkers) ? data.medewerkers : []) {
-          const name = normalizeName(employee?.naam);
-          const birthday = validMonthDay(employee?.verjaardag);
-          if (name && birthday) next.set(name, birthday);
-        }
-        centralBirthdays = next;
-      } catch (error) {
-        console.warn("Medewerkerbestand.json kon niet worden gelezen.", error);
+    centralBirthdayPromise = Promise.resolve().then(() => {
+      const items = Array.isArray(window.RoosterPrivateConfig?.employeeBirthdays)
+        ? window.RoosterPrivateConfig.employeeBirthdays
+        : [];
+      const next = new Map();
+      for (const employee of items) {
+        const name = normalizeName(employee?.name);
+        const birthday = validMonthDay(employee?.birthday);
+        if (name && birthday) next.set(name, birthday);
       }
+      centralBirthdays = next;
       return centralBirthdays;
-    })();
+    });
     return centralBirthdayPromise;
   }
 
@@ -187,7 +182,7 @@
     dialog.innerHTML = `
       <section class="birthday-profile-card">
         <h2 id="birthdayProfileTitle">Verjaardag instellen</h2>
-        <p>De datum wordt aan de geselecteerde collega gekoppeld. De pagina leest centraal opgeslagen verjaardagen uit ${EMPLOYEE_FILE}.</p>
+        <p>De datum wordt aan de geselecteerde collega gekoppeld. Centraal opgeslagen verjaardagen worden alleen uit de beveiligde teamconfiguratie gelezen.</p>
         <div class="birthday-profile-fields">
           <label>Dag<select data-birthday-day>${dayOptions}</select></label>
           <label>Maand<select data-birthday-month>${monthOptions}</select></label>
@@ -245,7 +240,7 @@
     if (monthSelect) monthSelect.value = month;
     if (daySelect) daySelect.value = day;
     if (error) error.textContent = "";
-    if (note) note.textContent = "Invoer wordt voorlopig lokaal onthouden; centraal schrijven vereist nog een beveiligde schrijfservice.";
+    if (note) note.textContent = "Invoer wordt lokaal onthouden. Centrale wijzigingen horen in de beveiligde configuratie.";
     dialog.hidden = false;
   }
 
