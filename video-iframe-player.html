@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Video player</title>
+  <style>
+    html,body{width:100%;height:100%;margin:0;background:#000;overflow:hidden}
+    body{display:grid;place-items:center}
+    video{display:block;width:100%;height:100%;object-fit:contain;background:#000}
+    .error{box-sizing:border-box;width:min(720px,calc(100% - 32px));padding:18px;border:1px solid #5b2222;border-radius:12px;background:#241010;color:#fff;font:600 14px/1.45 "Segoe UI",Arial,sans-serif}
+  </style>
+</head>
+<body>
+  <video id="player" controls autoplay playsinline preload="auto"></video>
+  <script>
+  (() => {
+    "use strict";
+
+    const player = document.getElementById("player");
+    const params = new URLSearchParams(location.search);
+    const rawSource = params.get("src") || "";
+
+    function notify(eventName, extra = {}) {
+      try {
+        parent.postMessage({
+          type: "rooster-video-iframe",
+          event: eventName,
+          source: player.currentSrc || player.src || rawSource,
+          currentTime: Number(player.currentTime) || 0,
+          duration: Number.isFinite(player.duration) ? player.duration : 0,
+          ...extra
+        }, location.origin);
+      } catch (_) {}
+    }
+
+    function showError(message) {
+      player.remove();
+      const box = document.createElement("div");
+      box.className = "error";
+      box.textContent = message;
+      document.body.appendChild(box);
+      notify("error", { message });
+    }
+
+    let source;
+    try {
+      source = new URL(rawSource, location.href);
+    } catch (_) {
+      showError("De videobron is ongeldig.");
+      return;
+    }
+
+    if (source.origin !== location.origin || !/\.mp4$/i.test(source.pathname)) {
+      showError("Deze videobron mag niet in de iframe-player worden geopend.");
+      return;
+    }
+
+    player.src = source.href;
+    player.addEventListener("loadedmetadata", () => {
+      notify("ready");
+      player.play().catch(() => notify("autoplay-blocked"));
+    });
+    player.addEventListener("play", () => notify("play"));
+    player.addEventListener("pause", () => notify("pause"));
+    player.addEventListener("ended", () => notify("ended"));
+    player.addEventListener("error", () => notify("error", { message: "De MP4 kon niet worden afgespeeld." }));
+  })();
+  </script>
+</body>
+</html>
