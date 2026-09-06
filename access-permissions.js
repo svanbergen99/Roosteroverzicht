@@ -1,28 +1,122 @@
 (() => {
   "use strict";
 
-  window.RoosterAccessPermissions = Object.freeze([
-    Object.freeze({
-      loginHash: "1409f10ff7af70c0c13e63393e634c6be016cfdb7a18dad262d854b2bb4b5e03",
-      rosterHash: "46e31a7960ad20f133d6ee0e9a08c00df06f75ad2b223be26befc453b7e93a1a"
-    }),
-    Object.freeze({
-      loginHash: "7b50943dab3f7f92f4120ca9a031d777b5a13bb71749e7e6a2cdd5f2e0ddaf5a",
-      rosterHash: "68795be40769c09a0485295fd16b2df51097a010136a787f7d04c4cfad31e122"
-    }),
-    Object.freeze({
-      loginHash: "8821378fb97cb337dee90ae5fcdec92ed171d5ae33434c86cc2cb63c00171c05",
-      scope: "all"
-    }),
-    Object.freeze({
-      loginHash: "73704b531ac77d446ab4f8aee0a09acef8c67171ba24a1693e2af36ca7cacabf",
-      rosterHash: "cf5c01e0acb499db8c5d5f9b4080704da318ea136bf79e88ddd6f83be11f59af",
-      scope: "all"
-    }),
-    Object.freeze({
-      loginHash: "85ee877a32d85a6178900edb730f4fad69d85d9e33ccb42f9ddd61e6d75d9f4b",
-      rosterHash: "a7ffc85872e37953f7de3e543491f7a570a47bdd94760c0700c78493a6b6e78b",
-      scope: "all"
-    })
-  ]);
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const permissions = [];
+  window.RoosterAccessPermissions = permissions;
+
+  let bypassNextPasswordSubmit = false;
+  let permissionsLoading = null;
+
+  function base64ToBytes(value) {
+    const binary = atob(String(value || ""));
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    return bytes;
+  }
+
+  function currentAmsterdamYear() {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Amsterdam",
+      year: "numeric"
+    }).formatToParts(new Date());
+    return parts.find((part) => part.type === "year")?.value || String(new Date().getFullYear());
+  }
+
+  function normalizePermissions(value) {
+    if (!Array.isArray(value)) return [];
+    const isHash = (input) => /^[a-f0-9]{64}$/i.test(String(input || ""));
+    return value.map((permission) => {
+      const next = {};
+      if (isHash(permission?.loginHash)) next.loginHash = String(permission.loginHash);
+      if (isHash(permission?.rosterHash)) next.rosterHash = String(permission.rosterHash);
+      if (permission?.scope === "all") next.scope = "all";
+      return next;
+    }).filter((permission) => permission.loginHash || permission.rosterHash);
+  }
+
+  async function loadEncryptedPermissions(team, password) {
+    const year = currentAmsterdamYear();
+    const response = await fetch(`Roosterindex_${year}.json?v=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) throw new Error(`Roosterindex_${year}.json kon niet worden geladen.`);
+
+    const secured = await response.json();
+    if (secured?.kind !== "roosterhulp-encrypted-index" || secured?.encrypted !== true || !secured.crypto || !secured.payload) {
+      throw new Error("Het beveiligde roosterbestand heeft niet het verwachte formaat.");
+    }
+
+    const secret = encoder.encode(`${team}\u0000${password}`);
+    const keyMaterial = await crypto.subtle.importKey("raw", secret, "PBKDF2", false, ["deriveKey"]);
+    const key = await crypto.subtle.deriveKey({
+      name: "PBKDF2",
+      hash: secured.crypto.hash || "SHA-256",
+      salt: base64ToBytes(secured.crypto.salt),
+      iterations: Number(secured.crypto.iterations) || 250000
+    }, keyMaterial, {
+      name: "AES-GCM",
+      length: Number(secured.crypto.keyLength) || 256
+    }, false, ["decrypt"]);
+
+    const plaintext = await crypto.subtle.decrypt({
+      name: "AES-GCM",
+      iv: base64ToBytes(secured.crypto.iv)
+    }, key, base64ToBytes(secured.payload));
+    const parsed = JSON.parse(decoder.decode(plaintext));
+    if (parsed?.kind !== "roosterhulp-index" || !Array.isArray(parsed.employees)) {
+      throw new Error("De ontsleutelde roosterinhoud is ongeldig.");
+    }
+
+    const next = normalizePermissions(parsed.accessPermissions);
+    if (!next.length) throw new Error("Er zijn geen beveiligde toegangsrechten gevonden.");
+    permissions.splice(0, permissions.length, ...next);
+    return permissions;
+  }
+
+  async function ensurePermissions(team, password) {
+    if (permissions.length) return permissions;
+    if (permissionsLoading) return permissionsLoading;
+    permissionsLoading = loadEncryptedPermissions(team, password);
+    try {
+      return await permissionsLoading;
+    } finally {
+      permissionsLoading = null;
+    }
+  }
+
+  document.addEventListener("submit", async (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || form.id !== "permissionPasswordForm") return;
+
+    if (bypassNextPasswordSubmit) {
+      bypassNextPasswordSubmit = false;
+      return;
+    }
+
+    const passwordInput = form.querySelector("#permissionPasswordInput");
+    const submitButton = form.querySelector("#permissionUnlockButton");
+    const authError = form.querySelector("#permissionAuthError");
+    const team = form.querySelector("strong")?.textContent?.trim() || "";
+    const password = passwordInput?.value || "";
+    if (!team || !password) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    if (submitButton) submitButton.disabled = true;
+    if (authError) authError.textContent = "";
+
+    try {
+      await ensurePermissions(team, password);
+      bypassNextPasswordSubmit = true;
+      form.requestSubmit();
+    } catch (_) {
+      if (submitButton) submitButton.disabled = false;
+      if (authError) authError.textContent = "Het Team Wachtwoord is niet juist voor het geselecteerde team.";
+      if (passwordInput) {
+        passwordInput.value = "";
+        passwordInput.focus();
+      }
+    }
+  }, true);
 })();
