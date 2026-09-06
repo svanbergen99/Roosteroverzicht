@@ -58,10 +58,11 @@ function Get-TrafficPushKey {
 
 function Find-Edge {
   $candidates = @(
-    (Join-Path ${env:ProgramFiles(x86)} "Microsoft\Edge\Application\msedge.exe"),
-    (Join-Path $env:ProgramFiles "Microsoft\Edge\Application\msedge.exe"),
+    (Join-Path ${env:ProgramFiles(x86)} "Microsoft\Edge\Application\msedge.exe")
+    (Join-Path $env:ProgramFiles "Microsoft\Edge\Application\msedge.exe")
     (Join-Path $env:LOCALAPPDATA "Microsoft\Edge\Application\msedge.exe")
   ) | Where-Object { $_ -and (Test-Path $_) }
+  $candidates = @($candidates)
 
   if ($candidates.Count -gt 0) { return $candidates[0] }
 
@@ -109,7 +110,7 @@ function Send-CdpMessage {
 
   $json = @{ id = $Id; method = $Method; params = $Params } | ConvertTo-Json -Depth 40 -Compress
   $bytes = [Text.Encoding]::UTF8.GetBytes($json)
-  $segment = [ArraySegment[byte]]::new($bytes)
+  $segment = New-Object System.ArraySegment[byte] -ArgumentList @(,$bytes)
   $Socket.SendAsync(
     $segment,
     [System.Net.WebSockets.WebSocketMessageType]::Text,
@@ -125,7 +126,7 @@ function Receive-CdpMessage {
   $memory = New-Object IO.MemoryStream
   try {
     do {
-      $segment = [ArraySegment[byte]]::new($buffer)
+      $segment = New-Object System.ArraySegment[byte] -ArgumentList @(,$buffer)
       $result = $Socket.ReceiveAsync($segment, [Threading.CancellationToken]::None).GetAwaiter().GetResult()
       if ($result.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Close) {
         return $null
@@ -149,14 +150,15 @@ function Push-Snapshot {
   # Valideer dat het payload geldige JSON is voordat het wordt doorgestuurd.
   $null = $Payload | ConvertFrom-Json
 
-  $headers = @{ "x-traffic-push-key" = $PushKey }
-  $result = Invoke-RestMethod \
-    -Uri $PushUrl \
-    -Method Post \
-    -Headers $headers \
-    -ContentType "application/json" \
-    -Body $Payload \
-    -TimeoutSec 20
+  $request = @{
+    Uri = $PushUrl
+    Method = "Post"
+    Headers = @{ "x-traffic-push-key" = $PushKey }
+    ContentType = "application/json"
+    Body = $Payload
+    TimeoutSec = 20
+  }
+  $result = Invoke-RestMethod @request
 
   $stamp = if ($result.receivedAt) { $result.receivedAt } else { (Get-Date).ToString("o") }
   Write-Host "TRAFFIC PUSH OK: 202  $stamp" -ForegroundColor Green
@@ -191,11 +193,11 @@ Write-Host "Edge wordt gestart met een apart Traffic-profiel." -ForegroundColor 
 Write-Host "Bij de eerste start kan Achmea vragen om in te loggen; doe dat in het geopende Edge-venster." -ForegroundColor DarkGray
 
 $edgeArgs = @(
-  "--remote-debugging-port=$DebugPort",
-  "--user-data-dir=`"$ProfileDir`"",
-  "--no-first-run",
-  "--no-default-browser-check",
-  "--new-window",
+  "--remote-debugging-port=$DebugPort"
+  "--user-data-dir=`"$ProfileDir`""
+  "--no-first-run"
+  "--no-default-browser-check"
+  "--new-window"
   $DashboardUrl
 )
 
@@ -204,7 +206,7 @@ Start-Process -FilePath $edge -ArgumentList $edgeArgs | Out-Null
 $target = Wait-ForDashboardTarget -Port $DebugPort
 Write-Host "Dashboard gevonden. Collector wordt vóór de volgende paginalaad geïnjecteerd..." -ForegroundColor Cyan
 
-$socket = [System.Net.WebSockets.ClientWebSocket]::new()
+$socket = New-Object System.Net.WebSockets.ClientWebSocket
 $socket.ConnectAsync([Uri]$target.webSocketDebuggerUrl, [Threading.CancellationToken]::None).GetAwaiter().GetResult()
 
 $nextId = 1
