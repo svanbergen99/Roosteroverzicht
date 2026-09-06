@@ -31,3 +31,8 @@
 @keyframes trafficCollectorPopupIn{from{opacity:0;transform:translateY(-8px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 @media(min-width:1050px){.traffic-live-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.traffic-live-section:first-child,.traffic-live-section:nth-child(3){grid-column:1/-1}}
 @media(max-width:720px){.traffic-live-head{align-items:flex-start;flex-direction:column}.traffic-live-head-actions{width:100%;justify-content:flex-start}.traffic-live-body{padding:10px}.traffic-live-table thead{display:none}.traffic-live-table,.traffic-live-table tbody,.traffic-live-table tr,.traffic-live-table td{display:block;width:100%}.traffic-live-table tr{padding:8px 10px;border-bottom:1px solid #edf1f5}.traffic-live-table tbody tr:last-child{border-bottom:0}.traffic-live-table td{display:grid;grid-template-columns:minmax(110px,.9fr) minmax(0,1.1fr);gap:10px;padding:5px 0;border:0;text-align:right;white-space:normal}.traffic-live-table td::before{content:attr(data-label);color:#64748b;font-size:11px;font-weight:900;text-align:left;text-transform:uppercase}.traffic-live-table td:first-child{text-align:right}.traffic-live-table td:first-child strong{overflow-wrap:anywhere}#trafficCollectorDemo{top:68px;right:12px;width:calc(100vw - 24px)}}
+
+/* De Traffic-planning staat nu in de aparte Traffic-balk boven het live dashboard. */
+.traffic-live-head>div:first-child,#trafficCollectorTestButton{display:none!important}
+.traffic-live-head{justify-content:flex-end}
+@media(max-width:720px){.traffic-live-head{align-items:center;flex-direction:row}.traffic-live-head-actions{width:auto;margin-left:auto;justify-content:flex-end}}
