@@ -1,0 +1,81 @@
+name: Public source privacy guard
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan current public source
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re, sys
+
+          root = Path('.')
+          text_ext = {'.html','.js','.css','.json','.md','.txt','.ps1','.yml','.yaml','.py','.env'}
+          skip_dirs = {'.git'}
+          findings = []
+
+          allowed_internal_hosts = {
+              Path('wfm-bridge-extension/manifest.json'),
+              Path('traffic-collector-extension/manifest.json'),
+          }
+
+          secret_patterns = [
+              ('GitHub token', re.compile(r'\b(?:github_pat_|ghp_)[A-Za-z0-9_\-]{12,}')),
+              ('Google/API style key', re.compile(r'\bAIza[0-9A-Za-z_\-]{20,}')),
+              ('Bearer token', re.compile(r'\bBearer\s+[A-Za-z0-9._~+/=-]{24,}', re.I)),
+              ('API key value', re.compile(r'\bApiKey\s+[A-Za-z0-9._~+/=-]{24,}', re.I)),
+              ('personal Gmail address', re.compile(r'\b[A-Z0-9._%+-]+@gmail\.com\b', re.I)),
+          ]
+
+          forbidden_markers = [
+              'KCDTeam01','KCDTeam02','KCDTeam03','KCDTeam04','KCDTeam05','KCDTeam06',
+              'KCD.jpg','Kernwaarde.png','Medewerkerbestand.json','kcdIntranetLinks',
+              'kcdIntranetTitle','kcdIntranetSubtitle'
+          ]
+
+          for path in root.rglob('*'):
+              if not path.is_file() or any(part in skip_dirs for part in path.parts):
+                  continue
+              if path.suffix.lower() not in text_ext and path.name not in {'.env.example'}:
+                  continue
+              try:
+                  text = path.read_text('utf-8')
+              except Exception:
+                  continue
+
+              for label, rx in secret_patterns:
+                  if rx.search(text):
+                      findings.append(f'{path}: {label}')
+
+              for marker in forbidden_markers:
+                  if marker in text:
+                      findings.append(f'{path}: forbidden public marker {marker}')
+
+              if path not in allowed_internal_hosts:
+                  if '.corp/' in text or '.corp"' in text or '.corp\'' in text:
+                      findings.append(f'{path}: internal .corp host outside allowed extension manifest')
+                  if 'found.io' in text:
+                      findings.append(f'{path}: internal Kibana host outside allowed extension manifest')
+                  if 'roosteroverzicht-traffic-bridge-production.up.railway.app' in text:
+                      findings.append(f'{path}: Traffic bridge host outside allowed extension manifest')
+
+          if findings:
+              print('Public-source privacy scan failed:')
+              for item in sorted(set(findings)):
+                  print(' -', item)
+              sys.exit(1)
+
+          print('Public-source privacy scan passed.')
+          PY
