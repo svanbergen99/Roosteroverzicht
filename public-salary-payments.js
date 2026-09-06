@@ -2,26 +2,19 @@
   "use strict";
 
   const TIME_ZONE = "Europe/Amsterdam";
-  const PAYMENTS = Object.freeze([
-    Object.freeze({ month: "Januari", date: "2026-01-23" }),
-    Object.freeze({ month: "Februari", date: "2026-02-23" }),
-    Object.freeze({ month: "Maart", date: "2026-03-23" }),
-    Object.freeze({ month: "April", date: "2026-04-23" }),
-    Object.freeze({ month: "Mei", date: "2026-05-22" }),
-    Object.freeze({ month: "Juni", date: "2026-06-23" }),
-    Object.freeze({ month: "Juli", date: "2026-07-23" }),
-    Object.freeze({ month: "Augustus", date: "2026-08-21" }),
-    Object.freeze({ month: "September", date: "2026-09-23" }),
-    Object.freeze({ month: "Oktober", date: "2026-10-23" }),
-    Object.freeze({ month: "November", date: "2026-11-23" }),
-    Object.freeze({ month: "December", date: "2026-12-18" }),
-    Object.freeze({ month: "Januari (2027)", date: "2027-01-22" })
-  ]);
-
   const app = document.getElementById("app");
   if (!app) return;
 
   let showAllPayments = false;
+
+  function payments() {
+    const value = window.RoosterPrivateConfig?.salaryPayments;
+    if (!Array.isArray(value)) return [];
+    return value.map((payment) => ({
+      month: String(payment?.month || "").trim(),
+      date: String(payment?.date || "").trim()
+    })).filter((payment) => payment.month && /^\d{4}-\d{2}-\d{2}$/.test(payment.date));
+  }
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -59,17 +52,18 @@
   }
 
   function nextPayment(today = amsterdamDateKey()) {
-    return PAYMENTS.find((payment) => payment.date >= today) || null;
+    return payments().find((payment) => payment.date >= today) || null;
   }
 
   function isPaymentDate(dateKey = amsterdamDateKey()) {
-    return PAYMENTS.some((payment) => payment.date === dateKey);
+    return payments().some((payment) => payment.date === dateKey);
   }
 
   function visiblePayments() {
-    if (showAllPayments) return PAYMENTS;
+    const list = payments();
+    if (showAllPayments) return list;
     const monthKey = currentMonthKey();
-    return PAYMENTS.filter((payment) => payment.date.slice(0, 7) >= monthKey);
+    return list.filter((payment) => payment.date.slice(0, 7) >= monthKey);
   }
 
   function renderPanel(section) {
@@ -79,12 +73,12 @@
     if (!list || !historyButton || !subtitle) return;
 
     const upcoming = nextPayment();
-    const payments = visiblePayments();
+    const visible = visiblePayments();
     subtitle.textContent = showAllPayments ? "Alle bekende uitbetalingsdata" : "Huidige en komende maanden";
     historyButton.textContent = showAllPayments ? "Alleen komende data" : "Laat alles zien";
     historyButton.setAttribute("aria-pressed", String(showAllPayments));
 
-    list.innerHTML = payments.map((payment) => {
+    list.innerHTML = visible.map((payment) => {
       const isNext = upcoming?.date === payment.date;
       return `
         <div class="public-salary-row${isNext ? " is-next" : ""}" data-salary-date="${escapeHtml(payment.date)}">
@@ -95,8 +89,20 @@
   }
 
   function ensureSection() {
+    const available = payments();
     let section = document.getElementById("publicSalarySection");
-    if (section) return section;
+
+    if (!available.length) {
+      section?.remove();
+      return null;
+    }
+
+    if (section) {
+      const upcoming = nextPayment();
+      const summary = section.querySelector("#publicSalaryButton small");
+      if (summary) summary.textContent = upcoming ? `Volgende: ${formatDate(upcoming.date)}` : "Volgende datum nog niet bekend";
+      return section;
+    }
 
     const upcoming = nextPayment();
     section = document.createElement("section");
@@ -147,17 +153,22 @@
     return section;
   }
 
+  function publishReady() {
+    if (!payments().length) return;
+    ensureSection();
+    window.dispatchEvent(new CustomEvent("salary-payments-ready", {
+      detail: { today: amsterdamDateKey(), isPaymentDate: isPaymentDate() }
+    }));
+  }
+
   window.RoosterSalaryPayments = Object.freeze({
     today: () => amsterdamDateKey(),
     isPaymentDate,
     next: () => nextPayment(),
-    all: () => PAYMENTS.map((payment) => ({ ...payment }))
+    all: () => payments().map((payment) => ({ ...payment }))
   });
 
-  window.dispatchEvent(new CustomEvent("salary-payments-ready", {
-    detail: { today: amsterdamDateKey(), isPaymentDate: isPaymentDate() }
-  }));
-
-  window.addEventListener("rooster-unlocked", ensureSection);
-  if (!app.hidden) ensureSection();
+  window.addEventListener("rooster-private-config-ready", publishReady);
+  window.addEventListener("rooster-unlocked", publishReady);
+  if (window.RoosterPrivateConfig) publishReady();
 })();
