@@ -3,7 +3,6 @@
 
   const TIME_ZONE = "Europe/Amsterdam";
   const REFRESH_MS = 15000;
-  const LIVE_URL = "https://roosteroverzicht-traffic-bridge-production.up.railway.app/api/traffic-live";
   const MONTHS = Object.freeze({
     januari: 1,
     februari: 2,
@@ -24,6 +23,10 @@
   if (!app || !searchCard) return;
 
   let refreshTimer = null;
+
+  function liveUrl() {
+    return String(window.RoosterPrivateConfig?.traffic?.liveUrl || "").trim();
+  }
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -159,7 +162,9 @@
   }
 
   async function getLiveSchedule(nowDateKey) {
-    const response = await fetch(LIVE_URL, {
+    const url = liveUrl();
+    if (!url) return null;
+    const response = await fetch(url, {
       method: "GET",
       credentials: "omit",
       cache: "no-store"
