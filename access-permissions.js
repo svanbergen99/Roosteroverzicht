@@ -5,9 +5,11 @@
   const decoder = new TextDecoder();
   const permissions = [];
   window.RoosterAccessPermissions = permissions;
+  window.RoosterPrivateConfig = null;
 
   let bypassNextPasswordSubmit = false;
   let permissionsLoading = null;
+  let privateConfigLoaded = false;
 
   function base64ToBytes(value) {
     const binary = atob(String(value || ""));
@@ -34,6 +36,15 @@
       if (permission?.scope === "all") next.scope = "all";
       return next;
     }).filter((permission) => permission.loginHash || permission.rosterHash);
+  }
+
+  function publishPrivateConfig(value) {
+    const config = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+    window.RoosterPrivateConfig = config;
+    privateConfigLoaded = true;
+    window.dispatchEvent(new CustomEvent("rooster-private-config-ready", {
+      detail: { config }
+    }));
   }
 
   async function loadEncryptedPermissions(team, password) {
@@ -67,14 +78,14 @@
       throw new Error("De ontsleutelde roosterinhoud is ongeldig.");
     }
 
+    publishPrivateConfig(parsed.privateConfig);
     const next = normalizePermissions(parsed.accessPermissions);
-    if (!next.length) throw new Error("Er zijn geen beveiligde toegangsrechten gevonden.");
     permissions.splice(0, permissions.length, ...next);
     return permissions;
   }
 
   async function ensurePermissions(team, password) {
-    if (permissions.length) return permissions;
+    if (privateConfigLoaded) return permissions;
     if (permissionsLoading) return permissionsLoading;
     permissionsLoading = loadEncryptedPermissions(team, password);
     try {
