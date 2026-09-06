@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Verlofgegevens beveiligen</title>
+  <style>
+    :root{font-family:Segoe UI,Arial,sans-serif;color:#17202a;background:#f5f7fa}*{box-sizing:border-box}body{margin:0;padding:28px}main{max-width:820px;margin:auto;background:#fff;border:1px solid #d9dee7;border-radius:16px;padding:24px;box-shadow:0 12px 32px #00000012}h1{margin-top:0}p{line-height:1.5}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.full{grid-column:1/-1}label{display:block;font-weight:650}input{width:100%;margin-top:6px;padding:10px 11px;border:1px solid #cbd5e1;border-radius:9px;font:inherit}button{margin-top:18px;border:0;border-radius:9px;padding:11px 15px;font:inherit;font-weight:700;cursor:pointer;background:#17202a;color:#fff}.status{margin-top:16px;white-space:pre-wrap;padding:12px;border-radius:9px;background:#f3f4f6;min-height:46px}.status.ok{background:#ecfdf3}.status.error{background:#fff1f2;color:#9f1239}@media(max-width:760px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}
+  </style>
+</head>
+<body>
+<main>
+  <h1>Verlofgegevens beveiligen</h1>
+  <p>Deze tijdelijke pagina kopieert de huidige verlof- en gesloten-dagengegevens naar de versleutelde privé-config in <strong>Roosterindex_2026.json</strong>. De bronbestanden worden daarna apart uit de publieke repo verwijderd.</p>
+  <div class="grid">
+    <label>Rooster-ID<input id="rosterId" autocomplete="off"></label>
+    <label>Roosterwachtwoord<input id="rosterPassword" type="password" autocomplete="off"></label>
+    <label class="full">GitHub fine-grained PAT<input id="githubToken" type="password" autocomplete="off" placeholder="github_pat_..."></label>
+  </div>
+  <button id="publishButton" type="button">Versleutelen en direct naar GitHub</button>
+  <div id="status" class="status">Nog niets uitgevoerd.</div>
+</main>
+<script>
+(() => {
+  "use strict";
+  const OWNER="svanbergen99";
+  const REPO="Roosteroverzicht";
+  const BRANCH="main";
+  const ROSTER_FILE="Roosterindex_2026.json";
+  const LEAVE_FILE="Verlofaanvraag-handmatig.json";
+  const encoder=new TextEncoder();
+  const decoder=new TextDecoder();
+  const statusBox=document.getElementById("status");
+
+  function setStatus(message,kind=""){statusBox.textContent=message;statusBox.className=`status ${kind}`.trim();}
+  function base64ToBytes(value){const binary=atob(String(value||""));const bytes=new Uint8Array(binary.length);for(let i=0;i<binary.length;i+=1)bytes[i]=binary.charCodeAt(i);return bytes;}
+  function bytesToBase64(bytes){const chunk=0x8000;let binary="";for(let i=0;i<bytes.length;i+=chunk)binary+=String.fromCharCode(...bytes.subarray(i,Math.min(i+chunk,bytes.length)));return btoa(binary);}
+  function utf8ToBase64(text){return bytesToBase64(encoder.encode(text));}
+
+  async function deriveKey(id,password,cryptoInfo,usages){
+    const secret=encoder.encode(`${id}\u0000${password}`);
+    const material=await crypto.subtle.importKey("raw",secret,"PBKDF2",false,["deriveKey"]);
+    return crypto.subtle.deriveKey({name:"PBKDF2",hash:cryptoInfo.hash||"SHA-256",salt:base64ToBytes(cryptoInfo.salt),iterations:Number(cryptoInfo.iterations)||250000},material,{name:"AES-GCM",length:Number(cryptoInfo.keyLength)||256},false,usages);
+  }
+
+  async function decryptRoster(secured,id,password){
+    if(secured?.kind!=="roosterhulp-encrypted-index"||secured?.encrypted!==true||!secured.crypto||!secured.payload)throw new Error("Roosterindex heeft niet het verwachte beveiligde formaat.");
+    const key=await deriveKey(id,password,secured.crypto,["decrypt"]);
+    let plaintext;
+    try{plaintext=await crypto.subtle.decrypt({name:"AES-GCM",iv:base64ToBytes(secured.crypto.iv)},key,base64ToBytes(secured.payload));}
+    catch(_){throw new Error("Ontsleutelen mislukt. Controleer rooster-ID en roosterwachtwoord.");}
+    const parsed=JSON.parse(decoder.decode(plaintext));
+    if(parsed?.kind!=="roosterhulp-index"||!Array.isArray(parsed.employees))throw new Error("De ontsleutelde roosterinhoud is ongeldig.");
+    return parsed;
+  }
+
+  async function encryptRoster(secured,parsed,id,password){
+    const salt=crypto.getRandomValues(new Uint8Array(16));
+    const iv=crypto.getRandomValues(new Uint8Array(12));
+    const cryptoInfo={...secured.crypto,version:Number(secured.crypto.version)||1,kdf:"PBKDF2",hash:secured.crypto.hash||"SHA-256",iterations:Number(secured.crypto.iterations)||250000,cipher:"AES-GCM",keyLength:Number(secured.crypto.keyLength)||256,salt:bytesToBase64(salt),iv:bytesToBase64(iv)};
+    const key=await deriveKey(id,password,cryptoInfo,["encrypt"]);
+    const encrypted=await crypto.subtle.encrypt({name:"AES-GCM",iv},key,encoder.encode(JSON.stringify(parsed)));
+    return {...secured,crypto:cryptoInfo,payload:bytesToBase64(new Uint8Array(encrypted))};
+  }
+
+  async function buildSecuredFile(){
+    const id=document.getElementById("rosterId").value.trim();
+    const password=document.getElementById("rosterPassword").value;
+    if(!id||!password)throw new Error("Vul rooster-ID en roosterwachtwoord in.");
+    setStatus("Beveiligd rooster en verlofgegevens ophalen…");
+    const [rosterResponse,leaveResponse]=await Promise.all([
+      fetch(`${ROSTER_FILE}?v=${Date.now()}`,{cache:"no-store"}),
+      fetch(`${LEAVE_FILE}?v=${Date.now()}`,{cache:"no-store"})
+    ]);
+    if(!rosterResponse.ok)throw new Error(`Kon ${ROSTER_FILE} niet ophalen (${rosterResponse.status}).`);
+    if(!leaveResponse.ok)throw new Error(`Kon ${LEAVE_FILE} niet ophalen (${leaveResponse.status}).`);
+    const secured=await rosterResponse.json();
+    const leaveData=await leaveResponse.json();
+    const parsed=await decryptRoster(secured,id,password);
+    const current=parsed.privateConfig&&typeof parsed.privateConfig==="object"&&!Array.isArray(parsed.privateConfig)?parsed.privateConfig:{};
+    parsed.privateConfig={...current,leaveOverview:leaveData};
+    parsed.privateDataVersion=Math.max(3,Number(parsed.privateDataVersion)||0);
+    parsed.privateConfigUpdatedAt=new Date().toISOString();
+    setStatus("Verlofgegevens toegevoegd. Bestand opnieuw versleutelen…");
+    return encryptRoster(secured,parsed,id,password);
+  }
+
+  async function currentSha(token){
+    const response=await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(ROSTER_FILE)}?ref=${encodeURIComponent(BRANCH)}`,{headers:{Accept:"application/vnd.github+json",Authorization:`Bearer ${token}`,"X-GitHub-Api-Version":"2022-11-28"},cache:"no-store"});
+    if(!response.ok)throw new Error(`GitHub kon het huidige roosterbestand niet lezen (${response.status}).`);
+    return (await response.json()).sha;
+  }
+
+  async function publish(token,secured){
+    const sha=await currentSha(token);
+    const body={message:"Move leave overview into encrypted roster data",content:utf8ToBase64(JSON.stringify(secured,null,2)+"\n"),sha,branch:BRANCH};
+    const response=await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(ROSTER_FILE)}`,{method:"PUT",headers:{Accept:"application/vnd.github+json",Authorization:`Bearer ${token}`,"X-GitHub-Api-Version":"2022-11-28","Content-Type":"application/json"},body:JSON.stringify(body)});
+    if(!response.ok)throw new Error(`GitHub-publicatie mislukt (${response.status}). ${(await response.text()).slice(0,400)}`);
+    return response.json();
+  }
+
+  document.getElementById("publishButton").addEventListener("click",async()=>{
+    try{
+      const token=document.getElementById("githubToken").value.trim();
+      if(!token)throw new Error("Vul je GitHub fine-grained PAT in.");
+      const secured=await buildSecuredFile();
+      setStatus("Versleuteld. Publiceren naar GitHub…");
+      const result=await publish(token,secured);
+      document.getElementById("githubToken").value="";
+      document.getElementById("rosterPassword").value="";
+      setStatus(`Klaar. Verlofgegevens staan nu versleuteld in ${ROSTER_FILE}.\nCommit: ${result?.commit?.sha||"onbekend"}`,"ok");
+    }catch(error){setStatus(error?.message||String(error),"error");}
+  });
+})();
+</script>
+</body>
+</html>
