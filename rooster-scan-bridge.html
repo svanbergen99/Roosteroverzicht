@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' https://api.github.com; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Beveiligde WFM-roosterscan</title>
+<style>
+:root{color-scheme:light;--ink:#172033;--muted:#64748b;--line:#dbe2ea;--surface:#fff;--page:#f3f5f8;--accent:#176b58;--danger:#b42336;--ok:#176b58;--warn:#9a6700}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--page);color:var(--ink);font:15px Arial,sans-serif}.wrap{width:min(980px,calc(100% - 28px));margin:30px auto}.card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:24px;box-shadow:0 18px 48px #0f172a14;margin-bottom:16px}h1,h2{margin:0 0 8px}h1{font-size:30px}h2{font-size:20px}p{color:var(--muted);line-height:1.5}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}label{display:block;margin:14px 0 7px;font-weight:800}input,select{width:100%;padding:12px 13px;border:1px solid #c9d2dc;border-radius:11px;background:#fff;color:var(--ink);font:inherit}button{padding:12px 15px;border:0;border-radius:11px;background:var(--accent);color:#fff;font:inherit;font-weight:800;cursor:pointer}button.secondary{background:#fff;color:var(--accent);border:1px solid #b8c8c2}button:disabled{opacity:.55;cursor:wait}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.actions button{flex:1 1 210px}.status{min-height:24px;margin-top:14px;font-weight:800;white-space:pre-wrap}.status.ok{color:var(--ok)}.status.err{color:var(--danger)}.status.warn{color:var(--warn)}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:15px}.stat{padding:12px;border:1px solid var(--line);border-radius:12px;background:#f8fafc}.stat b{display:block;font-size:18px;margin-bottom:3px}.note{padding:12px 13px;border:1px solid #dbe7e2;border-radius:12px;background:#f4faf7;color:#36564c}.queue{font-family:Consolas,monospace;font-size:12px;word-break:break-word}[hidden]{display:none!important}@media(max-width:720px){.grid,.summary{grid-template-columns:1fr}.wrap{margin:14px auto}.card{padding:18px}}
+</style>
+</head>
+<body>
+<main class="wrap">
+<section class="card">
+<h1>Beveiligde WFM-roosterscan</h1>
+<p>Deze bridge ontvangt de 6-weken-scan, versleutelt hem met dezelfde Team-ID en hetzelfde Team Wachtwoord als Roosteroverzicht en schrijft daarna de juiste maand- en jaarbestanden in één GitHub-commit.</p>
+<div class="note"><strong>Voorrang:</strong> het maandbestand blijft leidend. Het jaarbestand bewaart verleden en vult alleen ontbrekende datums aan; het overschrijft geen bestaande maanddata.</div>
+<div id="scanSummary" class="summary" hidden>
+  <div class="stat"><b id="scanRange">—</b>scanperiode</div>
+  <div class="stat"><b id="scanCount">0</b>roosterregels</div>
+  <div class="stat"><b id="scanTarget">—</b>doelbestand</div>
+  <div class="stat"><b id="scanState">Wachten</b>status</div>
+</div>
+<div id="waiting" class="status warn">Wachten op een WFM-scan…</div>
+</section>
+<section id="setupCard" class="card">
+<h2>Bridge ontgrendelen</h2>
+<p>Vul dit één keer in. Wachtwoord en GitHub-token blijven alleen in het geheugen van deze geopende bridgepagina.</p>
+<div class="grid">
+  <div><label for="team">Team-ID</label><input id="team" autocomplete="off" spellcheck="false"></div>
+  <div><label for="password">Team Wachtwoord</label><input id="password" type="password" autocomplete="new-password"></div>
+</div>
+<label for="token">GitHub fine-grained PAT</label><input id="token" type="password" autocomplete="new-password">
+<div class="actions"><button id="unlock" type="button">Beveiligde bestanden openen</button></div>
+<div id="employeeWrap" hidden>
+  <label for="employee">Roosternaam van deze WFM-gebruiker</label>
+  <select id="employee"></select>
+  <div class="actions"><button id="activate" type="button">Bridge activeren en scan opslaan</button></div>
+</div>
+<div id="setupStatus" class="status" aria-live="polite"></div>
+</section>
+<section id="activeCard" class="card" hidden>
+<h2>Bridge actief</h2>
+<p id="activeFor"></p>
+<div class="actions"><button id="saveAgain" type="button">Huidige scan opnieuw opslaan</button><button id="lock" class="secondary" type="button">Bridge vergrendelen</button></div>
+<div id="saveStatus" class="status" aria-live="polite"></div>
+<p class="queue">Nieuwe geldige scans die binnenkomen terwijl deze pagina open blijft, worden automatisch beveiligd samengevoegd en naar <code>main</code> gestuurd.</p>
+</section>
+</main>
+<script>
+(() => {
+  'use strict';
+  const REPO='svanbergen99/Roosteroverzicht';
+  const BRANCH='main';
+  const PUBLIC_ORIGIN='https://svanbergen99.github.io';
+  const MONTH_NAMES=['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'];
+  const enc=new TextEncoder(), dec=new TextDecoder();
+  const $=id=>document.getElementById(id);
+  let pendingScan=null;
+  let auth=null;
+  let saving=false;
+  let queued=false;
+
+  function setStatus(el,text,kind=''){el.className=`status${kind?` ${kind}`:''}`;el.textContent=text}
+  function validDate(v){return /^\d{4}-\d{2}-\d{2}$/.test(String(v||''))}
+  function normalizedSchedules(payload){
+    return (Array.isArray(payload?.schedules)?payload.schedules:[]).map(s=>({
+      date:String(s?.date||'').slice(0,10),
+      start:String(s?.start||''),
+      end:String(s?.end||''),
+      activities:(Array.isArray(s?.activities)?s.activities:[]).map(a=>({
+        start:String(a?.start||''),end:String(a?.end||''),minutes:Number(a?.minutes)||undefined,
+        type:String(a?.type||''),name:String(a?.name||''),raw:String(a?.raw||''),rgb:String(a?.rgb||''),color:String(a?.color||'')
+      }))
+    })).filter(s=>validDate(s.date)).sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));
+  }
+  function targetFor(payload){
+    const schedules=normalizedSchedules(payload);
+    if(!schedules.length)throw new Error('De scan bevat geen geldige roosterregels.');
+    const counts=new Map();
+    for(const s of schedules){const key=s.date.slice(0,7);counts.set(key,(counts.get(key)||0)+1)}
+    const target=[...counts.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))[0]?.[0];
+    if(!target)throw new Error('De dominante scanmaand kon niet worden bepaald.');
+    const year=Number(target.slice(0,4)),month=Number(target.slice(5,7));
+    const start=schedules[0].date,end=schedules.at(-1).date;
+    return {schedules,monthKey:target,year,month,start,end,file:`Roosterindex_${MONTH_NAMES[month-1]}_${year}.json`,annual:`Roosterindex_${year}.json`};
+  }
+  function renderScan(){
+    if(!pendingScan){$('scanSummary').hidden=true;$('waiting').hidden=false;return}
+    const t=targetFor(pendingScan);
+    $('scanSummary').hidden=false;$('waiting').hidden=true;
+    $('scanRange').textContent=`${t.start} → ${t.end}`;
+    $('scanCount').textContent=String(t.schedules.length);
+    $('scanTarget').textContent=t.file;
+    $('scanState').textContent=auth?'Klaar om op te slaan':'Ontgrendelen';
+  }
+  function b64b(v){const s=atob(String(v||'')),a=new Uint8Array(s.length);for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return a}
+  function b64(a){let s='';for(let i=0;i<a.length;i+=0x8000)s+=String.fromCharCode(...a.subarray(i,Math.min(a.length,i+0x8000)));return btoa(s)}
+  async function derive(sec,team,password,use){
+    const m=await crypto.subtle.importKey('raw',enc.encode(`${team}\u0000${password}`),'PBKDF2',false,['deriveKey']);
+    return crypto.subtle.deriveKey({name:'PBKDF2',hash:sec.crypto?.hash||'SHA-256',salt:b64b(sec.crypto?.salt),iterations:Number(sec.crypto?.iterations)||250000},m,{name:'AES-GCM',length:Number(sec.crypto?.keyLength)||256},false,use)
+  }
+  async function decrypt(sec,team,password){
+    if(sec?.kind!=='roosterhulp-encrypted-index'||sec?.encrypted!==true||!sec.crypto||!sec.payload)throw new Error('Onverwacht beveiligd bestandsformaat.');
+    const key=await derive(sec,team,password,['decrypt']);
+    const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64b(sec.crypto.iv)},key,b64b(sec.payload));
+    const parsed=JSON.parse(dec.decode(plain));
+    if(parsed?.kind!=='roosterhulp-index'||!Array.isArray(parsed.employees))throw new Error('Ontsleutelde roosterinhoud is ongeldig.');
+    return parsed
+  }
+  function newEnvelope(template){
+    const out=structuredClone(template);
+    out.kind='roosterhulp-encrypted-index';out.encrypted=true;out.payload='';
+    out.crypto={...(out.crypto||{}),algorithm:'AES-GCM',kdf:'PBKDF2',hash:out.crypto?.hash||'SHA-256',iterations:Number(out.crypto?.iterations)||250000,keyLength:Number(out.crypto?.keyLength)||256,salt:b64(crypto.getRandomValues(new Uint8Array(16))),iv:b64(crypto.getRandomValues(new Uint8Array(12)))};
+    return out
+  }
+  async function encrypt(sec,parsed,team,password){
+    const next=structuredClone(sec);next.crypto={...next.crypto,iv:b64(crypto.getRandomValues(new Uint8Array(12)))};
+    const key=await derive(next,team,password,['encrypt']);
+    const bytes=await crypto.subtle.encrypt({name:'AES-GCM',iv:b64b(next.crypto.iv)},key,enc.encode(JSON.stringify(parsed)));
+    next.payload=b64(new Uint8Array(bytes));next.updatedAt=new Date().toISOString();
+    return JSON.stringify(next,null,2)+'\n'
+  }
+  function headers(token){return{Accept:'application/vnd.github+json',Authorization:`Bearer ${token}`,'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'}}
+  async function api(token,path,init={}){
+    const r=await fetch(`https://api.github.com/repos/${REPO}${path}`,{...init,headers:{...headers(token),...(init.headers||{})}});
+    const text=await r.text();let data=null;try{data=text?JSON.parse(text):null}catch{}
+    if(!r.ok){const e=new Error(data?.message||`GitHub HTTP ${r.status}`);e.status=r.status;throw e}return data
+  }
+  async function getRepoFile(token,path){
+    try{const data=await api(token,`/contents/${encodeURIComponent(path).replace(/%2F/g,'/')}?ref=${encodeURIComponent(BRANCH)}`);const raw=atob(String(data?.content||'').replace(/\s+/g,''));return{sha:data.sha,text:dec.decode(Uint8Array.from(raw,c=>c.charCodeAt(0)))}}catch(e){if(e.status===404)return null;throw e}
+  }
+  async function commitFiles(token,files,message){
+    const ref=await api(token,`/git/ref/heads/${BRANCH}`),head=ref?.object?.sha;if(!head)throw new Error('Branch-head ontbreekt.');
+    const hc=await api(token,`/git/commits/${head}`),base=hc?.tree?.sha;if(!base)throw new Error('Basis-tree ontbreekt.');
+    const treeItems=[];
+    for(const f of files){const blob=await api(token,'/git/blobs',{method:'POST',body:JSON.stringify({content:f.content,encoding:'utf-8'})});treeItems.push({path:f.path,mode:'100644',type:'blob',sha:blob.sha})}
+    const tree=await api(token,'/git/trees',{method:'POST',body:JSON.stringify({base_tree:base,tree:treeItems})});
+    const commit=await api(token,'/git/commits',{method:'POST',body:JSON.stringify({message,tree:tree.sha,parents:[head]})});
+    await api(token,`/git/refs/heads/${BRANCH}`,{method:'PATCH',body:JSON.stringify({sha:commit.sha,force:false})});return commit.sha
+  }
+  function signature(v){return String(v||'').toLocaleLowerCase('nl-NL').normalize('NFD').replace(/\p{M}/gu,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim().split(/\s+/).filter(Boolean).sort((a,b)=>a.localeCompare(b,'nl')).join('|')}
+  function findEmployee(index,name){const sig=signature(name);return(index?.employees||[]).find(e=>signature(e?.name)===sig)||null}
+  function upsertEmployee(index,name,templateEmployee,schedules){
+    let employee=findEmployee(index,name);
+    if(!employee){employee={...(templateEmployee||{}),name,schedules:[]};index.employees.push(employee)}
+    employee.schedules=schedules;return employee
+  }
+  function mergeCurrentSchedules(existing,scan,start,end){
+    const keep=(Array.isArray(existing)?existing:[]).filter(s=>{const d=String(s?.date||'').slice(0,10);return !validDate(d)||d<start||d>end});
+    return [...keep,...scan].sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.start||'').localeCompare(String(b.start||'')))
+  }
+  function todayAmsterdam(){const p=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Amsterdam',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const g=t=>p.find(x=>x.type===t)?.value||'';return`${g('year')}-${g('month')}-${g('day')}`}
+  function archivePast(annual,monthlyEmployee,templateEmployee,year){
+    const today=todayAmsterdam();
+    const past=(monthlyEmployee?.schedules||[]).filter(s=>{const d=String(s?.date||'').slice(0,10);return d.startsWith(`${year}-`)&&d<=today});
+    if(!past.length)return;
+    let ae=findEmployee(annual,monthlyEmployee.name);
+    if(!ae){ae={...(templateEmployee||monthlyEmployee),schedules:[]};annual.employees.push(ae)}
+    const replaceDates=new Set(past.map(s=>String(s.date).slice(0,10)));
+    ae.schedules=[...(ae.schedules||[]).filter(s=>!replaceDates.has(String(s?.date||'').slice(0,10))),...past].sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.start||'').localeCompare(String(b.start||'')))
+  }
+  function prepareMonthly(existing,annual,employeeName,target,payload){
+    const monthName=MONTH_NAMES[target.month-1];
+    const base=existing||{kind:'roosterhulp-index',period:{},display:{},employees:[],source:{}};
+    if(!Array.isArray(base.employees))base.employees=[];
+    const annualEmployee=findEmployee(annual,employeeName);
+    const oldEmployee=findEmployee(base,employeeName);
+    const merged=mergeCurrentSchedules(oldEmployee?.schedules,target.schedules,target.start,target.end);
+    const employee=upsertEmployee(base,annualEmployee?.name||employeeName,oldEmployee||annualEmployee,merged);
+    base.kind='roosterhulp-index';
+    base.period={...(base.period||{}),start:target.start,end:target.end,month:target.monthKey,label:`${target.start} t/m ${target.end}`};
+    base.display={...(base.display||{}),calendarName:`Rooster : ${monthName}`,appointmentName:base.display?.appointmentName||annual.display?.appointmentName||'Werkrooster'};
+    base.source={...(base.source||{}),latestWfmScan:{scannedAt:payload?.scannedAt||new Date().toISOString(),rangeStart:target.start,rangeEnd:target.end,dominantMonth:target.monthKey,method:'secure-roster-scan-bridge'}};
+    return{monthly:base,employee,annualEmployee}
+  }
+  async function loadForScan(team,password,token,target){
+    const annualFile=await getRepoFile(token,target.annual);if(!annualFile)throw new Error(`${target.annual} bestaat niet.`);
+    let annualSec;try{annualSec=JSON.parse(annualFile.text)}catch{throw new Error(`${target.annual} bevat ongeldige JSON.`)}
+    const annual=await decrypt(annualSec,team,password);
+    const monthlyFile=await getRepoFile(token,target.file);let monthlySec=null,monthly=null;
+    if(monthlyFile){try{monthlySec=JSON.parse(monthlyFile.text)}catch{throw new Error(`${target.file} bevat ongeldige JSON.`)}monthly=await decrypt(monthlySec,team,password)}
+    return{annualSec,annual,monthlySec,monthly}
+  }
+  function employeeNames(annual,monthly){
+    const map=new Map();for(const e of [...(annual?.employees||[]),...(monthly?.employees||[])]){const n=String(e?.name||'').trim();if(n)map.set(signature(n),n)}return[...map.values()].sort((a,b)=>a.localeCompare(b,'nl-NL'))
+  }
+  async function unlockSetup(){
+    if(!pendingScan){setStatus($('setupStatus'),'Ontvang eerst een WFM-scan.','warn');return}
+    const team=$('team').value.trim(),password=$('password').value,token=$('token').value.trim();
+    if(!team||!password||!token){setStatus($('setupStatus'),'Vul Team-ID, Team Wachtwoord en GitHub PAT in.','err');return}
+    const target=targetFor(pendingScan);setStatus($('setupStatus'),'Beveiligde bestanden controleren…');$('unlock').disabled=true;
+    try{const loaded=await loadForScan(team,password,token,target);const names=employeeNames(loaded.annual,loaded.monthly);if(!names.length)throw new Error('Er zijn geen roosternamen gevonden in de beveiligde bestanden.');
+      $('employee').innerHTML=names.map(n=>`<option value="${n.replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;').replaceAll('>','&gt;')}">${n.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')}</option>`).join('');
+      $('employeeWrap').hidden=false;setStatus($('setupStatus'),`${target.annual} en ${target.file} zijn klaar. Kies de juiste roosternaam.`,'ok')
+    }catch(e){setStatus($('setupStatus'),`Mislukt: ${e?.message||e}`,'err')}
+    finally{$('unlock').disabled=false}
+  }
+  async function activate(){
+    if(!pendingScan)return;
+    const team=$('team').value.trim(),password=$('password').value,token=$('token').value.trim(),employee=$('employee').value;
+    if(!team||!password||!token||!employee){setStatus($('setupStatus'),'Ontgrendel eerst en kies een roosternaam.','err');return}
+    auth={team,password,token,employee,year:targetFor(pendingScan).year};
+    $('password').value='';$('token').value='';$('setupCard').hidden=true;$('activeCard').hidden=false;$('activeFor').textContent=`Actief voor ${employee}. Team Wachtwoord en PAT staan alleen in het geheugen van deze pagina.`;
+    renderScan();await savePending()
+  }
+  async function savePending(){
+    if(!pendingScan||!auth||saving)return;
+    const target=targetFor(pendingScan);
+    if(target.year!==auth.year){setStatus($('saveStatus'),`De nieuwe scan hoort bij ${target.year}. Vergrendel en ontgrendel de bridge opnieuw voor dat jaar.`,'warn');return}
+    saving=true;queued=false;$('saveAgain').disabled=true;$('scanState').textContent='Opslaan…';setStatus($('saveStatus'),`Beveiligd samenvoegen naar ${target.file}…`);
+    try{
+      const loaded=await loadForScan(auth.team,auth.password,auth.token,target);
+      const prepared=prepareMonthly(loaded.monthly,loaded.annual,auth.employee,target,pendingScan);
+      archivePast(loaded.annual,prepared.employee,prepared.annualEmployee,target.year);
+      loaded.annual.source={...(loaded.annual.source||{}),annualArchiveUpdatedAt:new Date().toISOString(),annualArchiveMethod:'secure-roster-scan-bridge'};
+      const monthlyEnvelope=loaded.monthlySec||newEnvelope(loaded.annualSec);
+      const monthlyContent=await encrypt(monthlyEnvelope,prepared.monthly,auth.team,auth.password);
+      const annualContent=await encrypt(loaded.annualSec,loaded.annual,auth.team,auth.password);
+      const sha=await commitFiles(auth.token,[{path:target.annual,content:annualContent},{path:target.file,content:monthlyContent}],`Store encrypted WFM scan for ${target.monthKey}`);
+      $('scanState').textContent='Opgeslagen';setStatus($('saveStatus'),`Klaar. ${target.file} is bijgewerkt en verleden is veilig in ${target.annual} aangevuld.\nCommit: ${sha}`,'ok')
+    }catch(e){$('scanState').textContent='Fout';setStatus($('saveStatus'),`Opslaan mislukt: ${e?.message||e}`,'err')}
+    finally{saving=false;$('saveAgain').disabled=false;if(queued){queued=false;savePending()}}
+  }
+  function lock(){auth=null;$('activeCard').hidden=true;$('setupCard').hidden=false;$('employeeWrap').hidden=true;$('employee').innerHTML='';$('team').value='';$('password').value='';$('token').value='';setStatus($('setupStatus'),'Bridge vergrendeld.');renderScan()}
+
+  window.name='roosterSecureScanBridge';
+  window.addEventListener('message',event=>{
+    if(event.origin!==PUBLIC_ORIGIN)return;
+    const data=event.data||{};
+    if(data.type!=='secure-roster-scan'||data.relay!=='wfm-secure-scan-relay-v1'||!Array.isArray(data?.payload?.schedules))return;
+    pendingScan=data.payload;renderScan();
+    try{event.source?.postMessage({type:'secure-roster-scan-ack',receivedAt:new Date().toISOString()},PUBLIC_ORIGIN)}catch(_){}
+    if(auth){if(saving)queued=true;else savePending()}else setStatus($('setupStatus'),'Scan ontvangen. Ontgrendel de bridge en kies je roosternaam.','ok')
+    try{window.focus()}catch(_){}
+  });
+  $('unlock').addEventListener('click',unlockSetup);
+  $('activate').addEventListener('click',activate);
+  $('saveAgain').addEventListener('click',savePending);
+  $('lock').addEventListener('click',lock);
+  renderScan();
+})();
+</script>
+</body>
+</html>
