@@ -521,8 +521,9 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    const browserReadAllowed = allowedCorsOrigin(origin, ALLOWED_ORIGIN);
     const suppliedReadKey = req.headers["x-traffic-read-key"];
-    if (!safeSecretEqual(readEnv("TRAFFIC_READ_KEY"), suppliedReadKey)) {
+    if (!browserReadAllowed && !safeSecretEqual(readEnv("TRAFFIC_READ_KEY"), suppliedReadKey)) {
       json(res, 401, {
         ok: false,
         code: "INVALID_READ_KEY",
