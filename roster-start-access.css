@@ -12,7 +12,7 @@
 }
 
 .public-primary-actions #publicSalarySection,
-.public-primary-actions .kcd-intranet-section,
+.public-primary-actions .intranet-section,
 .public-primary-actions .public-portal-quick-actions {
   width: 100%;
   margin: 0;
@@ -21,7 +21,7 @@
 /* De drie primaire startknoppen zijn bewust exact even groot en staan met
    dezelfde tussenruimte naast elkaar. */
 .public-primary-actions #publicSalaryButton,
-.public-primary-actions #kcdIntranetButton,
+.public-primary-actions #intranetButton,
 .public-primary-actions #publicRosterButton {
   width: 100%;
   height: 82px;
@@ -95,27 +95,27 @@ body.public-portal-mode .theme-side-buttons {
   line-height: 1;
 }
 
-.kcd-intranet-section {
+.intranet-section {
   position: relative;
 }
 
-.kcd-intranet-button {
+.intranet-button {
   margin: 0;
 }
 
-.kcd-intranet-icon {
+.intranet-icon {
   font-size: 21px;
 }
 
-.kcd-intranet-arrow {
+.intranet-arrow {
   transition: transform .18s ease;
 }
 
-.kcd-intranet-section.is-open .kcd-intranet-arrow {
+.intranet-section.is-open .intranet-arrow {
   transform: rotate(180deg);
 }
 
-.kcd-intranet-panel {
+.intranet-panel {
   display: grid;
   gap: 8px;
   margin-top: 9px;
@@ -127,7 +127,7 @@ body.public-portal-mode .theme-side-buttons {
   backdrop-filter: blur(5px);
 }
 
-.kcd-intranet-item {
+.intranet-item {
   display: grid;
   padding: 10px 11px;
   border: 1px solid #e4dce3;
@@ -135,7 +135,7 @@ body.public-portal-mode .theme-side-buttons {
   background: #fff;
 }
 
-.kcd-intranet-link {
+.intranet-link {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -147,32 +147,32 @@ body.public-portal-mode .theme-side-buttons {
   text-decoration: none;
 }
 
-.kcd-intranet-link:hover {
+.intranet-link:hover {
   text-decoration: underline;
 }
 
-.kcd-intranet-link:focus-visible {
+.intranet-link:focus-visible {
   outline: 3px solid rgba(123, 47, 115, .18);
   outline-offset: 3px;
   border-radius: 5px;
 }
 
-.kcd-intranet-link-arrow {
+.intranet-link-arrow {
   flex: 0 0 auto;
   font-size: 15px;
 }
 
-html[data-theme="dark"] .kcd-intranet-link {
+html[data-theme="dark"] .intranet-link {
   color: #f0b5e8;
 }
 
-html[data-theme="dark"] .kcd-intranet-panel {
+html[data-theme="dark"] .intranet-panel {
   border-color: #57445a;
   background: rgba(48, 38, 51, .96);
   box-shadow: 0 10px 28px rgba(0, 0, 0, .24);
 }
 
-html[data-theme="dark"] .kcd-intranet-item {
+html[data-theme="dark"] .intranet-item {
   border-color: #665368;
   background: rgba(39, 31, 42, .95);
 }
@@ -180,7 +180,7 @@ html[data-theme="dark"] .kcd-intranet-item {
 /* Na succesvolle toegang verdwijnen de openbare startblokken; dan blijft alleen het rooster over. */
 body.roster-access-active #publicPrimaryActions,
 body.roster-access-active #publicPortalQuickActions,
-body.roster-access-active #kcdIntranetSection,
+body.roster-access-active #intranetSection,
 body.roster-access-active #publicSalarySection,
 body.roster-access-active #externalSitesSection,
 body.roster-access-active .external-sites-card,
@@ -284,7 +284,7 @@ html[data-theme="dark"] .next-shift-bar {
   }
 
   .public-primary-actions #publicSalaryButton,
-  .public-primary-actions #kcdIntranetButton,
+  .public-primary-actions #intranetButton,
   .public-primary-actions #publicRosterButton {
     height: 72px;
     min-height: 72px;
@@ -307,11 +307,11 @@ html[data-theme="dark"] .next-shift-bar {
     font-size: 17px;
   }
 
-  .kcd-intranet-panel {
+  .intranet-panel {
     padding: 8px;
   }
 
-  .kcd-intranet-item {
+  .intranet-item {
     padding: 9px 10px;
   }
 
