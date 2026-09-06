@@ -71,7 +71,7 @@
 .agenda-help-actions .secondary:hover { background: var(--soft-accent); }
 body.agenda-help-open { overflow: hidden; }
 
-/* Welkomstscherm: alleen de Verder-knop tonen, direct onder de tekst in KCD.jpg. */
+/* Welkomstscherm: alleen de Verder-knop tonen. */
 #welcomeOverlay .welcome-card {
   position: relative;
 }
