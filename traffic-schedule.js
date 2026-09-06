@@ -3,20 +3,20 @@
 
   const TIME_ZONE = "Europe/Amsterdam";
   const REFRESH_MS = 15000;
-
-  const SCHEDULES = Object.freeze({
-    "2026-09-02": Object.freeze([
-      Object.freeze({ start: "start", end: "13:00", name: "Marjan van Staalduinen" }),
-      Object.freeze({ start: "13:00", end: "sluit", name: "Hendrik Steenhouwer" })
-    ]),
-    "2026-09-03": Object.freeze([
-      Object.freeze({ start: "start", end: "12:00", name: "Hendrik Steenhouwer" }),
-      Object.freeze({ start: "12:00", end: "15:00", name: "Ewoud Oord" }),
-      Object.freeze({ start: "15:00", end: "sluit", name: "Maaike Overweg" })
-    ]),
-    "2026-09-05": Object.freeze([
-      Object.freeze({ start: "start", end: "sluit", name: "Marjan van Staalduinen" })
-    ])
+  const LIVE_URL = "https://roosteroverzicht-traffic-bridge-production.up.railway.app/api/traffic-live";
+  const MONTHS = Object.freeze({
+    januari: 1,
+    februari: 2,
+    maart: 3,
+    april: 4,
+    mei: 5,
+    juni: 6,
+    juli: 7,
+    augustus: 8,
+    september: 9,
+    oktober: 10,
+    november: 11,
+    december: 12
   });
 
   const app = document.getElementById("app");
@@ -86,6 +86,90 @@
     return Number(match[1]) * 60 + Number(match[2]);
   }
 
+  function trafficDateKey(day, monthName, explicitYear, nowDateKey) {
+    const month = MONTHS[String(monthName || "").toLocaleLowerCase("nl-NL")];
+    const dayNumber = Number(day);
+    if (!month || !Number.isInteger(dayNumber) || dayNumber < 1 || dayNumber > 31) return "";
+
+    const nowYear = Number(String(nowDateKey || "").slice(0, 4));
+    const years = explicitYear
+      ? [Number(explicitYear)]
+      : [nowYear - 1, nowYear, nowYear + 1];
+    const nowTime = new Date(`${nowDateKey}T12:00:00Z`).getTime();
+
+    let best = null;
+    for (const year of years) {
+      if (!Number.isInteger(year)) continue;
+      const date = new Date(Date.UTC(year, month - 1, dayNumber, 12));
+      if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== dayNumber) continue;
+      const distance = Math.abs(date.getTime() - nowTime);
+      if (!best || distance < best.distance) best = { year, distance };
+    }
+
+    if (!best) return "";
+    return `${best.year}-${String(month).padStart(2, "0")}-${String(dayNumber).padStart(2, "0")}`;
+  }
+
+  function parseTrafficShift(segment) {
+    const text = String(segment || "")
+      .replace(/[–—]/g, "-")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!text) return null;
+
+    let match = text.match(/^tot\s+(\d{1,2}:\d{2})(?:\s*uur)?\s+(.+)$/i);
+    if (match) return { start: "start", end: match[1], name: match[2].trim() };
+
+    match = text.match(/^tot\s+sluit(?:ing)?(?:\s*uur)?\s+(.+)$/i);
+    if (match) return { start: "start", end: "sluit", name: match[1].trim() };
+
+    match = text.match(/^start(?:\s*uur)?\s*(?:-|tot)\s*(\d{1,2}:\d{2})(?:\s*uur)?\s+(.+)$/i);
+    if (match) return { start: "start", end: match[1], name: match[2].trim() };
+
+    match = text.match(/^start(?:\s*uur)?\s*(?:-|tot)\s*sluit(?:ing)?(?:\s*uur)?\s+(.+)$/i);
+    if (match) return { start: "start", end: "sluit", name: match[1].trim() };
+
+    match = text.match(/^(\d{1,2}:\d{2})(?:\s*uur)?\s*(?:-|tot)\s*(\d{1,2}:\d{2})(?:\s*uur)?\s+(.+)$/i);
+    if (match) return { start: match[1], end: match[2], name: match[3].trim() };
+
+    match = text.match(/^(\d{1,2}:\d{2})(?:\s*uur)?\s*(?:-|tot)\s*sluit(?:ing)?(?:\s*uur)?\s+(.+)$/i);
+    if (match) return { start: match[1], end: "sluit", name: match[2].trim() };
+
+    return null;
+  }
+
+  function parseTrafficHeader(header, nowDateKey) {
+    const text = String(header || "").replace(/\s+/g, " ").trim();
+    if (!text) return null;
+
+    const dateMatch = text.match(/\b(?:maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag)\s+(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)(?:\s+(\d{4}))?\b/i);
+    if (!dateMatch) return null;
+
+    const dateKey = trafficDateKey(dateMatch[1], dateMatch[2], dateMatch[3], nowDateKey);
+    if (!dateKey) return null;
+
+    const schedule = text
+      .split(/\s*\/\/\s*/)
+      .slice(1)
+      .map(parseTrafficShift)
+      .filter(Boolean);
+
+    if (!schedule.length) return null;
+    return { dateKey, schedule };
+  }
+
+  async function getLiveSchedule(nowDateKey) {
+    const response = await fetch(LIVE_URL, {
+      method: "GET",
+      credentials: "omit",
+      cache: "no-store"
+    });
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    return parseTrafficHeader(data?.trafficHeader, nowDateKey);
+  }
+
   function ensureBar() {
     let bar = document.getElementById("trafficTodayBar");
     if (bar) return bar;
@@ -105,12 +189,22 @@
     return bar;
   }
 
-  function render() {
+  async function render() {
     if (app.hidden) return;
     const bar = ensureBar();
     const now = amsterdamNow();
-    const schedule = SCHEDULES[now.dateKey] || [];
-    const dateLabel = formatDate(now.dateKey);
+    let schedule = [];
+    let scheduleDateKey = now.dateKey;
+
+    try {
+      const live = await getLiveSchedule(now.dateKey);
+      if (live) {
+        schedule = live.schedule;
+        scheduleDateKey = live.dateKey;
+      }
+    } catch (_) {}
+
+    const dateLabel = formatDate(scheduleDateKey);
 
     if (!schedule.length) {
       bar.innerHTML = `
@@ -121,11 +215,11 @@
     }
 
     const shifts = schedule.map((item) => {
-      const startLabel = resolveTime(item.start, now.dateKey);
-      const endLabel = resolveTime(item.end, now.dateKey);
-      const start = timeToMinutes(item.start, now.dateKey);
-      const end = timeToMinutes(item.end, now.dateKey);
-      const isCurrent = Number.isFinite(start) && Number.isFinite(end) && now.minutes >= start && now.minutes < end;
+      const startLabel = resolveTime(item.start, scheduleDateKey);
+      const endLabel = resolveTime(item.end, scheduleDateKey);
+      const start = timeToMinutes(item.start, scheduleDateKey);
+      const end = timeToMinutes(item.end, scheduleDateKey);
+      const isCurrent = scheduleDateKey === now.dateKey && Number.isFinite(start) && Number.isFinite(end) && now.minutes >= start && now.minutes < end;
       const timeLabel = startLabel && endLabel ? `${startLabel}–${endLabel}` : `${item.start}–${item.end}`;
       return `
         <span class="traffic-shift${isCurrent ? " is-current" : ""}">
