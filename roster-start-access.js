@@ -82,8 +82,8 @@
   }
 
   function closeIntranet(section) {
-    const button = section?.querySelector("#kcdIntranetButton");
-    const panel = section?.querySelector("#kcdIntranetPanel");
+    const button = section?.querySelector("#intranetButton");
+    const panel = section?.querySelector("#intranetPanel");
     if (!button || !panel) return;
     panel.hidden = true;
     button.setAttribute("aria-expanded", "false");
@@ -92,42 +92,42 @@
 
   function ensureIntranetSection() {
     const config = privateConfig();
-    const links = Array.isArray(config?.kcdIntranetLinks) ? config.kcdIntranetLinks : [];
+    const links = Array.isArray(config?.intranetLinks) ? config.intranetLinks : [];
     if (!links.length) {
-      document.getElementById("kcdIntranetSection")?.remove();
+      document.getElementById("intranetSection")?.remove();
       return null;
     }
 
     const organization = config.organization || {};
-    const title = String(organization.kcdIntranetTitle || "Intranet").trim();
-    const subtitle = String(organization.kcdIntranetSubtitle || "").trim();
-    let section = document.getElementById("kcdIntranetSection");
+    const title = String(organization.intranetTitle || "Intranet").trim();
+    const subtitle = String(organization.intranetSubtitle || "").trim();
+    let section = document.getElementById("intranetSection");
     if (section) return section;
 
     section = document.createElement("section");
-    section.id = "kcdIntranetSection";
-    section.className = "kcd-intranet-section roster-only-start";
+    section.id = "intranetSection";
+    section.className = "intranet-section roster-only-start";
     section.setAttribute("aria-label", subtitle || title);
 
     const button = document.createElement("button");
-    button.id = "kcdIntranetButton";
-    button.className = "today-workers-button public-roster-button kcd-intranet-button";
+    button.id = "intranetButton";
+    button.className = "today-workers-button public-roster-button intranet-button";
     button.type = "button";
     button.setAttribute("aria-expanded", "false");
-    button.setAttribute("aria-controls", "kcdIntranetPanel");
+    button.setAttribute("aria-controls", "intranetPanel");
     button.innerHTML = `
       <span class="public-roster-button-main">
-        <span class="public-roster-button-icon kcd-intranet-icon" aria-hidden="true">⌂</span>
+        <span class="public-roster-button-icon intranet-icon" aria-hidden="true">⌂</span>
         <span class="public-roster-button-copy">
           <strong>${title}</strong>
           ${subtitle ? `<small>${subtitle}</small>` : ""}
         </span>
       </span>
-      <span class="public-roster-arrow kcd-intranet-arrow" aria-hidden="true">⌄</span>`;
+      <span class="public-roster-arrow intranet-arrow" aria-hidden="true">⌄</span>`;
 
     const panel = document.createElement("div");
-    panel.id = "kcdIntranetPanel";
-    panel.className = "kcd-intranet-panel";
+    panel.id = "intranetPanel";
+    panel.className = "intranet-panel";
     panel.hidden = true;
 
     for (const item of links) {
@@ -135,16 +135,16 @@
       const label = String(item?.label || "").trim();
       if (!href || !label) continue;
       const row = document.createElement("div");
-      row.className = "kcd-intranet-item";
+      row.className = "intranet-item";
       const link = document.createElement("a");
-      link.className = "kcd-intranet-link";
+      link.className = "intranet-link";
       link.href = href;
       link.target = "_blank";
       link.rel = "noopener noreferrer";
       link.textContent = label;
       link.setAttribute("aria-label", `${label} openen in nieuw tabblad`);
       const arrow = document.createElement("span");
-      arrow.className = "kcd-intranet-link-arrow";
+      arrow.className = "intranet-link-arrow";
       arrow.setAttribute("aria-hidden", "true");
       arrow.textContent = "↗";
       link.appendChild(arrow);
