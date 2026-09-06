@@ -1,38 +1,11 @@
 (() => {
   "use strict";
 
-  const VERSION = "20260906-76";
+  const VERSION = "20260906-77";
   const app = document.getElementById("app");
   const searchCard = document.querySelector(".search-card");
   const detachedAuthTrigger = document.getElementById("continueButton");
   if (!app || !detachedAuthTrigger) return;
-
-  const KCD_LINKS = Object.freeze([
-    Object.freeze({
-      label: "Hoofd Pagina",
-      href: "https://wijzijnkcd.sharepoint.com/"
-    }),
-    Object.freeze({
-      label: "Nieuws",
-      href: "https://wijzijnkcd.sharepoint.com/_layouts/15/news.aspx?title=Nieuws&newsSource=3&instanceId=9cfbacd7-8861-4d94-b593-4268b36a165b&webPartId=8c88f208-6c77-4bdb-86a0-0c47b4316588&serverRelativeUrl=%2FSitePages%2FHome.aspx&pagesListId=5d923cc9-9536-49ed-9383-bebf20d98b42&locale=nl-nl"
-    }),
-    Object.freeze({
-      label: "Salaris, declaraties & vergoedingen",
-      href: "https://wijzijnkcd.sharepoint.com/sites/team-hr/SitePages/Salaris,-declaraties-%26-vergoedingen.aspx?locale=nl-nl#uitleg-salarisstrook"
-    }),
-    Object.freeze({
-      label: "Ziek en beter melden",
-      href: "https://wijzijnkcd.sharepoint.com/sites/formulieren/?locale=nl-nl#ziek-en-beter-melden"
-    }),
-    Object.freeze({
-      label: "Help, ik heb een storing",
-      href: "https://wijzijnkcd.sharepoint.com/sites/storing-melden?locale=nl-nl"
-    }),
-    Object.freeze({
-      label: "Langer doorgewerkt ?",
-      href: "https://wijzijnkcd.sharepoint.com/sites/formulieren/SitePages/Langer-Doorgewerkt.aspx"
-    })
-  ]);
 
   const PRIVATE_STYLES = [
     "roster-extras.css",
@@ -63,6 +36,12 @@
   let privateModulesPromise = null;
   let authInProgress = false;
   let rosterButton = null;
+
+  function privateConfig() {
+    return window.RoosterPrivateConfig && typeof window.RoosterPrivateConfig === "object"
+      ? window.RoosterPrivateConfig
+      : null;
+  }
 
   function hasAsset(selector, baseName, attribute) {
     return [...document.querySelectorAll(selector)].some((element) => {
@@ -102,7 +81,7 @@
     return privateModulesPromise;
   }
 
-  function closeKcdIntranet(section) {
+  function closeIntranet(section) {
     const button = section?.querySelector("#kcdIntranetButton");
     const panel = section?.querySelector("#kcdIntranetPanel");
     if (!button || !panel) return;
@@ -111,14 +90,24 @@
     section.classList.remove("is-open");
   }
 
-  function ensureKcdIntranetSection() {
+  function ensureIntranetSection() {
+    const config = privateConfig();
+    const links = Array.isArray(config?.kcdIntranetLinks) ? config.kcdIntranetLinks : [];
+    if (!links.length) {
+      document.getElementById("kcdIntranetSection")?.remove();
+      return null;
+    }
+
+    const organization = config.organization || {};
+    const title = String(organization.kcdIntranetTitle || "Intranet").trim();
+    const subtitle = String(organization.kcdIntranetSubtitle || "").trim();
     let section = document.getElementById("kcdIntranetSection");
     if (section) return section;
 
     section = document.createElement("section");
     section.id = "kcdIntranetSection";
     section.className = "kcd-intranet-section roster-only-start";
-    section.setAttribute("aria-label", "Wij Zijn KCD");
+    section.setAttribute("aria-label", subtitle || title);
 
     const button = document.createElement("button");
     button.id = "kcdIntranetButton";
@@ -130,8 +119,8 @@
       <span class="public-roster-button-main">
         <span class="public-roster-button-icon kcd-intranet-icon" aria-hidden="true">⌂</span>
         <span class="public-roster-button-copy">
-          <strong>KCD Intranet</strong>
-          <small>Wij Zijn KCD</small>
+          <strong>${title}</strong>
+          ${subtitle ? `<small>${subtitle}</small>` : ""}
         </span>
       </span>
       <span class="public-roster-arrow kcd-intranet-arrow" aria-hidden="true">⌄</span>`;
@@ -141,47 +130,43 @@
     panel.className = "kcd-intranet-panel";
     panel.hidden = true;
 
-    for (const item of KCD_LINKS) {
+    for (const item of links) {
+      const href = String(item?.href || "").trim();
+      const label = String(item?.label || "").trim();
+      if (!href || !label) continue;
       const row = document.createElement("div");
       row.className = "kcd-intranet-item";
-
       const link = document.createElement("a");
       link.className = "kcd-intranet-link";
-      link.href = item.href;
+      link.href = href;
       link.target = "_blank";
       link.rel = "noopener noreferrer";
-      link.textContent = item.label;
-      link.setAttribute("aria-label", `${item.label} openen in nieuw tabblad`);
-
+      link.textContent = label;
+      link.setAttribute("aria-label", `${label} openen in nieuw tabblad`);
       const arrow = document.createElement("span");
       arrow.className = "kcd-intranet-link-arrow";
       arrow.setAttribute("aria-hidden", "true");
       arrow.textContent = "↗";
       link.appendChild(arrow);
-
       row.appendChild(link);
       panel.appendChild(row);
     }
 
     section.append(button, panel);
-
     button.addEventListener("click", () => {
       const open = panel.hidden;
       panel.hidden = !open;
       button.setAttribute("aria-expanded", String(open));
       section.classList.toggle("is-open", open);
     });
-
     document.addEventListener("click", (event) => {
-      if (!section.contains(event.target)) closeKcdIntranet(section);
+      if (!section.contains(event.target)) closeIntranet(section);
     });
-
     document.addEventListener("keydown", (event) => {
       if (event.key !== "Escape" || panel.hidden) return;
-      closeKcdIntranet(section);
+      closeIntranet(section);
       button.focus();
     });
-
     return section;
   }
 
@@ -200,15 +185,11 @@
   function positionPublicStartSections(row, attempt = 0) {
     const primary = ensurePrimaryActionsRow();
     const salary = document.getElementById("publicSalarySection");
-    const kcd = ensureKcdIntranetSection();
-
+    const intranet = ensureIntranetSection();
     if (salary) primary.appendChild(salary);
-    primary.append(kcd, row);
-
-    // Salaris wordt normaal eerder geladen, maar houd de volgorde ook bij trage scriptbelasting stabiel.
-    if (!salary && attempt < 20) {
-      setTimeout(() => positionPublicStartSections(row, attempt + 1), 100);
-    }
+    if (intranet) primary.appendChild(intranet);
+    primary.appendChild(row);
+    if (!salary && attempt < 20) setTimeout(() => positionPublicStartSections(row, attempt + 1), 100);
   }
 
   function ensureQuickActions() {
@@ -231,9 +212,7 @@
       rosterButton.innerHTML = `
         <span class="public-roster-button-main">
           <span class="public-roster-button-icon" aria-hidden="true">▦</span>
-          <span class="public-roster-button-copy">
-            <strong>Rooster</strong>
-          </span>
+          <span class="public-roster-button-copy"><strong>Rooster</strong></span>
         </span>
         <span class="public-roster-arrow" aria-hidden="true">›</span>`;
       row.appendChild(rosterButton);
@@ -250,14 +229,9 @@
       return;
     }
     if (authInProgress) return;
-
     authInProgress = true;
     if (rosterButton) rosterButton.disabled = true;
-
-    // Het openbare portaal verdwijnt tijdelijk achter de beveiligde login.
-    // Hierdoor kan roster-controller pas een echte unlock zien na succesvolle decryptie.
     app.hidden = true;
-
     try {
       await loadPrivateModules();
       detachedAuthTrigger.click();
@@ -275,19 +249,15 @@
       return;
     }
     if (!authInProgress) return;
-
     authInProgress = false;
     document.body.classList.remove("public-portal-mode");
     document.body.classList.add("roster-access-active");
     app.hidden = false;
     if (rosterButton) rosterButton.disabled = false;
-
-    requestAnimationFrame(() => {
-      searchCard?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+    requestAnimationFrame(() => searchCard?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
+  window.addEventListener("rooster-private-config-ready", () => ensureQuickActions());
   window.addEventListener("rooster-unlocked", activateRosterArea);
-
   if (!app.hidden) ensureQuickActions();
 })();
