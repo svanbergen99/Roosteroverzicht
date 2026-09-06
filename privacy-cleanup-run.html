@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https://api.github.com; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Openbare bron opschonen</title>
+<style>
+:root{color-scheme:light;--ink:#172033;--muted:#64748b;--line:#dbe2ea;--surface:#fff;--page:#f3f5f8;--accent:#6b2d64;--danger:#b42336;--ok:#176b58}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--page);color:var(--ink);font:15px Arial,sans-serif}.wrap{width:min(760px,calc(100% - 28px));margin:42px auto}.card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:26px;box-shadow:0 18px 48px #0f172a14}h1{margin:0 0 8px;font-size:30px}p{color:var(--muted);line-height:1.5}label{display:block;margin:15px 0 7px;font-weight:800}input{width:100%;padding:12px 13px;border:1px solid #c9d2dc;border-radius:11px;font:inherit}button{width:100%;margin-top:20px;padding:13px 16px;border:0;border-radius:11px;background:var(--accent);color:white;font:inherit;font-weight:800;cursor:pointer}button:disabled{opacity:.55;cursor:wait}.note{margin-top:18px;padding:13px;border:1px solid #e3dbe2;border-radius:12px;background:#faf7fa;color:#4e4050}.status{min-height:24px;margin-top:16px;font-weight:800;white-space:pre-wrap}.status.ok{color:var(--ok)}.status.err{color:var(--danger)}</style>
+</head>
+<body><main class="wrap"><section class="card">
+<h1>Laatste openbare bron opschonen</h1>
+<p>Deze eenmalige stap haalt de resterende teamlijst, oude bedrijfsbranding-verwijzingen en het lege openbare medewerkersbestand uit de huidige <code>main</code>. De site blijft de versleutelde <code>privateConfig</code> gebruiken.</p>
+<div class="note">Alleen je GitHub PAT is nodig. Het token wordt uitsluitend in het geheugen gebruikt en na afloop uit het invoerveld gewist.</div>
+<label for="token">GitHub fine-grained PAT</label><input id="token" type="password" autocomplete="new-password">
+<button id="run" type="button">Openbare bron definitief opschonen</button>
+<div id="status" class="status" aria-live="polite"></div>
+</section></main>
+<script>
+(() => {
+'use strict';
+const REPO='svanbergen99/Roosteroverzicht', BRANCH='main';
+const enc=new TextEncoder(), dec=new TextDecoder();
+const status=document.getElementById('status'), run=document.getElementById('run'), tokenInput=document.getElementById('token');
+function headers(token){return{Accept:'application/vnd.github+json',Authorization:`Bearer ${token}`,'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'}}
+async function api(token,path,init={}){const r=await fetch(`https://api.github.com/repos/${REPO}${path}`,{...init,headers:{...headers(token),...(init.headers||{})}});const text=await r.text();let data=null;try{data=text?JSON.parse(text):null}catch{}if(!r.ok)throw new Error(data?.message||`GitHub HTTP ${r.status}`);return data}
+function decode64(value){const s=atob(value||''),a=new Uint8Array(s.length);for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return dec.decode(a)}
+function encode64(text){const a=enc.encode(text);let s='';for(let i=0;i<a.length;i+=0x8000)s+=String.fromCharCode(...a.subarray(i,Math.min(a.length,i+0x8000)));return btoa(s)}
+async function readFile(token,path){const d=await api(token,`/contents/${path}?ref=${encodeURIComponent(BRANCH)}`);return{sha:d.sha,text:decode64(String(d.content||'').replace(/\s+/g,''))}}
+async function writeFile(token,path,text,message){const cur=await readFile(token,path);await api(token,`/contents/${path}`,{method:'PUT',body:JSON.stringify({message,content:encode64(text),sha:cur.sha,branch:BRANCH})})}
+async function patchFile(token,path,transform,message){const cur=await readFile(token,path);const next=transform(cur.text);if(next===cur.text)return false;await api(token,`/contents/${path}`,{method:'PUT',body:JSON.stringify({message,content:encode64(next),sha:cur.sha,branch:BRANCH})});return true}
+async function deleteFile(token,path,message){let cur;try{cur=await api(token,`/contents/${path}?ref=${encodeURIComponent(BRANCH)}`)}catch(e){if(/404|Not Found/i.test(String(e?.message||e)))return false;throw e}await api(token,`/contents/${path}`,{method:'DELETE',body:JSON.stringify({message,sha:cur.sha,branch:BRANCH})});return true}
+function requireChanged(before,after,label){if(before===after)throw new Error(`Verwachte wijziging niet gevonden in ${label}. Stop om beschadiging te voorkomen.`);return after}
+function patchPermission(text){const before=text;text=text.replace(/  const TEAM_IDS = Object\.freeze\(\[[\s\S]*?\]\);\n/,'');text=text.replace(/  function teamOptionsHtml\(\) \{[\s\S]*?\n  function showPasswordStep\(\) \{/,
+`  function showTeamStep() {
+    authPending = false;
+    nameStepBusy = false;
+    unlockOverlay.hidden = true;
+    const target = ensureOverlay();
+    target.innerHTML = \`
+      <form id="permissionTeamForm" class="unlock-card permission-auth-card" autocomplete="off">
+        <h1>Team toegang</h1>
+        <p>Vul je Team-ID in. Dit ID staat niet in de openbare bron en wordt alleen gebruikt om het beveiligde rooster te ontsleutelen.</p>
+        <label for="permissionTeamInput">Team-ID</label>
+        <input id="permissionTeamInput" type="text" autocomplete="off" spellcheck="false" required>
+        <button class="full-button" type="submit">Verder</button>
+        <div id="permissionTeamError" class="permission-auth-error" aria-live="polite"></div>
+      </form>\`;
+    target.hidden = false;
+    const form = target.querySelector("#permissionTeamForm");
+    const input = target.querySelector("#permissionTeamInput");
+    const error = target.querySelector("#permissionTeamError");
+    form?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      error.textContent = "";
+      const value = input?.value?.trim() || "";
+      if (!value) {
+        error.textContent = "Vul eerst je Team-ID in.";
+        input?.focus();
+        return;
+      }
+      selectedTeam = value;
+      activePermission = null;
+      resolvedEmployeeName = "";
+      colleagueFirstName = "Collega";
+      unlockCompleted = false;
+      showPasswordStep();
+    });
+    focusSoon("#permissionTeamInput");
+  }
+
+  function showPasswordStep() {`);
+return requireChanged(before,text,'permission-auth.js')}
+function patchRosterStart(text){const before=text;text=text.replaceAll('kcdIntranet','intranet').replaceAll('kcd-intranet','intranet');return requireChanged(before,text,'roster-start-access.js')}
+function patchRosterCss(text){const before=text;text=text.replaceAll('#kcdIntranet','#intranet').replaceAll('kcd-intranet','intranet');return requireChanged(before,text,'roster-start-access.css')}
+function patchIndex(text){const before=text;text=text.replace('background-image: url("KCD.jpg");','background-image: none;');return requireChanged(before,text,'index.html')}
+function patchAgendaCss(text){return text.replace('/* Welkomstscherm: alleen de Verder-knop tonen, direct onder de tekst in KCD.jpg. */','/* Welkomstscherm: alleen de Verder-knop tonen. */')}
+function patchPublicCss(text){const before=text;text=text.replace(/\/\* Welkomstpagina:[\s\S]*?\/\* Extra vangnet:/,
+`body.public-portal-mode #welcomeOverlay {
+  background: transparent !important;
+}
+
+/* Extra vangnet:`);text=text.replace(/\n\s*body\.public-portal-mode \.welcome-kernwaarde-image \{[\s\S]*?\n\s*\}\n/g,'\n');return requireChanged(before,text,'public-portal.css')}
+function patchOccasion(text){const before=text;text=text.replace('  const EMPLOYEE_FILE = "Medewerkerbestand.json";\n','');text=text.replace(/  async function loadCentralBirthdays\(force = false\) \{[\s\S]*?\n  \}\n\n  function readLocalBirthday/,
+`  async function loadCentralBirthdays(force = false) {
+    if (centralBirthdayPromise && !force) return centralBirthdayPromise;
+    centralBirthdayPromise = Promise.resolve().then(() => {
+      const items = Array.isArray(window.RoosterPrivateConfig?.employeeBirthdays)
+        ? window.RoosterPrivateConfig.employeeBirthdays
+        : [];
+      const next = new Map();
+      for (const employee of items) {
+        const name = normalizeName(employee?.name);
+        const birthday = validMonthDay(employee?.birthday);
+        if (name && birthday) next.set(name, birthday);
+      }
+      centralBirthdays = next;
+      return centralBirthdays;
+    });
+    return centralBirthdayPromise;
+  }
+
+  function readLocalBirthday`);text=text.replace('De pagina leest centraal opgeslagen verjaardagen uit ${EMPLOYEE_FILE}.','Centraal opgeslagen verjaardagen worden alleen uit de beveiligde teamconfiguratie gelezen.');text=text.replace('Invoer wordt voorlopig lokaal onthouden; centraal schrijven vereist nog een beveiligde schrijfservice.','Invoer wordt lokaal onthouden. Centrale wijzigingen horen in de beveiligde configuratie.');return requireChanged(before,text,'occasion-auto.js')}
+const PUBLIC_PORTAL=`(() => {
+  "use strict";
+  const body = document.body;
+  const welcome = document.getElementById("welcomeOverlay");
+  const app = document.getElementById("app");
+  const originalButton = document.getElementById("continueButton");
+  if (!body || !welcome || !app || !originalButton) return;
+  body.classList.add("public-portal-mode");
+  document.title = "Roosteroverzicht";
+  const button = originalButton.cloneNode(true);
+  originalButton.replaceWith(button);
+  button.addEventListener("click", () => {
+    welcome.hidden = true;
+    app.hidden = false;
+    body.classList.remove("locked");
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new CustomEvent("rooster-unlocked", { detail: { publicPortal: true } }));
+    });
+  });
+})();
+`;
+async function step(label,fn){status.textContent+=`\n• ${label}…`;await fn();status.textContent+=' klaar'}
+run.addEventListener('click',async()=>{const token=tokenInput.value.trim();if(!token){status.className='status err';status.textContent='Vul je GitHub PAT in.';return}run.disabled=true;status.className='status';status.textContent='Opschoning gestart.';try{
+await step('openbare teamlijst verwijderen',()=>patchFile(token,'permission-auth.js',patchPermission,'Remove public team identifiers'));
+await step('intranet-sleutels neutraliseren',()=>patchFile(token,'roster-start-access.js',patchRosterStart,'Use neutral encrypted intranet keys'));
+await step('intranet CSS neutraliseren',()=>patchFile(token,'roster-start-access.css',patchRosterCss,'Neutralize intranet source identifiers'));
+await step('welkomstachtergrond neutraliseren',()=>patchFile(token,'index.html',patchIndex,'Remove public organization branding reference'));
+await step('openbare startscript neutraliseren',()=>writeFile(token,'public-portal.js',PUBLIC_PORTAL,'Remove public organization branding loader'));
+await step('openbare start-CSS neutraliseren',()=>patchFile(token,'public-portal.css',patchPublicCss,'Remove public organization branding styles'));
+await step('legacy comment opschonen',()=>patchFile(token,'agenda-export.css',patchAgendaCss,'Remove legacy organization asset reference'));
+await step('verjaardagen alleen uit private config lezen',()=>patchFile(token,'occasion-auto.js',patchOccasion,'Read birthdays from encrypted private config'));
+await step('oude openbare branding verwijderen',async()=>{await deleteFile(token,'KCD.jpg','Remove public organization image');await deleteFile(token,'Kernwaarde.png','Remove public organization values image')});
+await step('openbaar medewerkersbestand verwijderen',()=>deleteFile(token,'Medewerkerbestand.json','Remove legacy public employee file'));
+await step('oude migratiepagina verwijderen',()=>deleteFile(token,'privacy-finalize.html','Remove completed privacy migration helper'));
+status.className='status ok';status.textContent+='\n\nKlaar. Meld in de chat alleen: klaar';tokenInput.value='';
+}catch(e){console.error(e);status.className='status err';status.textContent+=`\n\nGESTOPT: ${e?.message||e}\nMeld deze fout in de chat; voer niet opnieuw uit zonder controle.`}finally{run.disabled=false}});
+})();
+</script></body></html>
