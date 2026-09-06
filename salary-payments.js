@@ -2,22 +2,6 @@
   "use strict";
 
   const TIME_ZONE = "Europe/Amsterdam";
-  const PAYMENTS = [
-    { month: "Januari", date: "2026-01-23" },
-    { month: "Februari", date: "2026-02-23" },
-    { month: "Maart", date: "2026-03-23" },
-    { month: "April", date: "2026-04-23" },
-    { month: "Mei", date: "2026-05-22" },
-    { month: "Juni", date: "2026-06-23" },
-    { month: "Juli", date: "2026-07-23" },
-    { month: "Augustus", date: "2026-08-21" },
-    { month: "September", date: "2026-09-23" },
-    { month: "Oktober", date: "2026-10-23" },
-    { month: "November", date: "2026-11-23" },
-    { month: "December", date: "2026-12-18" },
-    { month: "Januari (2027)", date: "2027-01-22" }
-  ];
-
   const app = document.getElementById("app");
   const searchCard = document.querySelector(".search-card");
   const rosterResult = document.getElementById("rosterResult");
@@ -25,14 +9,35 @@
   if (!app || !searchCard || !rosterResult || !action) return;
 
   let showAllPayments = false;
-  let salaryButton = document.getElementById("salaryPaymentButton");
-  if (!salaryButton) {
-    salaryButton = document.createElement("button");
-    salaryButton.id = "salaryPaymentButton";
-    salaryButton.className = "today-workers-button";
-    salaryButton.type = "button";
-    salaryButton.textContent = "Salaris uitbetaling";
-    action.appendChild(salaryButton);
+  let salaryButton = null;
+
+  function payments() {
+    const value = window.RoosterPrivateConfig?.salaryPayments;
+    if (!Array.isArray(value)) return [];
+    return value.map((payment) => ({
+      month: String(payment?.month || "").trim(),
+      date: String(payment?.date || "").trim()
+    })).filter((payment) => payment.month && /^\d{4}-\d{2}-\d{2}$/.test(payment.date));
+  }
+
+  function ensureSalaryButton() {
+    if (!payments().length) {
+      document.getElementById("salaryPaymentButton")?.remove();
+      salaryButton = null;
+      return null;
+    }
+
+    salaryButton = document.getElementById("salaryPaymentButton");
+    if (!salaryButton) {
+      salaryButton = document.createElement("button");
+      salaryButton.id = "salaryPaymentButton";
+      salaryButton.className = "today-workers-button";
+      salaryButton.type = "button";
+      salaryButton.textContent = "Salaris uitbetaling";
+      action.appendChild(salaryButton);
+      salaryButton.addEventListener("click", handleSalaryClick);
+    }
+    return salaryButton;
   }
 
   function amsterdamDateKey(date = new Date()) {
@@ -57,16 +62,22 @@
   }
 
   function nextPayment(today = amsterdamDateKey()) {
-    return PAYMENTS.find((payment) => payment.date >= today) || null;
+    return payments().find((payment) => payment.date >= today) || null;
   }
 
   function visiblePayments() {
-    if (showAllPayments) return PAYMENTS;
+    const list = payments();
+    if (showAllPayments) return list;
     const monthKey = currentMonthKey();
-    return PAYMENTS.filter((payment) => payment.date.slice(0, 7) >= monthKey);
+    return list.filter((payment) => payment.date.slice(0, 7) >= monthKey);
   }
 
   function ensureNextPaymentBar() {
+    if (!payments().length) {
+      document.getElementById("nextSalaryPaymentBar")?.remove();
+      return;
+    }
+
     let bar = document.getElementById("nextSalaryPaymentBar");
     if (!bar) {
       bar = document.createElement("div");
@@ -102,8 +113,8 @@
   function renderPayments() {
     const today = amsterdamDateKey();
     const upcoming = nextPayment(today);
-    const payments = visiblePayments();
-    const rows = payments.map((payment) => {
+    const visible = visiblePayments();
+    const rows = visible.map((payment) => {
       const isNext = upcoming?.date === payment.date;
       const classes = ["today-worker-row", "salary-payment-row"];
       if (isNext) classes.push("salary-payment-next");
@@ -116,7 +127,7 @@
           <h2>Salaris uitbetaling</h2>
           <p class="today-workers-date">${showAllPayments ? "Alle bekende uitbetalingsdata" : "Huidige en komende maanden"}</p>
         </div>
-        <span class="today-workers-count">${payments.length} betaal${payments.length === 1 ? "datum" : "data"}</span>
+        <span class="today-workers-count">${visible.length} betaal${visible.length === 1 ? "datum" : "data"}</span>
       </div>
       <button type="button" class="today-workers-button salary-history-toggle" aria-pressed="${showAllPayments}">Laat alles zien</button>
       <div class="today-workers-list salary-payment-list">${rows || `<div class="no-activities">Er zijn geen huidige of komende uitbetalingsdata bekend.</div>`}</div>`;
@@ -125,15 +136,16 @@
     searchCard.classList.remove("has-month-roster");
   }
 
-  salaryButton.addEventListener("click", (event) => {
+  function handleSalaryClick(event) {
     event.preventDefault();
+    if (!payments().length) return;
     if (activeOverviewTitle() === "Salaris uitbetaling") {
       closeOverview();
       return;
     }
     showAllPayments = false;
     renderPayments();
-  });
+  }
 
   rosterResult.addEventListener("click", (event) => {
     const button = event.target.closest(".salary-history-toggle");
@@ -143,6 +155,12 @@
     renderPayments();
   });
 
-  window.addEventListener("rooster-unlocked", ensureNextPaymentBar);
-  if (!app.hidden) ensureNextPaymentBar();
+  function enableSalaryUi() {
+    ensureSalaryButton();
+    ensureNextPaymentBar();
+  }
+
+  window.addEventListener("rooster-private-config-ready", enableSalaryUi);
+  window.addEventListener("rooster-unlocked", enableSalaryUi);
+  if (window.RoosterPrivateConfig) enableSalaryUi();
 })();
