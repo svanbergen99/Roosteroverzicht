@@ -19,24 +19,50 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          from urllib.parse import urlparse
           import re, sys
 
           root = Path('.')
           text_ext = {'.html','.js','.css','.json','.md','.txt','.ps1','.yml','.yaml','.py','.env'}
           skip_dirs = {'.git'}
+          policy_file = Path('.github/workflows/public-source-privacy.yml')
+          encrypted_files = {
+              Path('Roosterindex_2026.json'),
+              Path('Roosterindex_September_2026.json'),
+              Path('Roosterindex_Oktober_2026.json'),
+              Path('traffic-access.json'),
+          }
           findings = []
 
+          # Browser-extension manifests must contain the exact hosts they are
+          # permitted to access. Those two files are the only public exceptions.
           allowed_internal_hosts = {
               Path('wfm-bridge-extension/manifest.json'),
               Path('traffic-collector-extension/manifest.json'),
           }
 
+          # Absolute URLs are privacy-by-default: only known public infrastructure
+          # is accepted automatically. New domains require an explicit review.
+          safe_public_hosts = {
+              'api.github.com',
+              'raw.githubusercontent.com',
+              'github.com',
+              'svanbergen99.github.io',
+              'cdn.jsdelivr.net',
+              'geocoding-api.open-meteo.com',
+              'api.open-meteo.com',
+              'localhost',
+              '127.0.0.1',
+              'example.invalid',
+          }
+
           secret_patterns = [
               ('GitHub token', re.compile(r'\b(?:github_pat_|ghp_)[A-Za-z0-9_\-]{12,}')),
               ('Google/API style key', re.compile(r'\bAIza[0-9A-Za-z_\-]{20,}')),
+              ('JWT', re.compile(r'\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{8,}\b')),
               ('Bearer token', re.compile(r'\bBearer\s+[A-Za-z0-9._~+/=-]{24,}', re.I)),
               ('API key value', re.compile(r'\bApiKey\s+[A-Za-z0-9._~+/=-]{24,}', re.I)),
-              ('personal Gmail address', re.compile(r'\b[A-Z0-9._%+-]+@gmail\.com\b', re.I)),
+              ('email address', re.compile(r'\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b', re.I)),
           ]
 
           forbidden_markers = [
@@ -45,8 +71,12 @@ jobs:
               'kcdIntranetTitle','kcdIntranetSubtitle'
           ]
 
+          absolute_url = re.compile(r'https?://[^\s\"\'<>`)}\]]+', re.I)
+
           for path in root.rglob('*'):
               if not path.is_file() or any(part in skip_dirs for part in path.parts):
+                  continue
+              if path in encrypted_files:
                   continue
               if path.suffix.lower() not in text_ext and path.name not in {'.env.example'}:
                   continue
@@ -55,21 +85,35 @@ jobs:
               except Exception:
                   continue
 
+              # Policy source contains its own detection strings, so only actual
+              # secret-value regexes are applied to this workflow file itself.
+              is_policy = path == policy_file
+
               for label, rx in secret_patterns:
                   if rx.search(text):
                       findings.append(f'{path}: {label}')
 
-              for marker in forbidden_markers:
-                  if marker in text:
-                      findings.append(f'{path}: forbidden public marker {marker}')
+              if not is_policy:
+                  for marker in forbidden_markers:
+                      if marker in text:
+                          findings.append(f'{path}: forbidden public marker {marker}')
 
-              if path not in allowed_internal_hosts:
-                  if '.corp/' in text or '.corp"' in text or '.corp\'' in text:
-                      findings.append(f'{path}: internal .corp host outside allowed extension manifest')
-                  if 'found.io' in text:
-                      findings.append(f'{path}: internal Kibana host outside allowed extension manifest')
-                  if 'roosteroverzicht-traffic-bridge-production.up.railway.app' in text:
-                      findings.append(f'{path}: Traffic bridge host outside allowed extension manifest')
+                  if path not in allowed_internal_hosts:
+                      if re.search(r'\.corp(?:/|[\"\'\s]|$)', text, re.I):
+                          findings.append(f'{path}: internal .corp host outside allowed extension manifest')
+                      if 'found.io' in text.lower():
+                          findings.append(f'{path}: internal Kibana host outside allowed extension manifest')
+                      if 'roosteroverzicht-traffic-bridge-production.up.railway.app' in text.lower():
+                          findings.append(f'{path}: Traffic bridge host outside allowed extension manifest')
+
+                  for raw_url in absolute_url.findall(text):
+                      host = (urlparse(raw_url).hostname or '').lower()
+                      if not host:
+                          continue
+                      if path in allowed_internal_hosts:
+                          continue
+                      if host not in safe_public_hosts:
+                          findings.append(f'{path}: unapproved absolute URL host {host}')
 
           if findings:
               print('Public-source privacy scan failed:')
