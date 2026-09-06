@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "Roosteroverzicht Traffic Collector",
   "short_name": "Traffic",
-  "version": "0.1.0",
-  "description": "Start de Traffic collector vanuit Roosteroverzicht en houdt Kibana geminimaliseerd op de achtergrond.",
+  "version": "0.1.1",
+  "description": "Start de Traffic collector vanuit Roosteroverzicht en houdt de Traffic-bron geminimaliseerd op de achtergrond.",
   "minimum_chrome_version": "109",
   "permissions": ["storage", "tabs", "windows"],
   "host_permissions": [
