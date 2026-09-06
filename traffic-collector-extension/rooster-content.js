@@ -17,7 +17,10 @@
     try {
       const response = await chrome.runtime.sendMessage({
         type: message.type,
-        token: typeof message.token === "string" ? message.token : ""
+        token: typeof message.token === "string" ? message.token : "",
+        config: message.type === "collector-start" && message.config && typeof message.config === "object"
+          ? message.config
+          : undefined
       });
       postToPage({
         type: "collector-response",
