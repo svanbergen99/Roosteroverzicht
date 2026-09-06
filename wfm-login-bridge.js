@@ -1,11 +1,12 @@
 (() => {
   "use strict";
 
-  const WFM_ORIGIN = "https://genesyswfm.hosting.corp";
-  const LOGIN_URL = `${WFM_ORIGIN}/wfm/Login.jsp`;
-
   let popup = null;
   let fallbackOverlay = null;
+
+  function loginUrl() {
+    return String(window.RoosterPrivateConfig?.wfm?.loginUrl || "").trim();
+  }
 
   function popupFeatures(width = 560, height = 720) {
     const left = Math.max(0, Math.round((window.screenX || 0) + ((window.outerWidth || screen.width) - width) / 2));
@@ -35,9 +36,9 @@
     fallbackOverlay.setAttribute("aria-modal", "true");
     fallbackOverlay.innerHTML = `
       <div class="unlock-card permission-auth-card">
-        <h1>Genesys Workforce Management</h1>
-        <p>WFM kan om veiligheidsredenen niet binnen Roosteroverzicht worden weergegeven.</p>
-        <p>Open de officiële WFM-site in een apart venster. Username en Password worden alleen daar ingevoerd.</p>
+        <h1>Workforce Management</h1>
+        <p>De externe roosteromgeving kan niet binnen Roosteroverzicht worden weergegeven.</p>
+        <p>Open de officiële omgeving in een apart venster. Inloggegevens worden alleen daar ingevoerd.</p>
         <button id="wfmFallbackOpenButton" class="full-button" type="button">WFM openen</button>
         <button id="wfmFallbackContinueButton" class="permission-auth-back" type="button">Doorgaan naar rooster</button>
         <div class="permission-auth-error" aria-live="polite">Als Edge popups blokkeert, sta popups voor deze pagina toe.</div>
@@ -52,8 +53,10 @@
   }
 
   function openExternal() {
+    const url = loginUrl();
+    if (!url) return false;
     try {
-      popup = window.open(LOGIN_URL, "roosterWfmLogin", popupFeatures());
+      popup = window.open(url, "roosterWfmLogin", popupFeatures());
     } catch (_) {
       popup = null;
     }
@@ -64,6 +67,7 @@
 
   window.RoosterWfmBridge = Object.freeze({
     openExternal,
-    getUrl: () => LOGIN_URL
+    showFallback,
+    getUrl: loginUrl
   });
 })();
