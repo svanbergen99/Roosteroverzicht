@@ -2,14 +2,28 @@
 
 param(
   [int]$DebugPort = 9222,
-  [string]$DashboardUrl = "https://achmea-production-1-a3srealtime-eu-west-1-prod.kb.eu-west-1.aws.found.io/s/centraal-beheer/app/dashboards#/view/731a7b2c-c25f-4ff6-a032-5f62ef6d2272?_g=(filters:!())",
-  [string]$PushUrl = "https://roosteroverzicht-traffic-bridge-production.up.railway.app/api/traffic-push",
+  [Parameter(Mandatory=$true)][string]$DashboardUrl,
+  [Parameter(Mandatory=$true)][string]$PushUrl,
+  [Parameter(Mandatory=$true)][string]$Space,
+  [Parameter(Mandatory=$true)][string]$DashboardId,
+  [int]$DashboardVersion = 3,
+  [Parameter(Mandatory=$true)][string]$TrafficPanelId,
   [switch]$ResetKey
 )
 
 $ErrorActionPreference = "Stop"
 
-$KibanaOrigin = "https://achmea-production-1-a3srealtime-eu-west-1-prod.kb.eu-west-1.aws.found.io"
+try {
+  $DashboardUri = [Uri]$DashboardUrl
+  $PushUri = [Uri]$PushUrl
+} catch {
+  throw "DashboardUrl en PushUrl moeten geldige HTTPS-adressen zijn."
+}
+if ($DashboardUri.Scheme -ne "https" -or $PushUri.Scheme -ne "https") {
+  throw "DashboardUrl en PushUrl moeten HTTPS gebruiken."
+}
+$KibanaOrigin = $DashboardUri.GetLeftPart([UriPartial]::Authority)
+
 $StateDir = Join-Path $env:LOCALAPPDATA "RoosteroverzichtTrafficCollector"
 $ProfileDir = Join-Path $StateDir "EdgeProfile"
 $KeyFile = Join-Path $StateDir "push-key.dpapi"
@@ -27,12 +41,8 @@ if ($ResetKey -and (Test-Path $KeyFile)) {
 function Convert-SecureStringToPlainText {
   param([Security.SecureString]$Secure)
   $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Secure)
-  try {
-    return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
-  }
-  finally {
-    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
-  }
+  try { return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) }
+  finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
 }
 
 function Get-TrafficPushKey {
@@ -42,8 +52,7 @@ function Get-TrafficPushKey {
       $secure = ConvertTo-SecureString $encrypted
       $plain = Convert-SecureStringToPlainText $secure
       if ($plain) { return $plain }
-    }
-    catch {
+    } catch {
       Write-Host "De opgeslagen push-key kon niet worden gelezen; hij wordt opnieuw gevraagd." -ForegroundColor Yellow
     }
   }
@@ -63,26 +72,20 @@ function Find-Edge {
     (Join-Path $env:LOCALAPPDATA "Microsoft\Edge\Application\msedge.exe")
   ) | Where-Object { $_ -and (Test-Path $_) }
   $candidates = @($candidates)
-
   if ($candidates.Count -gt 0) { return $candidates[0] }
-
   $command = Get-Command msedge.exe -ErrorAction SilentlyContinue
   if ($command) { return $command.Source }
   throw "Microsoft Edge is niet gevonden."
 }
 
 function Get-PageHook {
-  if (Test-Path $HookLocal) {
-    return Get-Content -LiteralPath $HookLocal -Raw -Encoding UTF8
-  }
-
+  if (Test-Path $HookLocal) { return Get-Content -LiteralPath $HookLocal -Raw -Encoding UTF8 }
   Write-Host "Collector-hook wordt uit GitHub geladen..." -ForegroundColor DarkGray
   return (Invoke-WebRequest -UseBasicParsing -Uri $HookRemote -TimeoutSec 20).Content
 }
 
 function Wait-ForDashboardTarget {
   param([int]$Port)
-
   $deadline = (Get-Date).AddMinutes(5)
   while ((Get-Date) -lt $deadline) {
     try {
@@ -90,14 +93,11 @@ function Wait-ForDashboardTarget {
       $target = $targets | Where-Object {
         $_.type -eq "page" -and $_.url -and $_.url.StartsWith($KibanaOrigin)
       } | Select-Object -First 1
-
       if ($target -and $target.webSocketDebuggerUrl) { return $target }
-    }
-    catch { }
+    } catch { }
     Start-Sleep -Milliseconds 500
   }
-
-  throw "Het Achmea Traffic-dashboard werd niet binnen 5 minuten gevonden in Edge."
+  throw "Het Traffic-dashboard werd niet binnen 5 minuten gevonden in Edge."
 }
 
 function Send-CdpMessage {
@@ -107,49 +107,30 @@ function Send-CdpMessage {
     [string]$Method,
     $Params = @{}
   )
-
   $json = @{ id = $Id; method = $Method; params = $Params } | ConvertTo-Json -Depth 40 -Compress
   $bytes = [Text.Encoding]::UTF8.GetBytes($json)
   $segment = New-Object System.ArraySegment[byte] -ArgumentList @(,$bytes)
-  $Socket.SendAsync(
-    $segment,
-    [System.Net.WebSockets.WebSocketMessageType]::Text,
-    $true,
-    [Threading.CancellationToken]::None
-  ).GetAwaiter().GetResult()
+  $Socket.SendAsync($segment,[System.Net.WebSockets.WebSocketMessageType]::Text,$true,[Threading.CancellationToken]::None).GetAwaiter().GetResult()
 }
 
 function Receive-CdpMessage {
   param([System.Net.WebSockets.ClientWebSocket]$Socket)
-
   $buffer = New-Object byte[] 65536
   $memory = New-Object IO.MemoryStream
   try {
     do {
       $segment = New-Object System.ArraySegment[byte] -ArgumentList @(,$buffer)
       $result = $Socket.ReceiveAsync($segment, [Threading.CancellationToken]::None).GetAwaiter().GetResult()
-      if ($result.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Close) {
-        return $null
-      }
+      if ($result.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Close) { return $null }
       if ($result.Count -gt 0) { $memory.Write($buffer, 0, $result.Count) }
     } until ($result.EndOfMessage)
-
     return [Text.Encoding]::UTF8.GetString($memory.ToArray())
-  }
-  finally {
-    $memory.Dispose()
-  }
+  } finally { $memory.Dispose() }
 }
 
 function Push-Snapshot {
-  param(
-    [string]$Payload,
-    [string]$PushKey
-  )
-
-  # Valideer dat het payload geldige JSON is voordat het wordt doorgestuurd.
+  param([string]$Payload,[string]$PushKey)
   $null = $Payload | ConvertFrom-Json
-
   $request = @{
     Uri = $PushUrl
     Method = "Post"
@@ -159,7 +140,6 @@ function Push-Snapshot {
     TimeoutSec = 20
   }
   $result = Invoke-RestMethod @request
-
   $stamp = if ($result.receivedAt) { $result.receivedAt } else { (Get-Date).ToString("o") }
   Write-Host "TRAFFIC PUSH OK: 202  $stamp" -ForegroundColor Green
 }
@@ -179,18 +159,24 @@ $bridgeJs = @'
     const message = event.data;
     if (!message || message.source !== HOOK_SOURCE || message.type !== "traffic-snapshot") return;
     if (!message.snapshot || typeof message.snapshot !== "object") return;
-    try {
-      window.roosteroverzichtTrafficPush(JSON.stringify(message.snapshot));
-    } catch (_) {}
+    try { window.roosteroverzichtTrafficPush(JSON.stringify(message.snapshot)); } catch (_) {}
   });
 })();
 '@
 
-$injectScript = $bridgeJs + "`n" + $pageHook
+$configObject = @{
+  space = $Space
+  dashboardId = $DashboardId
+  dashboardVersion = $DashboardVersion
+  trafficPanelId = $TrafficPanelId
+}
+$configJson = $configObject | ConvertTo-Json -Compress
+$configJs = "window.postMessage({source:'roosteroverzicht-traffic-kibana-hook',type:'traffic-config',config:$configJson}, window.location.origin);"
+$injectScript = $bridgeJs + "`n" + $pageHook + "`n" + $configJs
 
 Write-Host "Traffic Collector zonder extensie" -ForegroundColor Cyan
 Write-Host "Edge wordt gestart met een apart Traffic-profiel." -ForegroundColor DarkGray
-Write-Host "Bij de eerste start kan Achmea vragen om in te loggen; doe dat in het geopende Edge-venster." -ForegroundColor DarkGray
+Write-Host "Bij de eerste start kan de externe omgeving vragen om in te loggen; doe dat in het geopende Edge-venster." -ForegroundColor DarkGray
 
 $edgeArgs = @(
   "--remote-debugging-port=$DebugPort"
@@ -223,28 +209,17 @@ try {
   while ($socket.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
     $raw = Receive-CdpMessage -Socket $socket
     if (-not $raw) { break }
-
     try { $message = $raw | ConvertFrom-Json } catch { continue }
     if ($message.method -ne "Runtime.bindingCalled") { continue }
     if ($message.params.name -ne "roosteroverzichtTrafficPush") { continue }
     if (-not $message.params.payload) { continue }
-
-    try {
-      Push-Snapshot -Payload ([string]$message.params.payload) -PushKey $pushKey
-    }
-    catch {
-      Write-Host ("TRAFFIC PUSH FOUT: " + $_.Exception.Message) -ForegroundColor Red
-    }
+    try { Push-Snapshot -Payload ([string]$message.params.payload) -PushKey $pushKey }
+    catch { Write-Host ("TRAFFIC PUSH FOUT: " + $_.Exception.Message) -ForegroundColor Red }
   }
-}
-finally {
+} finally {
   if ($socket.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
     try {
-      $socket.CloseAsync(
-        [System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure,
-        "collector stopped",
-        [Threading.CancellationToken]::None
-      ).GetAwaiter().GetResult()
+      $socket.CloseAsync([System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure,"collector stopped",[Threading.CancellationToken]::None).GetAwaiter().GetResult()
     } catch { }
   }
   $socket.Dispose()
