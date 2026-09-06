@@ -4,17 +4,19 @@
   const TIME_ZONE = "Europe/Amsterdam";
   const EMAIL_DOMAIN = "centraalbeheer.nl";
   const REFRESH_MS = 60000;
-  const CONTACTS = Object.freeze([
-    Object.freeze({ medal: "🥇", role: "Teamleider", name: "Rianne Mast-Wolf", showRoster: false }),
-    Object.freeze({ medal: "🥈", role: "Senior", name: "Elvis Nieuwland", showRoster: true }),
-    Object.freeze({ medal: "🥈", role: "Senior", name: "Timo Geerdink", showRoster: true })
-  ]);
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
 
   const app = document.getElementById("app");
   const searchCard = document.querySelector(".search-card");
+  const unlockForm = document.getElementById("unlockForm");
   if (!app || !searchCard) return;
 
   let refreshTimer = null;
+  let capturedId = "";
+  let capturedPassword = "";
+  let contactsLoading = null;
+  let contacts = [];
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -25,7 +27,13 @@
       .replaceAll("'", "&#039;");
   }
 
-  // Zelfde volgorde-onafhankelijke naamkoppeling als de rest van het rooster.
+  function base64ToBytes(value) {
+    const binary = atob(String(value || ""));
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    return bytes;
+  }
+
   function nameSignature(value) {
     return String(value || "")
       .toLocaleLowerCase("nl-NL")
@@ -68,6 +76,65 @@
     return match ? `${match[1].padStart(2, "0")}:${match[2]}` : "";
   }
 
+  function secureContactsFromIndex(index) {
+    return Array.isArray(index?.teamContacts) ? index.teamContacts
+      .map((contact) => ({
+        medal: String(contact?.medal || ""),
+        role: String(contact?.role || ""),
+        name: String(contact?.name || ""),
+        showRoster: Boolean(contact?.showRoster)
+      }))
+      .filter((contact) => contact.role && contact.name) : [];
+  }
+
+  async function loadSecureContacts(year) {
+    if (contacts.length) return contacts;
+    if (contactsLoading) return contactsLoading;
+    if (!capturedId || !capturedPassword || !window.crypto?.subtle) return [];
+
+    contactsLoading = (async () => {
+      try {
+        const response = await fetch(`Roosterindex_${year}.json?v=${Date.now()}`, { cache: "no-store" });
+        if (!response.ok) return [];
+        const secured = await response.json();
+        if (secured?.kind !== "roosterhulp-encrypted-index" || secured?.encrypted !== true || !secured.crypto || !secured.payload) return [];
+
+        const secret = encoder.encode(`${capturedId}\u0000${capturedPassword}`);
+        const keyMaterial = await crypto.subtle.importKey("raw", secret, "PBKDF2", false, ["deriveKey"]);
+        const key = await crypto.subtle.deriveKey({
+          name: "PBKDF2",
+          hash: secured.crypto.hash || "SHA-256",
+          salt: base64ToBytes(secured.crypto.salt),
+          iterations: Number(secured.crypto.iterations) || 250000
+        }, keyMaterial, {
+          name: "AES-GCM",
+          length: Number(secured.crypto.keyLength) || 256
+        }, false, ["decrypt"]);
+
+        const plaintext = await crypto.subtle.decrypt({
+          name: "AES-GCM",
+          iv: base64ToBytes(secured.crypto.iv)
+        }, key, base64ToBytes(secured.payload));
+        const parsed = JSON.parse(decoder.decode(plaintext));
+        if (parsed?.kind !== "roosterhulp-index" || !Array.isArray(parsed.employees)) return [];
+
+        contacts = secureContactsFromIndex(parsed);
+        return contacts;
+      } catch (_) {
+        return [];
+      } finally {
+        capturedId = "";
+        capturedPassword = "";
+      }
+    })();
+
+    try {
+      return await contactsLoading;
+    } finally {
+      contactsLoading = null;
+    }
+  }
+
   function todayRosterStatus(contact) {
     if (!contact.showRoster) return "";
 
@@ -79,7 +146,6 @@
     const employee = (roster.employees || []).find((item) => nameSignature(item?.name) === signature);
     if (!employee) return "Rooster niet gevonden";
 
-    // De zwarte hoofdwerktijd is leidend. De interne dagstatus bepaalt dit niet.
     const ranges = (employee.schedules || [])
       .filter((schedule) => String(schedule?.date || "").slice(0, 10) === today)
       .map((schedule) => ({ start: formatTime(schedule.start), end: formatTime(schedule.end) }))
@@ -126,6 +192,11 @@
 
   function ensureBar() {
     let bar = document.getElementById("teamContactsBar");
+    if (!contacts.length) {
+      if (bar) bar.hidden = true;
+      return bar;
+    }
+
     if (!bar) {
       bar = document.createElement("section");
       bar.id = "teamContactsBar";
@@ -133,7 +204,7 @@
       bar.setAttribute("aria-label", "Teamleider en seniors");
     }
 
-    bar.innerHTML = CONTACTS.map(contactHtml).join("");
+    bar.innerHTML = contacts.map(contactHtml).join("");
     bindButtons(bar);
 
     const nextShiftBar = document.getElementById("nextShiftBar");
@@ -152,14 +223,23 @@
   function render() {
     if (app.hidden) return;
     const bar = ensureBar();
-    bar.hidden = false;
+    if (bar && contacts.length) bar.hidden = false;
   }
 
-  function start() {
+  async function start(event) {
+    const monthKey = event?.detail?.monthKey || window.RoosterMonthBridge?.getState?.()?.activeMonthKey || amsterdamToday().slice(0, 7);
+    const year = Number(String(monthKey).slice(0, 4)) || Number(amsterdamToday().slice(0, 4));
+    await loadSecureContacts(year);
     render();
     if (refreshTimer !== null) return;
     refreshTimer = window.setInterval(render, REFRESH_MS);
   }
+
+  document.addEventListener("submit", (event) => {
+    if (event.target !== unlockForm) return;
+    capturedId = document.getElementById("rosterId")?.value?.trim() || "";
+    capturedPassword = document.getElementById("rosterPassword")?.value || "";
+  }, true);
 
   window.addEventListener("rooster-unlocked", start);
   window.addEventListener("rooster-months-updated", render);
@@ -167,5 +247,4 @@
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden && !app.hidden) render();
   });
-  if (!app.hidden) start();
 })();
