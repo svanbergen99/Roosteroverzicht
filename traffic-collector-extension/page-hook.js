@@ -5,16 +5,34 @@
   window.__roosterTrafficHookInstalled = true;
 
   const HOOK_SOURCE = "roosteroverzicht-traffic-kibana-hook";
-  const SPACE = "/s/centraal-beheer";
-  const DASHBOARD_ID = "731a7b2c-c25f-4ff6-a032-5f62ef6d2272";
-  const DASHBOARD_VERSION = 3;
-  const TRAFFIC_PANEL_ID = "aeb4840f-bb0e-4ac1-bac1-6e7892075291";
   const TIME_ZONE = "Europe/Amsterdam";
 
+  let runtimeConfig = null;
   let headerCacheDay = "";
   let headerCacheValue = "Traffic Live";
   let decodeBusy = false;
   let pendingResponseText = "";
+
+  function normalizeConfig(value) {
+    if (!value || typeof value !== "object") return null;
+    const config = {
+      space: String(value.space || "").trim(),
+      dashboardId: String(value.dashboardId || "").trim(),
+      dashboardVersion: Number(value.dashboardVersion) || 0,
+      trafficPanelId: String(value.trafficPanelId || "").trim()
+    };
+    return config.space && config.dashboardId && config.dashboardVersion && config.trafficPanelId ? config : null;
+  }
+
+  window.addEventListener("message", (event) => {
+    if (event.source !== window || event.origin !== window.location.origin) return;
+    const message = event.data;
+    if (!message || message.source !== HOOK_SOURCE || message.type !== "traffic-config") return;
+    const config = normalizeConfig(message.config);
+    if (!config) return;
+    runtimeConfig = config;
+    headerCacheDay = "";
+  });
 
   function todayKey() {
     const parts = new Intl.DateTimeFormat("en-CA", {
@@ -34,9 +52,11 @@
   async function getTrafficHeader() {
     const day = todayKey();
     if (headerCacheDay === day && headerCacheValue) return headerCacheValue;
+    const config = runtimeConfig;
+    if (!config) return headerCacheValue;
 
     try {
-      const response = await fetch(`${SPACE}/api/content_management/rpc/get`, {
+      const response = await fetch(`${config.space}/api/content_management/rpc/get`, {
         method: "POST",
         credentials: "include",
         cache: "no-store",
@@ -46,15 +66,15 @@
         },
         body: JSON.stringify({
           contentTypeId: "dashboard",
-          id: DASHBOARD_ID,
-          version: DASHBOARD_VERSION
+          id: config.dashboardId,
+          version: config.dashboardVersion
         })
       });
       if (!response.ok) return headerCacheValue;
       const dashboard = await response.json();
       const panels = dashboard?.result?.result?.item?.attributes?.panels;
       const panel = Array.isArray(panels)
-        ? panels.find((item) => item?.panelIndex === TRAFFIC_PANEL_ID)
+        ? panels.find((item) => item?.panelIndex === config.trafficPanelId)
           || panels.find((item) => /\bTraffic\b/i.test(String(item?.panelConfig?.savedVis?.params?.markdown || "")))
         : null;
       const header = stripMarkdownHeading(panel?.panelConfig?.savedVis?.params?.markdown);
