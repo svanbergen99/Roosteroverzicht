@@ -169,10 +169,34 @@
           <span class="team-contact-person-text"><strong>${escapeHtml(contact.role)}:</strong> ${escapeHtml(contact.name)}${status ? ` <span class="team-contact-presence">· ${escapeHtml(status)}</span>` : ""}</span>
         </div>
         <div class="team-contact-actions">
-          <button class="team-contact-button" type="button" data-contact-action="chat" data-contact-name="${escapeHtml(contact.name)}" title="Open chat in de Teams-app">Stuur Chat</button>
+          <button class="team-contact-button" type="button" data-contact-action="chat" data-contact-name="${escapeHtml(contact.name)}" title="Open chat in Teams Web">Stuur Chat</button>
           <button class="team-contact-button" type="button" data-contact-action="email" data-contact-name="${escapeHtml(contact.name)}">Stuur E-Mail</button>
         </div>
       </div>`;
+  }
+
+  function openTeamsWebChat(email) {
+    const width = Math.min(1000, Math.max(860, Math.round(screen.availWidth * 0.62)));
+    const height = Math.min(900, Math.max(680, Math.round(screen.availHeight * 0.82)));
+    const left = Math.max(0, Math.round((screen.availWidth - width) / 2));
+    const top = Math.max(0, Math.round((screen.availHeight - height) / 2));
+    const features = [
+      "popup=yes",
+      `width=${width}`,
+      `height=${height}`,
+      `left=${left}`,
+      `top=${top}`,
+      "resizable=yes",
+      "scrollbars=yes"
+    ].join(",");
+    const url = `https://teams.microsoft.com/l/chat/0/0?users=${encodeURIComponent(email)}`;
+    const popup = window.open(url, "roosterTeamsWebChat", features);
+    if (popup) {
+      try { popup.focus(); } catch (_) {}
+      return true;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+    return false;
   }
 
   function bindButtons(bar) {
@@ -186,7 +210,7 @@
 
       button.addEventListener("click", () => {
         if (button.dataset.contactAction === "chat") {
-          window.location.href = `msteams://teams.microsoft.com/l/chat/0/0?users=${encodeURIComponent(email)}`;
+          openTeamsWebChat(email);
           return;
         }
         window.location.href = `mailto:${email}`;
