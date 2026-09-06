@@ -3,6 +3,15 @@
 
   const HOOK_SOURCE = "roosteroverzicht-traffic-kibana-hook";
 
+  function postConfig(config) {
+    if (!config || typeof config !== "object") return;
+    window.postMessage({
+      source: HOOK_SOURCE,
+      type: "traffic-config",
+      config
+    }, window.location.origin);
+  }
+
   window.addEventListener("message", (event) => {
     if (event.source !== window || event.origin !== window.location.origin) return;
     const message = event.data;
@@ -15,5 +24,9 @@
     }).catch(() => {});
   });
 
-  chrome.runtime.sendMessage({ type: "kibana-content-ready" }).catch(() => {});
+  chrome.runtime.sendMessage({ type: "kibana-content-ready" })
+    .then((response) => {
+      if (response?.ok && response.config) postConfig(response.config);
+    })
+    .catch(() => {});
 })();
