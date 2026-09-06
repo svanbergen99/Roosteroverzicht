@@ -62,12 +62,6 @@
     return true;
   }
 
-  window.addEventListener("rooster-user-selected", () => {
-    window.setTimeout(() => {
-      if (!openExternal()) showFallback();
-    }, 0);
-  });
-
   window.RoosterWfmBridge = Object.freeze({
     openExternal,
     getUrl: () => LOGIN_URL
