@@ -1,13 +1,11 @@
 (() => {
   "use strict";
 
-  const SOURCE = "Verlofaanvraag-handmatig.json";
   const VACATION_KEYS = Object.freeze([
     ["may", "meivakantie", "Meivakantie (incl Koningsdag)"],
     ["summer", "zomervakantie", "Zomervakantie"],
     ["christmas", "kerstvakantie", "Kerstvakantie"]
   ]);
-  let dataPromise = null;
   let observerBusy = false;
 
   const esc = (value) => String(value ?? "")
@@ -17,25 +15,12 @@
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 
-  function sourceUrl() {
-    const url = new URL(SOURCE, document.baseURI);
-    url.searchParams.set("v", String(Date.now()));
-    return url.href;
-  }
-
-  async function loadData() {
-    if (!dataPromise) {
-      dataPromise = fetch(sourceUrl(), { cache: "no-store" })
-        .then((response) => {
-          if (!response.ok) throw new Error("Handmatige verlofgegevens zijn niet beschikbaar.");
-          return response.json();
-        })
-        .catch((error) => {
-          dataPromise = null;
-          throw error;
-        });
+  function loadData() {
+    const data = window.RoosterPrivateConfig?.leaveOverview;
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      throw new Error("Verlofgegevens zijn nog niet ontgrendeld.");
     }
-    return dataPromise;
+    return data;
   }
 
   function prettyDate(value) {
@@ -115,25 +100,28 @@
     setStatus(shell, "");
   }
 
-  async function enableButtons() {
+  function enableButtons() {
     if (observerBusy) return;
     observerBusy = true;
     try {
-      const data = await loadData();
-      const vacation = vacationRows(data);
-      const closed = closedRows(data);
+      let vacation = [];
+      let closed = [];
+      try {
+        const data = loadData();
+        vacation = vacationRows(data);
+        closed = closedRows(data);
+      } catch (_) {}
+
       const vacationButton = document.getElementById("vacationLeaveButton");
       const closedButton = document.getElementById("officialClosedButton");
-      if (vacationButton && vacation.length === VACATION_KEYS.length) vacationButton.disabled = false;
-      if (closedButton && closed.length) closedButton.disabled = false;
-    } catch (_) {
-      // Bestaande screenshot/OCR-logica blijft fallback wanneer de JSON ontbreekt.
+      if (vacationButton) vacationButton.disabled = vacation.length !== VACATION_KEYS.length;
+      if (closedButton) closedButton.disabled = !closed.length;
     } finally {
       observerBusy = false;
     }
   }
 
-  document.addEventListener("click", async (event) => {
+  document.addEventListener("click", (event) => {
     const button = event.target.closest?.("#vacationLeaveButton, #officialClosedButton");
     if (!button || button.disabled) return;
 
@@ -153,14 +141,14 @@
 
     setStatus(shell, "Gegevens worden geladen…");
     try {
-      const data = await loadData();
+      const data = loadData();
       if (button.id === "vacationLeaveButton") {
         const rows = vacationRows(data);
-        if (rows.length !== VACATION_KEYS.length) throw new Error("De handmatige vakantiegegevens zijn niet compleet.");
+        if (rows.length !== VACATION_KEYS.length) throw new Error("De beveiligde vakantiegegevens zijn niet compleet.");
         renderVacation(shell, rows);
       } else {
         const rows = closedRows(data);
-        if (!rows.length) throw new Error("De handmatige gesloten-dagengegevens zijn niet compleet.");
+        if (!rows.length) throw new Error("De beveiligde gesloten-dagengegevens zijn niet compleet.");
         renderClosed(shell, rows);
       }
     } catch (error) {
@@ -170,16 +158,16 @@
     }
   }, true);
 
-  const observer = new MutationObserver(() => enableButtons());
+  const observer = new MutationObserver(enableButtons);
   if (document.documentElement) {
     observer.observe(document.documentElement, {
       childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["disabled"]
+      subtree: true
     });
   }
 
+  window.addEventListener("rooster-private-config-ready", enableButtons);
+  window.addEventListener("rooster-unlocked", enableButtons);
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", enableButtons, { once: true });
   } else {
