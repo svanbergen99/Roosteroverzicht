@@ -11,8 +11,9 @@
   let normalizingScene = false;
 
   function loginOverlayVisible() {
-    const overlay = document.getElementById("permissionAuthOverlay");
-    return !!(overlay && !overlay.hidden);
+    const permissionOverlay = document.getElementById("permissionAuthOverlay");
+    const publicOverlay = document.getElementById("publicPortalAuthOverlay");
+    return !!((permissionOverlay && !permissionOverlay.hidden) || (publicOverlay && !publicOverlay.hidden));
   }
 
   function syncLoginState() {
@@ -135,22 +136,38 @@
     }
   }
 
+  function visibleAnchor(element) {
+    return !!(element && !element.hidden && element.getClientRects().length);
+  }
+
+  function weatherAnchor() {
+    const externalSites = document.getElementById("externalSitesSection");
+    if (visibleAnchor(externalSites)) return externalSites;
+
+    const clock = document.getElementById(HEADER_CLOCK_ID);
+    if (visibleAnchor(clock)) return clock;
+
+    const primaryActions = document.getElementById("publicPrimaryActions");
+    if (visibleAnchor(primaryActions)) return primaryActions;
+    return null;
+  }
+
   function positionWeatherScene() {
     syncLoginState();
     positionHeaderClock();
 
     const scene = document.getElementById("startWeatherScene");
-    const externalSites = document.getElementById("externalSitesSection");
+    const anchor = weatherAnchor();
     const publicStart = isPublicStart();
 
-    if (!scene || !externalSites || !publicStart) return;
+    if (!scene || !anchor || !publicStart) return;
 
     normalizeWeatherScene(scene);
 
-    const externalRect = externalSites.getBoundingClientRect();
+    const anchorRect = anchor.getBoundingClientRect();
     const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
-    const leftSize = Math.floor(externalRect.left - GAP);
-    const rightSize = Math.floor(viewportWidth - externalRect.right - GAP);
+    const leftSize = Math.floor(anchorRect.left - GAP);
+    const rightSize = Math.floor(viewportWidth - anchorRect.right - GAP);
     const noRoom = leftSize < MIN_SIZE || rightSize < MIN_SIZE;
 
     if (document.body.classList.contains(BODY_NO_ROOM_CLASS) !== noRoom) {
@@ -158,15 +175,16 @@
     }
     if (noRoom) return;
 
-    // De weerscènes staan hoger dan Externe Websites zodat de locatienaam
-    // onderaan het effect ook bij volledig omhoog scrollen direct zichtbaar blijft.
+    // De weerscènes volgen bij voorkeur Externe Websites. Als die kaart nog
+    // wordt opgebouwd, gebruiken we de klok als stabiel middenanker zodat
+    // de weerscènes aan de zijkanten niet verdwijnen.
     scene.style.left = "0px";
-    scene.style.top = `${Math.max(0, Math.round(window.scrollY + externalRect.top - WEATHER_TOP_OFFSET))}px`;
+    scene.style.top = `${Math.max(0, Math.round(window.scrollY + anchorRect.top - WEATHER_TOP_OFFSET))}px`;
     scene.style.width = `${viewportWidth}px`;
     scene.style.height = `${Math.max(leftSize, rightSize)}px`;
     scene.style.setProperty("--weather-left-size", `${leftSize}px`);
     scene.style.setProperty("--weather-right-size", `${rightSize}px`);
-    scene.style.setProperty("--weather-right-left", `${Math.round(externalRect.right + GAP)}px`);
+    scene.style.setProperty("--weather-right-left", `${Math.round(anchorRect.right + GAP)}px`);
   }
 
   function schedulePosition() {
@@ -180,6 +198,9 @@
 
   window.addEventListener("resize", schedulePosition, { passive: true });
   window.addEventListener("rooster-unlocked", schedulePosition);
+  window.addEventListener("rooster-start-ready", schedulePosition);
+  window.addEventListener("rooster-private-config-ready", schedulePosition);
+  window.addEventListener("external-sites-ready", schedulePosition);
   window.addEventListener("load", schedulePosition, { once: true });
 
   const observer = new MutationObserver(() => {
