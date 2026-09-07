@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Beveiligde bridge voor Traffic Live met Elasticsearch-sync.",
   "scripts": {
-    "start": "node elastic-sync.js"
+    "start": "node kcd-dashboard-sync.js"
   },
   "engines": {
     "node": ">=20"
