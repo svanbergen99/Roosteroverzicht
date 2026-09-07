@@ -68,6 +68,10 @@
           <option value="KCDTeam01">KCDTeam01</option>
           <option value="KCDTeam02">KCDTeam02</option>
           <option value="KCDTeam03">KCDTeam03</option>
+          <option value="KCDTeam04">KCDTeam04</option>
+          <option value="KCDTeam05">KCDTeam05</option>
+          <option value="KCDTeam06">KCDTeam06</option>
+          <option value="KCDTeam07">KCDTeam07</option>
         </select>
         <button class="full-button" type="submit">Verder</button>
         <div id="permissionTeamError" class="permission-auth-error" aria-live="polite"></div>
