@@ -2,14 +2,15 @@
   "manifest_version": 3,
   "name": "Roosteroverzicht Traffic Collector",
   "short_name": "Traffic",
-  "version": "0.1.1",
-  "description": "Start de Traffic collector vanuit Roosteroverzicht en houdt de Traffic-bron geminimaliseerd op de achtergrond.",
+  "version": "0.1.2",
+  "description": "Start de Traffic collector vanuit Roosteroverzicht en levert snapshots uitsluitend af bij de ChatBox of lokaal bij de Fake Box fallback.",
   "minimum_chrome_version": "109",
   "permissions": ["storage", "tabs", "windows"],
   "host_permissions": [
     "https://svanbergen99.github.io/Roosteroverzicht/*",
     "https://achmea-production-1-a3srealtime-eu-west-1-prod.kb.eu-west-1.aws.found.io/*",
-    "https://roosteroverzicht-traffic-bridge-production.up.railway.app/*"
+    "https://roosteroverzicht-traffic-bridge-production.up.railway.app/*",
+    "https://kcd-chat-production.up.railway.app/*"
   ],
   "background": {
     "service_worker": "background.js"
