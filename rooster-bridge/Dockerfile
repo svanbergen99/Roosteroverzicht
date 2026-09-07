@@ -4,6 +4,7 @@ COPY package.json ./
 COPY server.js ./
 COPY bootstrap.js ./
 COPY team-api.js ./
+COPY team-session-api.js ./
 ENV NODE_ENV=production
 EXPOSE 8080
 CMD ["node", "bootstrap.js"]
