@@ -1,14 +1,18 @@
 (() => {
   "use strict";
 
-  if (window.__roosterTrafficStandaloneLinkV3) return;
-  window.__roosterTrafficStandaloneLinkV3 = true;
+  if (window.__roosterTrafficStandaloneLinkV4) return;
+  window.__roosterTrafficStandaloneLinkV4 = true;
 
   const PAGE_SOURCE = "roosteroverzicht-traffic-page";
   const EXTENSION_SOURCE = "roosteroverzicht-traffic-extension";
   const COLLECTOR_WINDOW_NAMES = ["TrafficCollectorFinalV2", "TrafficCollectorFinalV1"];
   const LINK_HASH = "#traffic-collector-link";
   const RELAY_TIMEOUT_MS = 1800;
+  const AUTO_LINK_COOLDOWN_MS = 15000;
+
+  let autoLinkBusy = false;
+  let lastAutoLinkAt = 0;
 
   function resolveTargetOrigin(config) {
     try {
@@ -22,15 +26,30 @@
     }
   }
 
+  function safePushUrl(value) {
+    try {
+      const parsed = new URL(String(value || "").trim());
+      if (parsed.protocol !== "https:") return "";
+      if (!/^roosteroverzicht-traffic-bridge-production(?:-[a-z0-9]+)?\.up\.railway\.app$/i.test(parsed.hostname)) return "";
+      if (parsed.pathname !== "/api/traffic-push" || parsed.username || parsed.password) return "";
+      parsed.search = "";
+      parsed.hash = "";
+      return parsed.href;
+    } catch (_) {
+      return "";
+    }
+  }
+
   function safeHeaderConfig(config) {
     if (!config || typeof config !== "object") return null;
     const safe = {
       space: String(config.space || "").trim(),
       dashboardId: String(config.dashboardId || "").trim(),
       dashboardVersion: Number(config.dashboardVersion) || 0,
-      trafficPanelId: String(config.trafficPanelId || "").trim()
+      trafficPanelId: String(config.trafficPanelId || "").trim(),
+      pushUrl: safePushUrl(config.pushUrl)
     };
-    return safe.space && safe.dashboardId && safe.dashboardVersion ? safe : null;
+    return safe.space && safe.dashboardId && safe.dashboardVersion && safe.pushUrl ? safe : null;
   }
 
   function linkedOpener() {
@@ -70,6 +89,13 @@
       if (candidate && !candidates.includes(candidate)) candidates.push(candidate);
     }
     return candidates;
+  }
+
+  function hasKnownCollectorWindow() {
+    for (const name of COLLECTOR_WINDOW_NAMES) {
+      if (namedCollector(name)) return true;
+    }
+    return false;
   }
 
   function acknowledge(requestId, ok, status, message) {
@@ -128,11 +154,34 @@
     const targetOrigin = resolveTargetOrigin(message.config);
     if (!targetOrigin) return false;
     const config = safeHeaderConfig(message.config);
+    if (!config) return false;
 
     for (const collector of collectorCandidates()) {
       if (await relayToken(collector, targetOrigin, token, config)) return true;
     }
     return false;
+  }
+
+  async function autoRelinkStandaloneCollector() {
+    const traffic = window.RoosterTrafficLive;
+    if (autoLinkBusy || !traffic || typeof traffic.startCollector !== "function" || !traffic.isAccessReady?.()) return;
+    if (Date.now() - lastAutoLinkAt < AUTO_LINK_COOLDOWN_MS) return;
+    if (!hasKnownCollectorWindow()) return;
+
+    autoLinkBusy = true;
+    lastAutoLinkAt = Date.now();
+    try {
+      await traffic.startCollector();
+    } catch (_) {
+    } finally {
+      autoLinkBusy = false;
+    }
+  }
+
+  function scheduleAutoRelink() {
+    for (const delay of [600, 1800, 4000, 8000]) {
+      window.setTimeout(() => void autoRelinkStandaloneCollector(), delay);
+    }
   }
 
   window.addEventListener("message", async (event) => {
@@ -147,9 +196,16 @@
       message.requestId,
       true,
       "waiting",
-      "Tijdelijke Railway-token is bevestigd door de zelfstandige Traffic Collector. Wacht op Railway LIVE ✓."
+      "Tijdelijke Railway-token en push-endpoint zijn bevestigd door de zelfstandige Traffic Collector. Wacht op Railway LIVE ✓."
     );
   });
+
+  window.addEventListener("rooster-private-config-ready", scheduleAutoRelink);
+  window.addEventListener("rooster-unlocked", scheduleAutoRelink);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) scheduleAutoRelink();
+  });
+  scheduleAutoRelink();
 
   if (window.location.hash === LINK_HASH) {
     try { history.replaceState(null, "", `${location.pathname}${location.search}`); } catch (_) {}
