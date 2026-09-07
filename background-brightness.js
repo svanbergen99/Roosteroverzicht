@@ -22,17 +22,25 @@
     return clampBrightness((1 - alpha) * 100);
   }
 
+  function weatherImageBrightness(brightness) {
+    const level = Math.min(1, Math.max(.01, brightness / 100));
+    // Laat het weerplaatje zelf duidelijk donkerder worden. De curve is bewust
+    // sterker dan lineair zodat 50% ook visueel echt ongeveer half/donker voelt.
+    return Math.max(.06, Math.pow(level, 1.45));
+  }
+
   function applyWeatherEffectBrightness(brightness) {
-    const opacity = Math.min(1, Math.max(.01, brightness / 100));
-    const filter = `brightness(${brightness}%) drop-shadow(0 12px 20px rgba(15,23,42,.16))`;
-    document.documentElement.style.setProperty("--weather-effect-brightness", `${brightness}%`);
-    document.documentElement.style.setProperty("--weather-effect-opacity", opacity.toFixed(2));
-    document.body.style.setProperty("--weather-effect-brightness", `${brightness}%`);
-    document.body.style.setProperty("--weather-effect-opacity", opacity.toFixed(2));
+    const imageLevel = weatherImageBrightness(brightness);
+    const imagePercent = Math.round(imageLevel * 100);
+    const filter = `brightness(${imageLevel.toFixed(3)}) drop-shadow(0 12px 20px rgba(15,23,42,.16))`;
+
+    document.documentElement.style.setProperty("--weather-effect-brightness", `${imagePercent}%`);
+    document.body.style.setProperty("--weather-effect-brightness", `${imagePercent}%`);
 
     document.querySelectorAll(".start-weather-scene-image").forEach((image) => {
       image.style.setProperty("filter", filter, "important");
-      image.style.setProperty("opacity", opacity.toFixed(2), "important");
+      // Niet transparanter maken: de echte pixels van het plaatje worden donkerder.
+      image.style.setProperty("opacity", "1", "important");
     });
   }
 
