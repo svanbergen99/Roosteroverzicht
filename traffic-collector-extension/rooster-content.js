@@ -8,6 +8,15 @@
     window.postMessage({ source: EXT_SOURCE, ...message }, window.location.origin);
   }
 
+  function collectorFacingStatus(value) {
+    if (!value || typeof value !== "object") return value;
+    const copy = { ...value };
+    if (typeof copy.message === "string" && /^Ontvangen\s*<[^>]+>\s*$/i.test(copy.message)) {
+      copy.message = "Ontvangen";
+    }
+    return copy;
+  }
+
   window.addEventListener("message", async (event) => {
     if (event.source !== window || event.origin !== window.location.origin) return;
     const message = event.data;
@@ -22,10 +31,13 @@
           ? message.config
           : undefined
       });
+      const outgoing = message.type === "collector-monitor-request"
+        ? response
+        : collectorFacingStatus(response);
       postToPage({
         type: message.type === "collector-monitor-request" ? "collector-monitor-response" : "collector-response",
         requestId: message.requestId || "",
-        ...(response || { ok: false, status: "error", message: "Geen reactie van de extensie." })
+        ...(outgoing || { ok: false, status: "error", message: "Geen reactie van de extensie." })
       });
     } catch (error) {
       postToPage({
@@ -40,7 +52,7 @@
 
   chrome.runtime.onMessage.addListener((message) => {
     if (!message || !["collector-status", "collector-monitor-state"].includes(message.type)) return;
-    postToPage(message);
+    postToPage(message.type === "collector-status" ? collectorFacingStatus(message) : message);
   });
 
   postToPage({ type: "collector-ready", ok: true, status: "ready" });
