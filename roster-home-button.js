@@ -1,6 +1,14 @@
 (() => {
   "use strict";
 
+  if (!document.querySelector('script[data-wfm-identity-access]')) {
+    const identityScript = document.createElement("script");
+    identityScript.src = `wfm-identity-access.js?v=${Date.now()}`;
+    identityScript.async = false;
+    identityScript.dataset.wfmIdentityAccess = "1";
+    document.body.appendChild(identityScript);
+  }
+
   const RETURN_KEY = "rooster-return-to-start";
   const app = document.getElementById("app");
   const action = document.querySelector(".today-workers-action");
