@@ -1,4 +1,11 @@
 {
   "version": 1,
-  "bindings": []
+  "bindings": [
+    {
+      "bindingHash": "203eb7b968408b6058b8ed9a0e583b6dfd55453bd84af0f77bbbabe742a19073",
+      "teamHash": "daffe37e3d83bbc9cee7d2fa20e1f6ec2535b7cc8ac8a6ecd22605db456cfe63",
+      "rosterHash": "46e31a7960ad20f133d6ee0e9a08c00df06f75ad2b223be26befc453b7e93a1a",
+      "updatedAt": "2026-09-07T01:54:57.506Z"
+    }
+  ]
 }
