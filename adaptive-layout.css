@@ -219,6 +219,63 @@ body.public-portal-mode .theme-side-buttons .theme-customizer-button {
   }
 }
 
+/* De grote weerillustraties blijven ook op compacte vensters zichtbaar.
+   De veiligheidsklasse weather-scene-no-room houdt altijd voorrang. */
+body.public-portal-mode:not(.weather-scene-no-room):not(.roster-login-active):not(.roster-access-active)
+  #startWeatherScene.start-weather-scene-large {
+  display: block !important;
+}
+
+/* Gebruiksstand rond laptop/half scherm: exact dezelfde compositie, maar minder
+   verticale verspilling zodat klok en weer-effecten eerder in beeld komen. */
+@media (max-width: 1000px) {
+  :root {
+    --adaptive-side-space: clamp(96px, 12vw, 118px);
+    --adaptive-control-rail: clamp(112px, 13vw, 126px);
+    --adaptive-control-height: 46px;
+  }
+
+  body.public-portal-mode #app {
+    padding-top: 18px !important;
+  }
+
+  body.public-portal-mode .public-weather-bars {
+    margin-bottom: 10px !important;
+  }
+
+  body.public-portal-mode .public-primary-actions {
+    margin-bottom: 12px !important;
+    align-items: start !important;
+  }
+
+  body.public-portal-mode #publicPortalQuickActions {
+    display: grid !important;
+    gap: 6px !important;
+  }
+
+  body.public-portal-mode #publicPortalQuickActions > * {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  body.public-portal-mode .public-primary-actions #publicPortalQuickActions button {
+    min-height: 46px !important;
+    padding: 7px 9px !important;
+  }
+
+  body.public-portal-mode #startHeaderClock.start-digital-clock {
+    width: clamp(420px, 58vw, 560px) !important;
+    min-height: 100px !important;
+    margin-bottom: 18px !important;
+    padding: 10px 12px !important;
+  }
+
+  body.public-portal-mode .start-weather-side-location {
+    padding: 5px 8px !important;
+    font-size: 11px !important;
+  }
+}
+
 /* Op heel smalle vensters staan de losse bedieningsknoppen boven de inhoud.
    De twee weerkaarten en drie hoofdkolommen blijven ook hier naast elkaar. */
 @media (max-width: 700px) {
