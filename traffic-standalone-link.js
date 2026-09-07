@@ -10,6 +10,9 @@
   const LINK_HASH = "#traffic-collector-link";
   const RELAY_TIMEOUT_MS = 1800;
 
+  // Bewaard voor herstel/reference, maar de oude standalone Railway/push-route is bewust 0.0 actief.
+  const LEGACY_STANDALONE_RELAY_ENABLED = false;
+
   function resolveTargetOrigin(config) {
     try {
       const origin = new URL(String(config?.kibanaOrigin || "")).origin;
@@ -137,6 +140,8 @@
   }
 
   async function sendToStandaloneCollector(message) {
+    if (!LEGACY_STANDALONE_RELAY_ENABLED) return false;
+
     const token = String(message.token || "").trim();
     if (!token || token.length > 4096) return false;
 
@@ -155,6 +160,7 @@
     if (event.source !== window || event.origin !== window.location.origin) return;
     const message = event.data;
     if (!message || message.source !== PAGE_SOURCE || message.type !== "collector-start") return;
+    if (!LEGACY_STANDALONE_RELAY_ENABLED) return;
 
     const delivered = await sendToStandaloneCollector(message);
     if (!delivered) return;
