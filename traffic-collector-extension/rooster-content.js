@@ -12,7 +12,7 @@
     if (event.source !== window || event.origin !== window.location.origin) return;
     const message = event.data;
     if (!message || message.source !== PAGE_SOURCE) return;
-    if (message.type !== "collector-start" && message.type !== "collector-status-request") return;
+    if (!["collector-start", "collector-status-request", "collector-monitor-request"].includes(message.type)) return;
 
     try {
       const response = await chrome.runtime.sendMessage({
@@ -23,13 +23,13 @@
           : undefined
       });
       postToPage({
-        type: "collector-response",
+        type: message.type === "collector-monitor-request" ? "collector-monitor-response" : "collector-response",
         requestId: message.requestId || "",
         ...(response || { ok: false, status: "error", message: "Geen reactie van de extensie." })
       });
     } catch (error) {
       postToPage({
-        type: "collector-response",
+        type: message.type === "collector-monitor-request" ? "collector-monitor-response" : "collector-response",
         requestId: message.requestId || "",
         ok: false,
         status: "error",
@@ -39,7 +39,7 @@
   });
 
   chrome.runtime.onMessage.addListener((message) => {
-    if (!message || message.type !== "collector-status") return;
+    if (!message || !["collector-status", "collector-monitor-state"].includes(message.type)) return;
     postToPage(message);
   });
 
