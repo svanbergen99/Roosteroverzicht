@@ -6,7 +6,7 @@
   const BODY_NO_ROOM_CLASS = "weather-scene-no-room";
   const GAP = 12;
   const MIN_SIZE = 18;
-  const WEATHER_TOP_OFFSET = 180;
+  const WEATHER_TOP_OFFSET = 90;
   const HEADER_CLOCK_ID = "startHeaderClock";
   let normalizingScene = false;
 
@@ -45,6 +45,14 @@
       return shortLocationName(existing.textContent, `Locatie ${index + 1}`);
     }
     return `Locatie ${index + 1}`;
+  }
+
+  function syncPageControls() {
+    const toggle = document.querySelector(".theme-toggle");
+    if (toggle) toggle.style.position = "absolute";
+
+    const shell = document.querySelector(".background-brightness-shell");
+    if (shell) shell.style.position = "absolute";
   }
 
   function ensureHeaderClock() {
@@ -154,6 +162,7 @@
 
   function positionWeatherScene() {
     syncLoginState();
+    syncPageControls();
     positionHeaderClock();
 
     const scene = document.getElementById("startWeatherScene");
