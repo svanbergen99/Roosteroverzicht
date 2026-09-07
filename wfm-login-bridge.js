@@ -11,7 +11,7 @@
   let scannerInstallerOverlay = null;
   let personalStatusOverlay = null;
   let scannerBookmarklet = "";
-  let scannerLabel = "1️⃣ KLIK EERST ⭐ WFM SCANNER";
+  let scannerLabel = "⚡ WFM CONTROL ⚡";
   let pendingPersonalJob = null;
   let freshViewPromise = null;
   let scannerActivated = false;
@@ -93,7 +93,7 @@
     const remind = () => {
       if (scannerActivated) return;
       reminderCount += 1;
-      speak("Vergeet niet: klik eerst op één, klik eerst, W F M scanner in je favorietenbalk. Log nog niet in.", true);
+      speak("Vergeet niet: klik eerst op W F M Control in je favorietenbalk. Log nog niet in.", true);
       if (reminderCount < 2) reminderTimer = setTimeout(remind, 7000);
     };
     reminderTimer = setTimeout(remind, 7000);
@@ -216,7 +216,7 @@
     const text = (await response.text()).trim();
     if (!/^javascript:/i.test(text)) throw new Error("De scanner heeft niet het verwachte bookmarklet-formaat.");
     scannerBookmarklet = text;
-    scannerLabel = "1️⃣ KLIK EERST ⭐ WFM SCANNER";
+    scannerLabel = "⚡ WFM CONTROL ⚡";
     return { bookmarklet: scannerBookmarklet, label: scannerLabel };
   }
 
@@ -304,9 +304,9 @@
     button.setAttribute("aria-label", "Persoonlijke WFM Rooster Scanner installeren of bijwerken");
     button.innerHTML = `
       <span class="public-roster-button-main">
-        <span class="public-roster-button-icon" aria-hidden="true">★</span>
+        <span class="public-roster-button-icon" aria-hidden="true">⚡</span>
         <span class="public-roster-button-copy">
-          <strong>WFM Rooster Scanner</strong>
+          <strong>⚡ WFM CONTROL ⚡</strong>
           <small>Eenmalig installeren / bijwerken</small>
         </span>
       </span>
@@ -328,7 +328,7 @@
         <h1>Workforce Management</h1>
         <p>${escapeHtml(message || "WFM kon niet automatisch worden voorbereid.")}</p>
         <button id="wfmFallbackOpenButton" class="full-button" type="button">Opnieuw proberen</button>
-        <button id="wfmFallbackScannerButton" class="permission-auth-back" type="button">WFM Rooster Scanner installeren</button>
+        <button id="wfmFallbackScannerButton" class="permission-auth-back" type="button">⚡ WFM CONTROL ⚡ installeren</button>
         <button id="wfmFallbackContinueButton" class="permission-auth-back" type="button">Sluiten</button>
         <div class="permission-auth-error" aria-live="polite">Zorg dat de favorietenbalk in Edge op Altijd weergeven staat.</div>
       </div>`;
@@ -354,8 +354,8 @@
       }
 
       showPersonalStatus(
-        "EERST SCANNER AANKLIKKEN",
-        "WFM wordt voorbereid.\n\nZodra WFM opent:\n1. Klik direct op 1️⃣ KLIK EERST ⭐ WFM SCANNER.\n2. Wacht op SCANNER ACTIEF ✓.\n3. Log daarna pas in.",
+        "EERST ⚡ WFM CONTROL ⚡ AANKLIKKEN",
+        "WFM wordt voorbereid.\n\nZodra WFM opent:\n1. Klik direct op ⚡ WFM CONTROL ⚡.\n2. Wacht op SCANNER ACTIEF ✓.\n3. Log daarna pas in.",
         "busy"
       );
 
@@ -392,11 +392,11 @@
     stopScannerReminder();
 
     showPersonalStatus(
-      "EERST SCANNER AANKLIKKEN",
-      "WFM wordt nu geopend in een normaal Edge-tabblad zodat de favorietenbalk zichtbaar kan zijn.\n\nKlik daar EERST op 1️⃣ KLIK EERST ⭐ WFM SCANNER en log daarna pas in.",
+      "EERST ⚡ WFM CONTROL ⚡ AANKLIKKEN",
+      "WFM wordt nu geopend in een normaal Edge-tabblad zodat de favorietenbalk zichtbaar kan zijn.\n\nKlik daar EERST op ⚡ WFM CONTROL ⚡ en log daarna pas in.",
       "busy"
     );
-    speak("W F M wordt geopend. Klik eerst bovenaan op één, klik eerst, W F M scanner. Log nog niet in.");
+    speak("W F M wordt geopend. Klik eerst bovenaan op W F M Control. Log nog niet in.");
 
     try {
       popup = window.open("about:blank", "roosterWfmLogin");
