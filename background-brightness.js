@@ -8,6 +8,7 @@
   if (!app) return;
 
   let userAdjusted = false;
+  let currentBrightness = DEFAULT_BRIGHTNESS;
 
   function clampBrightness(value) {
     const number = Number(value);
@@ -21,11 +22,26 @@
     return clampBrightness((1 - alpha) * 100);
   }
 
+  function applyWeatherEffectBrightness(brightness) {
+    const opacity = Math.min(1, Math.max(.01, brightness / 100));
+    const filter = `brightness(${brightness}%) drop-shadow(0 12px 20px rgba(15,23,42,.16))`;
+    document.documentElement.style.setProperty("--weather-effect-brightness", `${brightness}%`);
+    document.documentElement.style.setProperty("--weather-effect-opacity", opacity.toFixed(2));
+    document.body.style.setProperty("--weather-effect-brightness", `${brightness}%`);
+    document.body.style.setProperty("--weather-effect-opacity", opacity.toFixed(2));
+
+    document.querySelectorAll(".start-weather-scene-image").forEach((image) => {
+      image.style.setProperty("filter", filter, "important");
+      image.style.setProperty("opacity", opacity.toFixed(2), "important");
+    });
+  }
+
   function applyBrightness(value) {
     const brightness = clampBrightness(value);
+    currentBrightness = brightness;
     const overlayAlpha = Math.min(.99, Math.max(0, 1 - brightness / 100));
     document.body.style.setProperty("--background-overlay-alpha", overlayAlpha.toFixed(2));
-    document.body.style.setProperty("--weather-effect-brightness", `${brightness}%`);
+    applyWeatherEffectBrightness(brightness);
     const output = document.getElementById("backgroundBrightnessValue");
     const slider = document.getElementById("backgroundBrightnessSlider");
     if (output) output.textContent = `${brightness}%`;
@@ -65,9 +81,9 @@
       <button class="background-brightness-button" id="backgroundBrightnessButton" type="button" aria-expanded="false" aria-controls="backgroundBrightnessPanel">Achtergrond Helderheid</button>
       <div class="background-brightness-panel" id="backgroundBrightnessPanel" hidden>
         <div class="background-brightness-control">
-          <label class="background-brightness-label" for="backgroundBrightnessSlider">Helderheid achtergrond</label>
+          <label class="background-brightness-label" for="backgroundBrightnessSlider">Helderheid achtergrond + weereffecten</label>
           <output class="background-brightness-value" id="backgroundBrightnessValue" for="backgroundBrightnessSlider">${brightness}%</output>
-          <input class="background-brightness-slider" id="backgroundBrightnessSlider" type="range" min="1" max="100" step="1" value="${brightness}" aria-label="Achtergrond helderheid van 1 tot 100 procent">
+          <input class="background-brightness-slider" id="backgroundBrightnessSlider" type="range" min="1" max="100" step="1" value="${brightness}" aria-label="Helderheid van achtergrond en weereffecten van 1 tot 100 procent">
         </div>
       </div>`;
 
@@ -102,6 +118,7 @@
     if (app.hidden) return;
     const control = ensureControl();
     control.hidden = false;
+    applyWeatherEffectBrightness(currentBrightness);
   }
 
   const themeObserver = new MutationObserver(() => {
@@ -110,7 +127,17 @@
   });
   themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
+  const weatherEffectObserver = new MutationObserver((mutations) => {
+    const weatherChanged = mutations.some((mutation) => [...mutation.addedNodes].some((node) => {
+      if (!(node instanceof Element)) return false;
+      return node.matches?.(".start-weather-scene-image") || Boolean(node.querySelector?.(".start-weather-scene-image"));
+    }));
+    if (weatherChanged) applyWeatherEffectBrightness(currentBrightness);
+  });
+  weatherEffectObserver.observe(document.body, { childList: true, subtree: true });
+
   window.addEventListener("rooster-unlocked", render);
   window.addEventListener("rooster-months-updated", render);
+  window.addEventListener("rooster-start-ready", () => applyWeatherEffectBrightness(currentBrightness));
   if (!app.hidden) render();
 })();
