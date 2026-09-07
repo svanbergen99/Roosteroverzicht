@@ -64,10 +64,11 @@ jobs:
               ('email address', re.compile(r'\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b', re.I)),
           ]
 
-          # Team-ID labels (KCDTeam01 t/m KCDTeam07) zijn bewust openbaar.
-          # De Team Wachtwoorden en overige privéconfiguratie blijven versleuteld.
+          # Team-ID labels (KCDTeam01 t/m KCDTeam07) en de twee KCD-branding-
+          # afbeeldingen zijn bewust openbaar. Wachtwoorden en privéconfiguratie
+          # blijven versleuteld en mogen nooit in openbare bron terechtkomen.
           forbidden_markers = [
-              'KCD.jpg','Kernwaarde.png','Medewerkerbestand.json','kcdIntranetLinks',
+              'Medewerkerbestand.json','kcdIntranetLinks',
               'kcdIntranetTitle','kcdIntranetSubtitle'
           ]
 

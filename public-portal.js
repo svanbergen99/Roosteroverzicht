@@ -16,6 +16,23 @@
   body.classList.add("public-portal-mode");
   document.title = "Roosteroverzicht";
 
+  // Herstel de door KCD gewenste welkomstpagina: het KCD-beeld bovenaan en
+  // de kernwaarden als tweede kaart. Alleen openbare branding staat hier.
+  const welcomeCard = welcome.querySelector(".welcome-card");
+  if (welcomeCard) {
+    welcome.classList.add("welcome-with-kernwaarde");
+    if (!document.getElementById("welcomeKernwaardeImage")) {
+      const kernwaarde = document.createElement("img");
+      kernwaarde.id = "welcomeKernwaardeImage";
+      kernwaarde.className = "welcome-kernwaarde-image";
+      kernwaarde.src = "Kernwaarde.png";
+      kernwaarde.alt = "Kernwaarden: Plezier, Verbinden en Dynamisch";
+      kernwaarde.loading = "eager";
+      kernwaarde.decoding = "async";
+      welcomeCard.insertAdjacentElement("afterend", kernwaarde);
+    }
+  }
+
   // Vervang de oude Verder-knop door de beveiligde Team-kiezer.
   // Door te clonen worden oudere klikhandlers bewust verwijderd.
   const button = originalButton.cloneNode(true);

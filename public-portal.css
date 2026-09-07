@@ -17,6 +17,39 @@ body.public-portal-mode #welcomeOverlay {
   background: transparent !important;
 }
 
+/* KCD-branding op de openbare welkomstpagina. Dit bevat geen rooster- of
+   personeelsgegevens; de beveiligde Team-login blijft ongewijzigd. */
+body.public-portal-mode #welcomeOverlay.welcome-with-kernwaarde {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 18px;
+  padding: 22px 20px 34px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body.public-portal-mode #welcomeOverlay.welcome-with-kernwaarde .welcome-card {
+  flex: 0 0 auto;
+  width: min(760px, 100%);
+  background-image: url("KCD.jpg") !important;
+  background-position: center;
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+body.public-portal-mode .welcome-kernwaarde-image {
+  display: block;
+  flex: 0 0 auto;
+  width: min(760px, 100%);
+  height: auto;
+  border: 0;
+  border-radius: 26px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, .30);
+}
+
 /* Extra vangnet: rooster-/personeelsblokken blijven verborgen als oude markup nog in de pagina staat. */
 body.public-portal-mode .traffic-today-bar,
 body.public-portal-mode .next-salary-payment-bar,
@@ -39,5 +72,10 @@ body.public-portal-mode [data-roster-private="true"] {
   body.public-portal-mode #welcomeOverlay.welcome-with-kernwaarde {
     gap: 12px;
     padding: 12px 10px 20px;
+  }
+
+  body.public-portal-mode .welcome-kernwaarde-image {
+    border-radius: 20px;
+    box-shadow: 0 18px 52px rgba(0, 0, 0, .26);
   }
 }
