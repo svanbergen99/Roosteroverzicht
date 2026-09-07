@@ -25,6 +25,7 @@
     const brightness = clampBrightness(value);
     const overlayAlpha = Math.min(.99, Math.max(0, 1 - brightness / 100));
     document.body.style.setProperty("--background-overlay-alpha", overlayAlpha.toFixed(2));
+    document.body.style.setProperty("--weather-effect-brightness", `${brightness}%`);
     const output = document.getElementById("backgroundBrightnessValue");
     const slider = document.getElementById("backgroundBrightnessSlider");
     if (output) output.textContent = `${brightness}%`;

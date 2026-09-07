@@ -85,7 +85,7 @@ body.weather-scene-no-room #startWeatherScene {
   object-fit: contain;
   object-position: center;
   background: transparent !important;
-  filter: drop-shadow(0 12px 20px rgba(15,23,42,.16));
+  filter: brightness(var(--weather-effect-brightness, 100%)) drop-shadow(0 12px 20px rgba(15,23,42,.16));
 }
 
 /* De locatie blijft op het effect zichtbaar, zonder de oude halve cirkel. */
