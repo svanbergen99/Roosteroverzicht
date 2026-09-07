@@ -159,7 +159,7 @@ async function gh(path, init = {}) {
   });
   const text = await response.text();
   let data = null;
-  try { data = text ? JSON.parse(text) : null; } catch { }
+  try { data = text ? JSON.parse(text) : null; } catch {}
   if (!response.ok) {
     const error = appError(data?.message || `GitHub HTTP ${response.status}`, "GITHUB_ERROR", 502);
     error.githubStatus = response.status;
@@ -278,8 +278,6 @@ async function resolveProfile(body) {
   const match = findProfileEntry(file, browserHash);
   if (!match) throw appError("Voor deze browser is nog geen collega-profiel opgeslagen.", "PROFILE_NOT_FOUND", 404);
   const decoded = decodeEntry(match);
-  const verifier = storedVerifier(decoded);
-  if (verifier) return { ok: true, locked: true, unlockType: verifier.type };
   return { ok: true, locked: false, profile: publicProfile(decoded) };
 }
 
