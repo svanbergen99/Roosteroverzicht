@@ -1,8 +1,8 @@
 (() => {
   "use strict";
 
-  if (window.__roosterTrafficStandaloneLinkV2) return;
-  window.__roosterTrafficStandaloneLinkV2 = true;
+  if (window.__roosterTrafficStandaloneLinkV3) return;
+  window.__roosterTrafficStandaloneLinkV3 = true;
 
   const PAGE_SOURCE = "roosteroverzicht-traffic-page";
   const EXTENSION_SOURCE = "roosteroverzicht-traffic-extension";
@@ -20,6 +20,17 @@
     } catch (_) {
       return "";
     }
+  }
+
+  function safeHeaderConfig(config) {
+    if (!config || typeof config !== "object") return null;
+    const safe = {
+      space: String(config.space || "").trim(),
+      dashboardId: String(config.dashboardId || "").trim(),
+      dashboardVersion: Number(config.dashboardVersion) || 0,
+      trafficPanelId: String(config.trafficPanelId || "").trim()
+    };
+    return safe.space && safe.dashboardId && safe.dashboardVersion ? safe : null;
   }
 
   function linkedOpener() {
@@ -73,7 +84,7 @@
     }, window.location.origin);
   }
 
-  function relayToken(collector, targetOrigin, token) {
+  function relayToken(collector, targetOrigin, token, config) {
     return new Promise((resolve) => {
       const relayId = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
       let settled = false;
@@ -101,7 +112,8 @@
           source: PAGE_SOURCE,
           type: "traffic-collector-token",
           token,
-          relayId
+          relayId,
+          config
         }, targetOrigin);
       } catch (_) {
         finish(false);
@@ -115,9 +127,10 @@
 
     const targetOrigin = resolveTargetOrigin(message.config);
     if (!targetOrigin) return false;
+    const config = safeHeaderConfig(message.config);
 
     for (const collector of collectorCandidates()) {
-      if (await relayToken(collector, targetOrigin, token)) return true;
+      if (await relayToken(collector, targetOrigin, token, config)) return true;
     }
     return false;
   }
