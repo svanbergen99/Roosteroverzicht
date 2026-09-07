@@ -1,5 +1,6 @@
 import http from "node:http";
 import { createCipheriv, createDecipheriv, pbkdf2Sync, randomBytes } from "node:crypto";
+import { notifyKcdRoosterStatus } from "./kcd-rooster-monitor.js";
 
 const originalCreateServer = http.createServer.bind(http);
 const REPO = String(process.env.GITHUB_REPO || "svanbergen99/Roosteroverzicht").trim();
@@ -210,6 +211,7 @@ async function handleStore(body) {
   }
   const index = body?.index;
   const target = targetFor(index);
+  const kcdReceived = await notifyKcdRoosterStatus(target.file, "received");
   const existing = await getRepoFile(target.file);
   let verifyFile = existing;
   if (!verifyFile) verifyFile = await getRepoFile(target.annual);
@@ -220,12 +222,17 @@ async function handleStore(body) {
   decryptEnvelope(secured, team, password);
   const encrypted = encryptIndex(index, team, password);
   const result = await putRepoFile(target.file, encrypted, existing?.sha || null);
+  const kcdSent = await notifyKcdRoosterStatus(target.file, "sent");
   return {
     ok: true,
     file: target.file,
     monthKey: target.monthKey,
     commit: result?.commit?.sha || null,
     storedAt: new Date().toISOString(),
+    kcdMonitor: {
+      received: kcdReceived.ok === true,
+      sent: kcdSent.ok === true,
+    },
   };
 }
 
