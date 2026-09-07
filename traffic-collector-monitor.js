@@ -3,9 +3,8 @@
 
   const PAGE_SOURCE = "roosteroverzicht-traffic-page";
   const EXT_SOURCE = "roosteroverzicht-traffic-extension";
-  const phaseOrder = ["idle", "source-starting", "source-waiting", "source-connected", "collected", "sending", "routing", "received"];
-  const eventKeys = new Set();
   let extensionSeen = false;
+  let monitorSeen = false;
 
   const $ = (id) => document.getElementById(id);
   const steps = {
@@ -27,10 +26,20 @@
   }
 
   function timeOnly(value) {
-    if (!value) return new Intl.DateTimeFormat("nl-NL", { hour:"2-digit", minute:"2-digit", second:"2-digit" }).format(new Date());
-    const date = new Date(value);
+    const date = value ? new Date(value) : new Date();
     if (Number.isNaN(date.getTime())) return "--:--:--";
-    return new Intl.DateTimeFormat("nl-NL", { timeZone:"Europe/Amsterdam", hour:"2-digit", minute:"2-digit", second:"2-digit" }).format(date);
+    return new Intl.DateTimeFormat("nl-NL", {
+      timeZone:"Europe/Amsterdam", hour:"2-digit", minute:"2-digit", second:"2-digit"
+    }).format(date);
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
   }
 
   function setExtension(ok, text) {
@@ -40,58 +49,73 @@
     el.querySelector("span:last-child").textContent = text;
   }
 
-  function phaseIndex(phase) {
-    const index = phaseOrder.indexOf(phase);
-    return index < 0 ? 0 : index;
+  function latestEvent(state) {
+    const events = Array.isArray(state?.events) ? state.events : [];
+    return events.at(-1) || null;
   }
 
-  function renderPipeline(status) {
-    const phase = String(status?.phase || "idle");
-    const idx = phaseIndex(phase);
-    const error = status?.status === "error" || phase === "error" || phase === "stopped";
+  function findEvent(state, step) {
+    const events = Array.isArray(state?.events) ? state.events : [];
+    return [...events].reverse().find((event) => event?.step === step) || null;
+  }
 
-    Object.values(steps).forEach((step) => step.classList.remove("current", "done", "error"));
+  function setStep(step, mode) {
+    step.classList.remove("current", "done", "error");
+    if (mode) step.classList.add(mode);
+  }
+
+  function renderPipeline(state) {
+    const collectorState = String(state?.collectorState || "idle");
+    const error = ["error", "stopped"].includes(collectorState);
+    const sourceReady = Boolean(state?.sourceConnectedAt);
+    const collected = Boolean(state?.lastSnapshotAt);
+    const sending = Boolean(state?.chatBoxAttempted || state?.fakeFallbackUsed || state?.receiver);
+    const received = Boolean(state?.lastDeliveryAt);
+
     if (error) {
-      Object.values(steps).forEach((step) => step.classList.add("error"));
+      Object.values(steps).forEach((step) => setStep(step, "error"));
     } else {
-      if (idx >= phaseIndex("source-starting")) steps.source.classList.add(idx > phaseIndex("source-connected") ? "done" : "current");
-      if (idx >= phaseIndex("collected")) steps.collected.classList.add(idx > phaseIndex("collected") ? "done" : "current");
-      if (idx >= phaseIndex("sending")) steps.sending.classList.add(idx > phaseIndex("routing") ? "done" : "current");
-      if (idx >= phaseIndex("received")) steps.received.classList.add("done");
+      setStep(steps.source, sourceReady ? "done" : (collectorState === "starting" || collectorState === "waiting" ? "current" : null));
+      setStep(steps.collected, collected ? (sending ? "done" : "current") : null);
+      setStep(steps.sending, sending ? (received ? "done" : "current") : null);
+      setStep(steps.received, received ? "done" : null);
     }
 
-    $("statusCopy").textContent = status?.message || "Wachten op collectorstatus…";
-    const summary = status?.snapshotSummary;
+    const event = latestEvent(state);
+    $("statusCopy").textContent = event?.message || `Collectorstatus: ${collectorState}`;
+
+    const summary = state?.snapshotSummary;
     $("collectedText").textContent = summary
-      ? `${summary.totalRecords ?? 0} regels in ${Object.keys(summary.panels || {}).length} datadelen.`
+      ? `${summary.totalRows ?? 0} regels over ${Object.keys(summary.panelCounts || {}).length} panelgroepen.`
       : "Nog geen snapshot gezien.";
 
-    const fake = status?.receiver === "Fake";
+    const fake = state?.receiver === "Fake";
     $("receiverLabel").innerHTML = `KCD Chat Box${fake ? '<span class="fake-tag">(Fake)</span>' : ''}`;
-    $("routeValue").innerHTML = status?.receiver
+    $("routeValue").innerHTML = state?.receiver
       ? `KCD Chat Box${fake ? '<span class="fake-tag">(Fake)</span>' : ''}`
       : "Nog niet bekend";
 
-    const received = phase === "received" && status?.ok !== false;
-    $("receivedText").textContent = received ? "Collector kreeg ontvangstbevestiging." : "Wachten op ACK.";
+    $("receivedText").textContent = received
+      ? "Collector kreeg de gewone ontvangstbevestiging."
+      : "Wachten op ACK.";
     const ack = $("ackState");
     ack.classList.toggle("off", !received);
     ack.textContent = received ? "ACK: Ontvangen" : "ACK: wachten";
   }
 
   function metricCard(label, value, small="") {
-    return `<div class="metric"><span>${label}</span><strong>${Number(value || 0).toLocaleString("nl-NL")}</strong>${small ? `<small>${small}</small>` : ""}</div>`;
+    return `<div class="metric"><span>${label}</span><strong>${Number(value || 0).toLocaleString("nl-NL")}</strong>${small ? `<small>${escapeHtml(small)}</small>` : ""}</div>`;
   }
 
-  function renderSummary(status) {
-    const summary = status?.snapshotSummary;
-    const panels = summary?.panels || {};
+  function renderSummary(state) {
+    const summary = state?.snapshotSummary;
+    const panels = summary?.panelCounts || {};
     const el = $("summary");
     if (!summary) {
       el.innerHTML = metricCard("Totaal", 0, "wachten op data");
     } else {
       el.innerHTML = [
-        metricCard("Totaal", summary.totalRecords),
+        metricCard("Totaal", summary.totalRows),
         metricCard("Telefonie", panels.telefonie),
         metricCard("Web msg", panels.webMessaging),
         metricCard("Web vandaag", panels.webMessagingVandaag),
@@ -99,15 +123,13 @@
         metricCard("E-mail", panels.email)
       ].join("");
     }
+
+    const sendEvent = findEvent(state, "send-chatbox") || findEvent(state, "chatbox-intercept") || findEvent(state, "fake-box");
     $("trafficHeader").textContent = summary?.trafficHeader || "—";
     $("capturedAt").textContent = fmt(summary?.capturedAt);
-    $("collectedAt").textContent = fmt(status?.collectedAt);
-    $("sendingAt").textContent = fmt(status?.sendingAt);
-    $("receivedAt").textContent = fmt(status?.receivedAt || status?.lastPushAt);
-  }
-
-  function escapeHtml(value) {
-    return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+    $("collectedAt").textContent = fmt(state?.lastSnapshotAt);
+    $("sendingAt").textContent = fmt(sendEvent?.at);
+    $("receivedAt").textContent = fmt(state?.lastDeliveryAt);
   }
 
   function renderTables(snapshot) {
@@ -122,79 +144,85 @@
     for (const [name, rows] of Object.entries(panels)) {
       if (!Array.isArray(rows)) continue;
       const keys = [...new Set(rows.flatMap((row) => row && typeof row === "object" ? Object.keys(row) : []))];
+      const header = keys.length ? keys.map((key) => `<th>${escapeHtml(key)}</th>`).join("") : "<th>waarde</th>";
       const body = rows.length
         ? rows.map((row) => `<tr>${keys.map((key) => `<td>${escapeHtml(row?.[key])}</td>`).join("")}</tr>`).join("")
         : `<tr><td colspan="${Math.max(1,keys.length)}">Geen regels</td></tr>`;
-      cards.push(`<section class="table-card"><h3>${escapeHtml(name)} · ${rows.length} regels</h3><div class="table-wrap"><table><thead><tr>${keys.map((key) => `<th>${escapeHtml(key)}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div></section>`);
+      cards.push(`<section class="table-card"><h3>${escapeHtml(name)} · ${rows.length} regels</h3><div class="table-wrap"><table><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table></div></section>`);
     }
     root.innerHTML = cards.length ? cards.join("") : '<div class="empty">Snapshot bevat geen paneelregels.</div>';
   }
 
-  function eventTimestamp(status) {
-    const phase = status?.phase;
-    if (phase === "received") return status?.receivedAt || status?.lastPushAt;
-    if (phase === "sending" || phase === "routing") return status?.sendingAt;
-    if (phase === "collected") return status?.collectedAt || status?.snapshotSummary?.capturedAt;
-    return null;
+  function eventClass(event) {
+    if (event?.status === "error") return "error";
+    if (event?.status === "fallback") return "routing";
+    if (event?.step === "snapshot-collected") return "collected";
+    if (["send-chatbox", "chatbox-intercept"].includes(event?.step)) return "sending";
+    if (["fake-box", "chatbox-ack", "delivery-complete"].includes(event?.step)) return "received";
+    if (event?.status === "stopped") return "stopped";
+    return "status";
   }
 
-  function addEvent(status) {
-    const phase = String(status?.phase || status?.status || "status");
-    const stamp = eventTimestamp(status) || new Date().toISOString();
-    const key = `${phase}|${stamp}|${status?.message || ""}|${status?.receiver || ""}`;
-    if (eventKeys.has(key)) return;
-    eventKeys.add(key);
-    if (eventKeys.size > 150) eventKeys.delete(eventKeys.values().next().value);
-
-    const events = $("events");
-    events.querySelector(".empty")?.remove();
-    const div = document.createElement("div");
-    div.className = `event ${phase}`;
-    const fake = status?.receiver === "Fake";
-    div.innerHTML = `<time>${timeOnly(stamp)}</time><i></i><div><b>${escapeHtml(status?.message || phase)}${fake ? '<span class="fake-tag"> &lt;Fake&gt;</span>' : ''}</b><span>${escapeHtml(phase)}</span></div>`;
-    events.prepend(div);
-    while (events.children.length > 100) events.lastElementChild?.remove();
+  function renderEvents(state) {
+    const root = $("events");
+    const events = Array.isArray(state?.events) ? [...state.events].reverse() : [];
+    if (!events.length) {
+      root.innerHTML = '<div class="empty">Nog geen gebeurtenissen ontvangen.</div>';
+      return;
+    }
+    root.innerHTML = events.slice(0, 100).map((event) => {
+      const fake = event?.step === "fake-box" || /<Fake>|Fake KCD Chat Box/i.test(String(event?.message || ""));
+      const reason = event?.reason ? `<span>Reden: ${escapeHtml(event.reason)}</span>` : `<span>${escapeHtml(event?.step || "status")}</span>`;
+      return `<div class="event ${eventClass(event)}"><time>${timeOnly(event?.at)}</time><i></i><div><b>${escapeHtml(event?.message || event?.step || "Gebeurtenis")}${fake ? '<span class="fake-tag"> &lt;Fake&gt;</span>' : ''}</b>${reason}</div></div>`;
+    }).join("");
   }
 
-  function applyStatus(status, addToLog=true) {
-    if (!status || typeof status !== "object") return;
+  function applyState(state) {
+    if (!state || typeof state !== "object") return;
+    monitorSeen = true;
     extensionSeen = true;
-    setExtension(true, "Collector-extensie verbonden");
-    renderPipeline(status);
-    renderSummary(status);
-    renderTables(status.latestSnapshot);
-    if (addToLog) addEvent(status);
+    setExtension(true, "Collector-monitor verbonden");
+    renderPipeline(state);
+    renderSummary(state);
+    renderTables(state.latestSnapshot);
+    renderEvents(state);
   }
 
-  function requestStatus() {
+  function requestMonitor() {
     const requestId = `monitor-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    window.postMessage({ source: PAGE_SOURCE, type: "collector-status-request", requestId }, window.location.origin);
+    window.postMessage({ source: PAGE_SOURCE, type: "collector-monitor-request", requestId }, window.location.origin);
   }
 
   window.addEventListener("message", (event) => {
     if (event.source !== window || event.origin !== window.location.origin) return;
     const message = event.data;
     if (!message || message.source !== EXT_SOURCE) return;
+
     if (message.type === "collector-ready") {
       extensionSeen = true;
       setExtension(true, "Collector-extensie verbonden");
-      requestStatus();
+      requestMonitor();
       return;
     }
-    if (message.type === "collector-status") {
-      applyStatus(message, true);
+
+    if (message.type === "collector-monitor-state") {
+      applyState(message.state);
       return;
     }
-    if (message.type === "collector-response" && String(message.requestId || "").startsWith("monitor-")) {
-      applyStatus(message, false);
+
+    if (message.type === "collector-monitor-response" && String(message.requestId || "").startsWith("monitor-")) {
+      if (message.ok && message.state) applyState(message.state);
+      return;
     }
   });
 
   renderSummary(null);
-  renderPipeline({ phase:"idle", message:"Wachten op collectorstatus…" });
+  renderPipeline({ collectorState:"idle" });
   window.setTimeout(() => {
     if (!extensionSeen) setExtension(false, "Collector-extensie niet gevonden");
-  }, 2200);
-  requestStatus();
-  window.setInterval(requestStatus, 2000);
+    else if (!monitorSeen) setExtension(false, "Extensie gevonden, monitorfunctie nog niet actief — herlaad extensie v0.1.3");
+  }, 2500);
+
+  requestMonitor();
+  window.setInterval(requestMonitor, 2000);
 })();
