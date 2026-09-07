@@ -6,9 +6,12 @@ const SESSION_TOKEN_KEY = "trafficCollectorToken";
 const SESSION_CONFIG_KEY = "trafficCollectorConfig";
 const SESSION_WINDOW_KEY = "trafficCollectorWindowId";
 const SESSION_TAB_KEY = "trafficCollectorTabId";
+const SESSION_FAKE_BOX_KEY = "trafficCollectorFakeBox";
+const CHAT_BOX_HOST = "kcd-chat-production.up.railway.app";
 
 let pushBusy = false;
 let pendingSnapshot = null;
+let latestFakeSnapshot = null;
 let lastStatus = {
   ok: true,
   status: "idle",
@@ -21,6 +24,20 @@ function isRosterSender(sender) {
   return url.startsWith(`${ROSTER_ORIGIN}/Roosteroverzicht/`);
 }
 
+function safeChatBoxUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== "https:" || parsed.hostname !== CHAT_BOX_HOST) return "";
+    if (parsed.username || parsed.password) return "";
+    parsed.hash = "";
+    return parsed.href;
+  } catch (_) {
+    return "";
+  }
+}
+
 function normalizeConfig(value) {
   if (!value || typeof value !== "object") return null;
   const config = {
@@ -30,13 +47,14 @@ function normalizeConfig(value) {
     dashboardId: String(value.dashboardId || "").trim(),
     dashboardVersion: Number(value.dashboardVersion) || 0,
     trafficPanelId: String(value.trafficPanelId || "").trim(),
+    chatBoxUrl: safeChatBoxUrl(value.chatBoxUrl),
+    // Oude route blijft alleen bewaard in de configuratie. Hij wordt nergens meer aangeroepen.
     pushUrl: String(value.pushUrl || "").trim()
   };
-  if (!config.kibanaOrigin || !config.dashboardUrl || !config.space || !config.dashboardId || !config.dashboardVersion || !config.trafficPanelId || !config.pushUrl) return null;
+  if (!config.kibanaOrigin || !config.dashboardUrl || !config.space || !config.dashboardId || !config.dashboardVersion || !config.trafficPanelId) return null;
   try {
     const dashboard = new URL(config.dashboardUrl);
-    const push = new URL(config.pushUrl);
-    if (dashboard.origin !== config.kibanaOrigin || dashboard.protocol !== "https:" || push.protocol !== "https:") return null;
+    if (dashboard.origin !== config.kibanaOrigin || dashboard.protocol !== "https:") return null;
   } catch (_) {
     return null;
   }
@@ -72,11 +90,6 @@ async function saveRuntime(token, config) {
     [SESSION_TOKEN_KEY]: token,
     [SESSION_CONFIG_KEY]: config
   });
-}
-
-async function getCollectorToken() {
-  const data = await chrome.storage.session.get(SESSION_TOKEN_KEY);
-  return String(data[SESSION_TOKEN_KEY] || "");
 }
 
 async function ensureCollectorWindow(config) {
@@ -116,8 +129,8 @@ async function ensureCollectorWindow(config) {
 }
 
 async function startCollector(token, rawConfig) {
-  if (!token || token.length > 4096) {
-    return { ok: false, status: "error", message: "Collector-toegang ontbreekt of is ongeldig." };
+  if (token.length > 4096) {
+    return { ok: false, status: "error", message: "Collector-toegang is ongeldig." };
   }
   const config = normalizeConfig(rawConfig);
   if (!config) {
@@ -137,6 +150,65 @@ async function startCollector(token, rawConfig) {
   return { ok: true, status: "waiting", message: lastStatus.message };
 }
 
+function receivedAck() {
+  // ChatBox en Fake Box geven de collector bewust exact dezelfde ACK.
+  return { ok: true, status: "received" };
+}
+
+async function sendToChatBox(snapshot, config) {
+  if (!config.chatBoxUrl) throw new Error("ChatBox-ontvanger is nog niet gekoppeld.");
+
+  const response = await fetch(config.chatBoxUrl, {
+    method: "POST",
+    cache: "no-store",
+    credentials: "omit",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      source: "traffic-collector",
+      snapshot
+    }),
+    signal: AbortSignal.timeout(3500)
+  });
+
+  let body = null;
+  try { body = await response.json(); } catch (_) {}
+  if (!response.ok || body?.ok === false) {
+    throw new Error(body?.message || `ChatBox gaf HTTP ${response.status}.`);
+  }
+
+  return {
+    ack: receivedAck(),
+    receivedAt: body?.receivedAt || new Date().toISOString()
+  };
+}
+
+async function sendToFakeBox(snapshot) {
+  const receivedAt = new Date().toISOString();
+  latestFakeSnapshot = { receivedAt, snapshot };
+  try {
+    await chrome.storage.session.set({
+      [SESSION_FAKE_BOX_KEY]: latestFakeSnapshot
+    });
+  } catch (_) {
+    // De in-memory Fake Box blijft de snapshot vasthouden zolang de service worker leeft.
+  }
+
+  return {
+    ack: receivedAck(),
+    receivedAt
+  };
+}
+
+async function deliverSnapshot(snapshot, config) {
+  try {
+    const result = await sendToChatBox(snapshot, config);
+    return { ...result, receiver: "ChatBox" };
+  } catch (_) {
+    const result = await sendToFakeBox(snapshot);
+    return { ...result, receiver: "Fake" };
+  }
+}
+
 async function pushSnapshot(snapshot) {
   pendingSnapshot = snapshot;
   if (pushBusy) return;
@@ -146,37 +218,29 @@ async function pushSnapshot(snapshot) {
     while (pendingSnapshot) {
       const next = pendingSnapshot;
       pendingSnapshot = null;
-      const [token, config] = await Promise.all([getCollectorToken(), getCollectorConfig()]);
-      if (!token || !config) {
-        await broadcastStatus({ ok: false, status: "error", message: "Collector-toegang is verlopen. Start Traffic opnieuw vanuit Roosteroverzicht." });
+      const config = await getCollectorConfig();
+      if (!config) {
+        await broadcastStatus({ ok: false, status: "error", message: "Collectorconfiguratie ontbreekt. Start Traffic opnieuw." });
         return;
       }
 
-      const response = await fetch(config.pushUrl, {
-        method: "POST",
-        cache: "no-store",
-        credentials: "omit",
-        headers: {
-          "content-type": "application/json",
-          "x-traffic-collector-token": token
-        },
-        body: JSON.stringify(next)
+      // Enige uitgaande route: ChatBox. Als die niet bereikbaar is, stopt de snapshot lokaal in Fake Box.
+      // De oude config.pushUrl / Railway Traffic Bridge wordt hier bewust NIET gebruikt.
+      const delivery = await deliverSnapshot(next, config);
+      if (!delivery.ack?.ok || delivery.ack?.status !== "received") {
+        await broadcastStatus({ ok: false, status: "error", message: "Ontvanger gaf geen geldige ontvangstbevestiging." });
+        return;
+      }
+
+      await broadcastStatus({
+        ok: true,
+        status: "active",
+        message: `Ontvangen <${delivery.receiver}>`,
+        lastPushAt: delivery.receivedAt
       });
-
-      let body = null;
-      try { body = await response.json(); } catch (_) {}
-
-      if (!response.ok) {
-        if (response.status === 401) await chrome.storage.session.remove(SESSION_TOKEN_KEY);
-        await broadcastStatus({ ok: false, status: "error", message: body?.message || `Bridge gaf HTTP ${response.status}.` });
-        return;
-      }
-
-      const lastPushAt = body?.receivedAt || new Date().toISOString();
-      await broadcastStatus({ ok: true, status: "active", message: "Collector actief. De Traffic-bron blijft geminimaliseerd op de achtergrond.", lastPushAt });
     }
   } catch (error) {
-    await broadcastStatus({ ok: false, status: "error", message: error?.message || "Traffic-data kon niet naar de bridge worden verstuurd." });
+    await broadcastStatus({ ok: false, status: "error", message: error?.message || "Traffic-data kon niet worden afgeleverd." });
   } finally {
     pushBusy = false;
   }
