@@ -20,6 +20,10 @@
   box-shadow: 0 30px 90px rgba(0, 0, 0, .34);
 }
 
+.colleague-profile-unlock-card {
+  width: min(560px, 100%);
+}
+
 .colleague-profile-head h2 {
   margin: 4px 0 8px;
   font-size: clamp(24px, 4vw, 32px);
@@ -46,16 +50,17 @@
   margin-top: 22px;
 }
 
-.colleague-profile-grid label {
+.colleague-profile-grid label,
+.colleague-profile-unlock-block label,
+.colleague-profile-unlock-input {
   margin: 0;
   font-weight: 800;
 }
 
-.colleague-profile-grid label:last-child {
-  grid-column: 1 / -1;
-}
-
-.colleague-profile-grid input {
+.colleague-profile-grid input,
+.colleague-profile-unlock-block input,
+.colleague-profile-unlock-block select,
+.colleague-profile-unlock-input input {
   width: 100%;
   margin-top: 7px;
   padding: 12px 13px;
@@ -68,9 +73,59 @@
   outline: none;
 }
 
-.colleague-profile-grid input:focus {
+.colleague-profile-grid input:focus,
+.colleague-profile-unlock-block input:focus,
+.colleague-profile-unlock-block select:focus,
+.colleague-profile-unlock-input input:focus {
   border-color: #7b2f73;
   box-shadow: 0 0 0 3px rgba(123, 47, 115, .13);
+}
+
+.colleague-profile-unlock-block {
+  margin-top: 20px;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.colleague-profile-unlock-block > label {
+  display: block;
+}
+
+.colleague-profile-unlock-block [hidden] {
+  display: none !important;
+}
+
+#colleagueProfileCredentialWrap {
+  margin-top: 14px;
+}
+
+.colleague-profile-optional {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #ede9fe;
+  color: #6d28d9;
+  font-size: 11px;
+  font-weight: 800;
+  vertical-align: 1px;
+}
+
+.colleague-profile-scope-note {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 11px;
+  background: #eef2ff;
+  color: #475569;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.colleague-profile-unlock-input {
+  display: block;
+  margin-top: 22px;
 }
 
 .colleague-profile-help {
@@ -146,10 +201,6 @@
   .colleague-profile-grid {
     grid-template-columns: 1fr;
     gap: 14px;
-  }
-
-  .colleague-profile-grid label:last-child {
-    grid-column: auto;
   }
 
   .colleague-profile-actions {

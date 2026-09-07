@@ -84,17 +84,51 @@ function birthdayFromDate(value) {
   return `${match[2]}-${match[3]}`;
 }
 
-function pinVerifier(pin) {
-  const value = String(pin || "").trim();
-  if (!/^\d{4,6}$/.test(value)) throw appError("Persoonlijke pincode moet uit 4 t/m 6 cijfers bestaan.", "INVALID_PIN", 400);
-  const salt = randomBytes(16);
-  const hash = scryptSync(value, salt, 32);
-  return { salt: salt.toString("base64url"), hash: hash.toString("base64url") };
+function normalizeUnlockType(value, legacyPin = "") {
+  const raw = String(value || (legacyPin ? "pin" : "none")).trim().toLowerCase();
+  if (["none", "pin", "password"].includes(raw)) return raw;
+  throw appError("Persoonlijke ontgrendeling is ongeldig.", "INVALID_UNLOCK_TYPE", 400);
 }
 
-function verifyPin(pin, verifier) {
-  const value = String(pin || "").trim();
-  if (!/^\d{4,6}$/.test(value) || !verifier?.salt || !verifier?.hash) return false;
+function credentialVerifier(type, credential) {
+  const kind = normalizeUnlockType(type);
+  if (kind === "none") return null;
+
+  const raw = String(credential ?? "");
+  let value = raw;
+  if (kind === "pin") {
+    value = raw.trim();
+    if (!/^\d{4,6}$/.test(value)) throw appError("Persoonlijke pincode moet uit 4 t/m 6 cijfers bestaan.", "INVALID_PIN", 400);
+  } else if (value.length < 6 || value.length > 72) {
+    throw appError("Persoonlijk wachtwoord moet uit 6 t/m 72 tekens bestaan.", "INVALID_PERSONAL_PASSWORD", 400);
+  }
+
+  const salt = randomBytes(16);
+  const hash = scryptSync(value, salt, 32);
+  return {
+    type: kind,
+    salt: salt.toString("base64url"),
+    hash: hash.toString("base64url"),
+  };
+}
+
+function storedVerifier(decoded) {
+  const next = decoded?.unlockVerifier;
+  if (next?.salt && next?.hash && ["pin", "password"].includes(String(next.type || ""))) {
+    return { type: String(next.type), salt: String(next.salt), hash: String(next.hash) };
+  }
+  const legacy = decoded?.pinVerifier;
+  if (legacy?.salt && legacy?.hash) return { type: "pin", salt: String(legacy.salt), hash: String(legacy.hash) };
+  return null;
+}
+
+function verifyCredential(credential, verifier) {
+  if (!verifier?.salt || !verifier?.hash) return true;
+  const type = verifier.type === "password" ? "password" : "pin";
+  const raw = String(credential ?? "");
+  const value = type === "pin" ? raw.trim() : raw;
+  if (type === "pin" && !/^\d{4,6}$/.test(value)) return false;
+  if (type === "password" && (value.length < 6 || value.length > 72)) return false;
   try {
     const salt = Buffer.from(verifier.salt, "base64url");
     const expected = Buffer.from(verifier.hash, "base64url");
@@ -213,27 +247,40 @@ function sendJson(res, status, body, origin) {
   res.end(JSON.stringify(body));
 }
 
-function publicProfile(entry) {
+function decodeEntry(entry) {
   const decoded = openObject(entry?.profileCipher);
   if (decoded?.v !== 1 || decoded?.purpose !== "colleague-profile") throw appError("Collega-profiel is ongeldig.", "PROFILE_DATA_INVALID", 500);
+  return decoded;
+}
+
+function publicProfile(decoded) {
+  const verifier = storedVerifier(decoded);
   return {
     name: String(decoded.name || ""),
     location: String(decoded.location || ""),
     birthday: String(decoded.birthday || ""),
-    hasPin: Boolean(decoded.pinVerifier?.salt && decoded.pinVerifier?.hash),
+    hasUnlock: Boolean(verifier),
+    unlockType: verifier?.type || "none",
+    hasPin: verifier?.type === "pin",
   };
+}
+
+function findProfileEntry(file, browserHash) {
+  return file.data.profiles
+    .filter(item => item?.browserHash === browserHash && item?.profileCipher)
+    .sort((a, b) => String(b?.updatedAt || "").localeCompare(String(a?.updatedAt || "")))[0] || null;
 }
 
 async function resolveProfile(body) {
   const browserId = validateBrowserId(body?.browserId);
   const browserHash = opaqueHash("profile-browser", browserId);
   const file = await getProfilesFile();
-  const matches = file.data.profiles
-    .filter(item => item?.browserHash === browserHash && item?.profileCipher)
-    .sort((a, b) => String(b?.updatedAt || "").localeCompare(String(a?.updatedAt || "")));
-  const match = matches[0];
+  const match = findProfileEntry(file, browserHash);
   if (!match) throw appError("Voor deze browser is nog geen collega-profiel opgeslagen.", "PROFILE_NOT_FOUND", 404);
-  return { ok: true, profile: publicProfile(match) };
+  const decoded = decodeEntry(match);
+  const verifier = storedVerifier(decoded);
+  if (verifier) return { ok: true, locked: true, unlockType: verifier.type };
+  return { ok: true, locked: false, profile: publicProfile(decoded) };
 }
 
 async function saveProfile(body) {
@@ -242,7 +289,9 @@ async function saveProfile(body) {
   const name = validateText(body?.name, "Naam", 120);
   const location = validateText(body?.location, "Locatie", 120);
   const birthday = birthdayFromDate(body?.birthDate);
-  const verifier = pinVerifier(body?.pin);
+  const unlockType = normalizeUnlockType(body?.unlockType, body?.pin);
+  const credential = body?.credential ?? body?.pin ?? "";
+  const verifier = credentialVerifier(unlockType, credential);
   const browserHash = opaqueHash("profile-browser", browserId);
   const aaHash = opaqueHash("profile-aa", aa.toLocaleLowerCase("nl-NL"));
   const now = new Date().toISOString();
@@ -252,7 +301,7 @@ async function saveProfile(body) {
     name,
     location,
     birthday,
-    pinVerifier: verifier,
+    unlockVerifier: verifier,
   });
 
   const result = await mutateProfiles((data) => {
@@ -265,22 +314,25 @@ async function saveProfile(body) {
 
   return {
     ok: true,
-    profile: { name, location, birthday, hasPin: true },
+    profile: { name, location, birthday, hasUnlock: Boolean(verifier), unlockType: verifier?.type || "none", hasPin: verifier?.type === "pin" },
     commit: result.commit,
   };
 }
 
-async function verifyProfilePin(body) {
+async function verifyProfileUnlock(body, legacyPinRoute = false) {
   const browserId = validateBrowserId(body?.browserId);
   const browserHash = opaqueHash("profile-browser", browserId);
   const file = await getProfilesFile();
-  const match = file.data.profiles
-    .filter(item => item?.browserHash === browserHash && item?.profileCipher)
-    .sort((a, b) => String(b?.updatedAt || "").localeCompare(String(a?.updatedAt || "")))[0];
+  const match = findProfileEntry(file, browserHash);
   if (!match) throw appError("Voor deze browser is nog geen collega-profiel opgeslagen.", "PROFILE_NOT_FOUND", 404);
-  const decoded = openObject(match.profileCipher);
-  if (!verifyPin(body?.pin, decoded?.pinVerifier)) throw appError("Persoonlijke pincode is niet juist.", "PIN_INCORRECT", 401);
-  return { ok: true };
+  const decoded = decodeEntry(match);
+  const verifier = storedVerifier(decoded);
+  const supplied = legacyPinRoute ? body?.pin : body?.credential;
+  if (verifier && !verifyCredential(supplied, verifier)) {
+    const message = verifier.type === "password" ? "Persoonlijk wachtwoord is niet juist." : "Persoonlijke pincode is niet juist.";
+    throw appError(message, "PROFILE_UNLOCK_INCORRECT", 401);
+  }
+  return { ok: true, profile: publicProfile(decoded) };
 }
 
 http.createServer = function patchedCreateServer(listener) {
@@ -288,7 +340,10 @@ http.createServer = function patchedCreateServer(listener) {
     const origin = String(req.headers.origin || "");
     const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
     const route = url.pathname;
-    const isProfileRoute = route === "/api/colleague-profile/resolve" || route === "/api/colleague-profile/save" || route === "/api/colleague-profile/verify-pin";
+    const isProfileRoute = route === "/api/colleague-profile/resolve" ||
+      route === "/api/colleague-profile/save" ||
+      route === "/api/colleague-profile/verify-unlock" ||
+      route === "/api/colleague-profile/verify-pin";
     if (!isProfileRoute) return listener(req, res);
 
     if (req.method === "OPTIONS") {
@@ -317,7 +372,8 @@ http.createServer = function patchedCreateServer(listener) {
       const body = await readJson(req);
       let result;
       if (route.endsWith("/save")) result = await saveProfile(body);
-      else if (route.endsWith("/verify-pin")) result = await verifyProfilePin(body);
+      else if (route.endsWith("/verify-unlock")) result = await verifyProfileUnlock(body, false);
+      else if (route.endsWith("/verify-pin")) result = await verifyProfileUnlock(body, true);
       else result = await resolveProfile(body);
       sendJson(res, 200, result, origin);
     } catch (error) {
