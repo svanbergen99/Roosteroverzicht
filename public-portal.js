@@ -143,6 +143,12 @@
     body.classList.add("public-portal-mode");
     app.hidden = false;
 
+    // De bestaande startpagina-modules luisteren op rooster-unlocked.
+    // Houd de nieuwe teambeveiliging, maar geef na succesvolle login weer
+    // hetzelfde start-signaal als vóór de beveiligingswijziging.
+    window.dispatchEvent(new CustomEvent("rooster-unlocked", {
+      detail: { publicPortal: true, team: selectedTeam }
+    }));
     window.dispatchEvent(new CustomEvent("rooster-start-ready", {
       detail: { team: selectedTeam }
     }));
