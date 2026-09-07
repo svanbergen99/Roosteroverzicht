@@ -3,13 +3,14 @@
 
   const API = "https://roosteroverzicht-rooster-bridge-production.up.railway.app";
   const BROWSER_KEY = "rhColleagueProfileBrowserV1";
+  const PROFILE_SAVED_KEY = "rhColleagueProfileSavedV1";
   const WEATHER_LOCATION_KEY = "roosteroverzicht.weather.location.v2.0";
   const OVERLAY_ID = "colleagueProfileOverlay";
   const TIME_ZONE = "Europe/Amsterdam";
   const app = document.getElementById("app");
 
   let profile = null;
-  let resolveStarted = false;
+  let resolvePromise = null;
   let promptDismissed = false;
   let birthdayPlayed = false;
   let unlockPending = null;
@@ -34,6 +35,15 @@
       if (!window.__rhTemporaryColleagueBrowserId) window.__rhTemporaryColleagueBrowserId = randomId();
       return window.__rhTemporaryColleagueBrowserId;
     }
+  }
+
+  function markProfileSaved() {
+    try { localStorage.setItem(PROFILE_SAVED_KEY, browserId()); } catch (_) {}
+  }
+
+  function browserHasSavedProfile() {
+    try { return localStorage.getItem(PROFILE_SAVED_KEY) === browserId(); }
+    catch (_) { return Boolean(profile || unlockPending); }
   }
 
   function isStartPageOpen() {
@@ -85,6 +95,7 @@
 
   function publishProfile(nextProfile) {
     if (!nextProfile || typeof nextProfile !== "object") return;
+    markProfileSaved();
     unlockPending = null;
     profile = Object.freeze({
       name: String(nextProfile.name || ""),
@@ -153,8 +164,9 @@
     input.maxLength = 72;
   }
 
-  function showProfileForm() {
+  function showProfileForm(force = false) {
     if (!isStartPageOpen() || profile || unlockPending || promptDismissed || document.getElementById(OVERLAY_ID)) return;
+    if (!force && browserHasSavedProfile()) return;
 
     const overlay = document.createElement("div");
     overlay.id = OVERLAY_ID;
@@ -262,6 +274,7 @@
           unlockType: mode,
           credential: mode === "none" ? "" : form.elements.credential.value,
         });
+        markProfileSaved();
         publishProfile(result.profile);
         closeOverlay();
       } catch (error) {
@@ -278,6 +291,7 @@
     if (!isStartPageOpen() || profile || document.getElementById(OVERLAY_ID)) return;
     const mode = type === "password" ? "password" : "pin";
     unlockPending = { type: mode };
+    markProfileSaved();
 
     const overlay = document.createElement("div");
     overlay.id = OVERLAY_ID;
@@ -325,6 +339,7 @@
           browserId: browserId(),
           credential: form.elements.credential.value,
         });
+        markProfileSaved();
         publishProfile(result.profile);
         closeOverlay();
       } catch (error) {
@@ -337,19 +352,31 @@
     requestAnimationFrame(() => overlay.querySelector("#colleagueProfileUnlockCredential")?.focus());
   }
 
-  async function resolveProfile() {
-    if (resolveStarted) return;
-    resolveStarted = true;
-    try {
-      const result = await apiPost("/api/colleague-profile/resolve", { browserId: browserId() });
-      if (result?.locked) {
-        showUnlockForm(result.unlockType);
-        return;
+  function resolveProfile() {
+    if (resolvePromise) return resolvePromise;
+
+    resolvePromise = (async () => {
+      try {
+        const result = await apiPost("/api/colleague-profile/resolve", { browserId: browserId() });
+        if (result?.locked) {
+          markProfileSaved();
+          showUnlockForm(result.unlockType);
+          return;
+        }
+        if (result?.profile) {
+          markProfileSaved();
+          publishProfile(result.profile);
+          return;
+        }
+        if (!browserHasSavedProfile()) showProfileForm();
+      } catch (error) {
+        if (error?.code === "PROFILE_NOT_FOUND" && !browserHasSavedProfile()) {
+          showProfileForm();
+        }
       }
-      if (result?.profile) publishProfile(result.profile);
-    } catch (error) {
-      if (error?.code === "PROFILE_NOT_FOUND") showProfileForm();
-    }
+    })();
+
+    return resolvePromise;
   }
 
   function onStartReady() {
@@ -362,9 +389,7 @@
       showUnlockForm(unlockPending.type);
       return;
     }
-    resolveProfile().finally(() => {
-      if (!profile && !unlockPending) showProfileForm();
-    });
+    resolveProfile();
   }
 
   window.addEventListener("rooster-start-ready", onStartReady);
@@ -385,7 +410,7 @@
         showUnlockForm(type);
         return;
       }
-      if (!profile) showProfileForm();
+      if (!profile) showProfileForm(true);
     },
     getBrowserId: () => browserId(),
     getProfile: () => profile,
