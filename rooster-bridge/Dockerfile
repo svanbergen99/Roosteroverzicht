@@ -4,6 +4,7 @@ COPY package.json ./
 COPY server.js ./
 COPY bootstrap.js ./
 COPY team-api.js ./
+COPY kcd-rooster-monitor.js ./
 COPY team-session-api.js ./
 COPY identity-api.js ./
 COPY personal-api.js ./
