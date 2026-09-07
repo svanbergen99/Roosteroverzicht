@@ -322,8 +322,9 @@
     }, 125);
   }
 
-  window.addEventListener("rooster-private-config-ready", start);
-  window.addEventListener("rooster-unlocked", start);
-  window.addEventListener("rooster-start-ready", start);
-  if (window.RoosterPrivateConfig || !app.hidden) start();
+  if (window.RoosterReady?.when) {
+    window.RoosterReady.when("startPageReady", start);
+  } else if (window.RoosterPrivateConfig || !app.hidden) {
+    start();
+  }
 })();
