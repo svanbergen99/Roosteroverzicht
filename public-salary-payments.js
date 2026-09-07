@@ -168,7 +168,9 @@
     all: () => payments().map((payment) => ({ ...payment }))
   });
 
-  window.addEventListener("rooster-private-config-ready", publishReady);
-  window.addEventListener("rooster-unlocked", publishReady);
-  if (window.RoosterPrivateConfig) publishReady();
+  if (window.RoosterReady?.when) {
+    window.RoosterReady.when("privateConfigReady", publishReady);
+  } else if (window.RoosterPrivateConfig) {
+    publishReady();
+  }
 })();
