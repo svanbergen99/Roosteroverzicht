@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WFM-koppeling</title>
+<style>html,body{margin:0;min-height:100%;font:14px Segoe UI,Arial,sans-serif;background:#f8fafc;color:#172033}body{display:grid;place-items:center;padding:18px}.card{width:min(420px,100%);background:#fff;border:1px solid #dbe2ea;border-radius:14px;padding:18px;text-align:center}.ok{color:#176b58;font-weight:800}.bad{color:#8b3030;font-weight:800}</style>
+</head>
+<body>
+<div class="card"><div id="state">Browser koppelen…</div></div>
+<script>
+(()=>{'use strict';
+const KEY='rhWfmIdentityBindingV1';
+const WFM_ORIGIN='https://genesyswfm.hosting.corp';
+const state=document.getElementById('state');
+const id=decodeURIComponent(String(location.hash||'').replace(/^#/,''));
+if(!/^[A-Za-z0-9_-]{32,160}$/.test(id)){
+  state.className='bad';state.textContent='Ongeldige browserkoppeling.';return;
+}
+try{
+  localStorage.setItem(KEY,id);
+  state.className='ok';state.textContent='WFM-browser gekoppeld ✓ Dit venster sluit automatisch.';
+  try{window.opener?.postMessage({type:'rh-wfm-identity-paired',bindingId:id},WFM_ORIGIN)}catch(_){}
+  setTimeout(()=>{try{window.close()}catch(_){}},450);
+}catch(_){state.className='bad';state.textContent='De browserkoppeling kon niet worden opgeslagen.';}
+})();
+</script>
+</body>
+</html>
