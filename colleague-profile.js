@@ -392,11 +392,11 @@
     resolveProfile();
   }
 
-  window.addEventListener("rooster-start-ready", onStartReady);
-  window.addEventListener("rooster-unlocked", onStartReady);
-  window.addEventListener("rooster-private-config-ready", () => {
-    if (isStartPageOpen()) onStartReady();
-  });
+  if (window.RoosterReady?.when) {
+    window.RoosterReady.when("startPageReady", onStartReady);
+  } else if (isStartPageOpen()) {
+    onStartReady();
+  }
 
   window.RoosterColleagueProfileSetup = Object.freeze({
     open: () => {
@@ -415,6 +415,4 @@
     getBrowserId: () => browserId(),
     getProfile: () => profile,
   });
-
-  if (isStartPageOpen()) onStartReady();
 })();
