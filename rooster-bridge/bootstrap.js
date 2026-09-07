@@ -95,4 +95,5 @@ globalThis.fetch = async function rosterBridgeFetch(input, init = {}) {
 };
 
 await reportGitHubAccess();
+await import("./team-api.js");
 await import("./server.js");
