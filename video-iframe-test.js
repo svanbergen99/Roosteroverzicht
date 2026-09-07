@@ -14,6 +14,7 @@
   let title = null;
   let currentPath = "";
   let effectStartedFor = "";
+  let currentContentAspect = 16 / 9;
 
   function basename(path) {
     const parts = String(path || "").split("/");
@@ -36,31 +37,42 @@
     return new URL(encodedPath, window.location.href).href;
   }
 
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
   function ensureStyle() {
     if (document.getElementById(STYLE_ID)) return;
     const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = `
       #${SECTION_ID}.video-library-iframe-test {
-        width: min(760px, calc(100% - 24px));
+        box-sizing: border-box;
+        width: min(784px, calc(100% - 24px));
         margin: 0 auto 24px;
         padding: 12px;
+        transition: width 180ms ease;
       }
       #${SECTION_ID}.video-library-iframe-test > iframe.video-library-player {
+        display: block;
         width: 100%;
         height: auto;
         min-height: 0;
-        aspect-ratio: 16 / 9;
+        aspect-ratio: var(--video-content-aspect, 16 / 9);
         border: 0;
         border-radius: 12px;
         background: #000;
+        transition: aspect-ratio 180ms ease;
+      }
+      #${SECTION_ID}.video-library-iframe-test[data-video-orientation="portrait"] {
+        max-width: min(430px, calc(100% - 24px));
       }
       #${SECTION_ID}.video-library-iframe-test .video-library-fullscreen-effects {
         display: none !important;
       }
       @media (max-width: 620px) {
         #${SECTION_ID}.video-library-iframe-test {
-          width: 100%;
+          max-width: calc(100% - 12px);
           margin-bottom: 18px;
           padding: 9px;
         }
@@ -147,6 +159,33 @@
     } catch (_) {}
   }
 
+  function applyPlayerLayout(aspectValue) {
+    if (!section || !frame) return;
+    const aspect = clamp(Number(aspectValue) || 16 / 9, 0.35, 2.8);
+    currentContentAspect = aspect;
+
+    const viewportWidth = document.documentElement.clientWidth || window.innerWidth || 1280;
+    const viewportHeight = window.innerHeight || 720;
+    const maxFrameWidth = Math.max(220, Math.min(760, viewportWidth - 48));
+    const targetFrameHeight = clamp(viewportHeight * 0.48, 300, 430);
+    let targetFrameWidth = targetFrameHeight * aspect;
+
+    if (aspect < 0.86) {
+      targetFrameWidth = clamp(targetFrameWidth, 220, Math.min(380, maxFrameWidth));
+      section.dataset.videoOrientation = "portrait";
+    } else if (aspect < 1.22) {
+      targetFrameWidth = clamp(targetFrameWidth, 320, Math.min(540, maxFrameWidth));
+      section.dataset.videoOrientation = "square";
+    } else {
+      targetFrameWidth = clamp(targetFrameWidth, 420, maxFrameWidth);
+      section.dataset.videoOrientation = "landscape";
+    }
+
+    section.style.width = `${Math.round(Math.min(viewportWidth - 24, targetFrameWidth + 24))}px`;
+    section.style.setProperty("--video-content-aspect", String(aspect));
+    frame.style.aspectRatio = String(aspect);
+  }
+
   function openVideo(path) {
     const target = ensureSection();
     if (!target || !frame || !path) return;
@@ -158,6 +197,7 @@
 
     currentPath = String(path);
     effectStartedFor = "";
+    currentContentAspect = 16 / 9;
     if (title) title.textContent = friendlyLabel(currentPath) || "Video";
 
     const source = mediaUrl(currentPath);
@@ -165,6 +205,7 @@
     playerUrl.searchParams.set("src", source);
     playerUrl.searchParams.set("v", String(Date.now()));
 
+    applyPlayerLayout(16 / 9);
     frame.src = playerUrl.href;
     target.hidden = false;
     placeSection();
@@ -178,8 +219,12 @@
     if (!section || !frame) return;
     frame.src = "about:blank";
     section.hidden = true;
+    section.style.removeProperty("width");
+    section.style.removeProperty("--video-content-aspect");
+    delete section.dataset.videoOrientation;
     currentPath = "";
     effectStartedFor = "";
+    currentContentAspect = 16 / 9;
   }
 
   document.addEventListener("click", (event) => {
@@ -192,10 +237,19 @@
     openVideo(item.dataset.videoPath || "");
   }, true);
 
+  window.addEventListener("resize", () => {
+    if (section && !section.hidden) applyPlayerLayout(currentContentAspect);
+  }, { passive: true });
+
   window.addEventListener("message", (event) => {
     if (event.origin !== location.origin || !frame || event.source !== frame.contentWindow) return;
     const data = event.data;
     if (!data || data.type !== "rooster-video-iframe") return;
+
+    if (data.event === "layout") {
+      applyPlayerLayout(data.contentAspect);
+      return;
+    }
 
     if (data.event === "play") {
       startLinkedEffects(String(data.source || mediaUrl(currentPath)));

@@ -7,26 +7,59 @@
   <style>
     html,body{width:100%;height:100%;margin:0;background:#000;overflow:hidden}
     body{display:grid;place-items:center}
-    video{display:block;width:100%;height:100%;object-fit:contain;background:#000}
-    video::-webkit-media-controls-fullscreen-button{display:none!important}
+    .viewport{position:relative;width:100%;height:100%;overflow:hidden;background:#000}
+    video{position:absolute;display:block;max-width:none;max-height:none;background:#000}
+    .controls{position:absolute;z-index:5;left:0;right:0;bottom:0;display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:9px 10px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.82));color:#fff;font:700 12px/1 "Segoe UI",Arial,sans-serif}
+    .controls button{min-width:34px;min-height:32px;padding:6px 8px;border:1px solid rgba(255,255,255,.24);border-radius:8px;background:rgba(10,10,10,.72);color:#fff;font:inherit;cursor:pointer}
+    .controls button:hover{background:rgba(38,38,38,.9)}
+    .controls input[type="range"]{width:100%;min-width:0;accent-color:#f0b5e8;cursor:pointer}
+    .time{min-width:76px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;text-shadow:0 1px 3px #000}
     .error{box-sizing:border-box;width:min(720px,calc(100% - 32px));padding:18px;border:1px solid #5b2222;border-radius:12px;background:#241010;color:#fff;font:600 14px/1.45 "Segoe UI",Arial,sans-serif}
   </style>
 </head>
 <body>
-  <video id="player" controls controlslist="nofullscreen" autoplay playsinline preload="auto"></video>
+  <div class="viewport" id="viewport">
+    <video id="player" autoplay playsinline preload="auto"></video>
+    <div class="controls" id="controls">
+      <button id="playPause" type="button" aria-label="Pauzeren">❚❚</button>
+      <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Videopositie">
+      <span class="time" id="timeLabel">0:00 / 0:00</span>
+      <button id="mute" type="button" aria-label="Geluid dempen">🔊</button>
+    </div>
+  </div>
   <script>
   (() => {
     "use strict";
 
     const player = document.getElementById("player");
+    const viewport = document.getElementById("viewport");
+    const playPause = document.getElementById("playPause");
+    const seek = document.getElementById("seek");
+    const timeLabel = document.getElementById("timeLabel");
+    const mute = document.getElementById("mute");
     const params = new URLSearchParams(location.search);
     const rawSource = params.get("src") || "";
 
-    try { player.controlsList?.add?.("nofullscreen"); } catch (_) {}
-    player.addEventListener("dblclick", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-    });
+    const ANALYZE_WIDTH = 160;
+    const DARK_THRESHOLD = 20;
+    const MIN_CROP_FRACTION = 0.025;
+    const MAX_PAIR_DIFFERENCE = 0.065;
+    const TARGET_SAMPLES = 8;
+
+    let sourceWidth = 0;
+    let sourceHeight = 0;
+    let crop = null;
+    let analyzeCanvas = null;
+    let analyzeContext = null;
+    let columnPeak = null;
+    let rowPeak = null;
+    let sampleCount = 0;
+    let analysisTimer = 0;
+    let lastReportedAspect = 0;
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
 
     function notify(eventName, extra = {}) {
       try {
@@ -42,12 +75,172 @@
     }
 
     function showError(message) {
-      player.remove();
+      window.clearTimeout(analysisTimer);
+      viewport.remove();
       const box = document.createElement("div");
       box.className = "error";
       box.textContent = message;
       document.body.appendChild(box);
       notify("error", { message });
+    }
+
+    function formatTime(value) {
+      const seconds = Math.max(0, Math.floor(Number(value) || 0));
+      const minutes = Math.floor(seconds / 60);
+      const rest = seconds % 60;
+      return `${minutes}:${String(rest).padStart(2, "0")}`;
+    }
+
+    function syncControls() {
+      const duration = Number.isFinite(player.duration) ? player.duration : 0;
+      const progress = duration > 0 ? clamp(player.currentTime / duration, 0, 1) : 0;
+      seek.value = String(Math.round(progress * 1000));
+      timeLabel.textContent = `${formatTime(player.currentTime)} / ${formatTime(duration)}`;
+      playPause.textContent = player.paused ? "▶" : "❚❚";
+      playPause.setAttribute("aria-label", player.paused ? "Afspelen" : "Pauzeren");
+      mute.textContent = player.muted || player.volume === 0 ? "🔇" : "🔊";
+      mute.setAttribute("aria-label", player.muted || player.volume === 0 ? "Geluid aan" : "Geluid dempen");
+    }
+
+    function defaultCrop() {
+      return { x: 0, y: 0, width: sourceWidth, height: sourceHeight };
+    }
+
+    function applyCrop(nextCrop = crop || defaultCrop()) {
+      if (!sourceWidth || !sourceHeight || !nextCrop?.width || !nextCrop?.height) return;
+      crop = nextCrop;
+
+      const rect = viewport.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+
+      const scale = Math.max(rect.width / crop.width, rect.height / crop.height);
+      const renderWidth = sourceWidth * scale;
+      const renderHeight = sourceHeight * scale;
+      const cropRenderWidth = crop.width * scale;
+      const cropRenderHeight = crop.height * scale;
+      const extraX = Math.max(0, (cropRenderWidth - rect.width) / 2);
+      const extraY = Math.max(0, (cropRenderHeight - rect.height) / 2);
+
+      player.style.width = `${renderWidth}px`;
+      player.style.height = `${renderHeight}px`;
+      player.style.left = `${-(crop.x * scale) - extraX}px`;
+      player.style.top = `${-(crop.y * scale) - extraY}px`;
+    }
+
+    function reportLayout(nextCrop = crop || defaultCrop(), force = false) {
+      if (!nextCrop?.width || !nextCrop?.height) return;
+      const aspect = nextCrop.width / nextCrop.height;
+      if (!force && Math.abs(aspect - lastReportedAspect) < 0.015) return;
+      lastReportedAspect = aspect;
+      notify("layout", {
+        encodedWidth: sourceWidth,
+        encodedHeight: sourceHeight,
+        contentX: nextCrop.x,
+        contentY: nextCrop.y,
+        contentWidth: nextCrop.width,
+        contentHeight: nextCrop.height,
+        contentAspect: aspect
+      });
+    }
+
+    function edgeCount(profile, fromStart) {
+      let count = 0;
+      if (fromStart) {
+        while (count < profile.length && profile[count] < DARK_THRESHOLD) count += 1;
+      } else {
+        while (count < profile.length && profile[profile.length - 1 - count] < DARK_THRESHOLD) count += 1;
+      }
+      return count;
+    }
+
+    function pairedCrop(first, second, total) {
+      const firstFraction = first / total;
+      const secondFraction = second / total;
+      if (firstFraction < MIN_CROP_FRACTION || secondFraction < MIN_CROP_FRACTION) return [0, 0];
+      if (Math.abs(firstFraction - secondFraction) > MAX_PAIR_DIFFERENCE) return [0, 0];
+      if (firstFraction + secondFraction > 0.76) return [0, 0];
+      return [Math.max(0, first - 1), Math.max(0, second - 1)];
+    }
+
+    function estimatedCrop() {
+      if (!columnPeak || !rowPeak || sampleCount < 3) return defaultCrop();
+
+      const rawLeft = edgeCount(columnPeak, true);
+      const rawRight = edgeCount(columnPeak, false);
+      const rawTop = edgeCount(rowPeak, true);
+      const rawBottom = edgeCount(rowPeak, false);
+      const [left, right] = pairedCrop(rawLeft, rawRight, columnPeak.length);
+      const [top, bottom] = pairedCrop(rawTop, rawBottom, rowPeak.length);
+
+      const scaleX = sourceWidth / columnPeak.length;
+      const scaleY = sourceHeight / rowPeak.length;
+      const x = Math.round(left * scaleX);
+      const y = Math.round(top * scaleY);
+      const width = Math.max(1, sourceWidth - x - Math.round(right * scaleX));
+      const height = Math.max(1, sourceHeight - y - Math.round(bottom * scaleY));
+
+      return { x, y, width, height };
+    }
+
+    function collectFrameSample() {
+      if (!sourceWidth || !sourceHeight || player.readyState < 2) return false;
+
+      const analyzeHeight = Math.max(48, Math.round(ANALYZE_WIDTH * sourceHeight / sourceWidth));
+      if (!analyzeCanvas) {
+        analyzeCanvas = document.createElement("canvas");
+        analyzeContext = analyzeCanvas.getContext("2d", { willReadFrequently: true });
+      }
+      if (!analyzeContext) return false;
+
+      analyzeCanvas.width = ANALYZE_WIDTH;
+      analyzeCanvas.height = analyzeHeight;
+      analyzeContext.drawImage(player, 0, 0, ANALYZE_WIDTH, analyzeHeight);
+      const image = analyzeContext.getImageData(0, 0, ANALYZE_WIDTH, analyzeHeight).data;
+
+      const columns = new Float32Array(ANALYZE_WIDTH);
+      const rows = new Float32Array(analyzeHeight);
+      let global = 0;
+
+      for (let y = 0; y < analyzeHeight; y += 1) {
+        for (let x = 0; x < ANALYZE_WIDTH; x += 1) {
+          const index = (y * ANALYZE_WIDTH + x) * 4;
+          const r = image[index];
+          const g = image[index + 1];
+          const b = image[index + 2];
+          const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+          columns[x] += luma;
+          rows[y] += luma;
+          global += luma;
+        }
+      }
+
+      global /= ANALYZE_WIDTH * analyzeHeight;
+      if (global < 7) return false;
+
+      for (let x = 0; x < ANALYZE_WIDTH; x += 1) columns[x] /= analyzeHeight;
+      for (let y = 0; y < analyzeHeight; y += 1) rows[y] /= ANALYZE_WIDTH;
+
+      if (!columnPeak || columnPeak.length !== columns.length) columnPeak = new Float32Array(columns.length);
+      if (!rowPeak || rowPeak.length !== rows.length) rowPeak = new Float32Array(rows.length);
+
+      for (let x = 0; x < columns.length; x += 1) columnPeak[x] = Math.max(columnPeak[x], columns[x]);
+      for (let y = 0; y < rows.length; y += 1) rowPeak[y] = Math.max(rowPeak[y], rows[y]);
+
+      sampleCount += 1;
+      const nextCrop = estimatedCrop();
+      crop = nextCrop;
+      applyCrop(nextCrop);
+      reportLayout(nextCrop);
+      return true;
+    }
+
+    function scheduleAnalysis() {
+      window.clearTimeout(analysisTimer);
+      if (sampleCount >= TARGET_SAMPLES) return;
+      analysisTimer = window.setTimeout(() => {
+        if (!player.paused && !player.ended) collectFrameSample();
+        scheduleAnalysis();
+      }, 280);
     }
 
     let source;
@@ -63,14 +256,54 @@
       return;
     }
 
+    playPause.addEventListener("click", () => {
+      if (player.paused) player.play().catch(() => notify("autoplay-blocked"));
+      else player.pause();
+    });
+
+    seek.addEventListener("input", () => {
+      if (!Number.isFinite(player.duration) || player.duration <= 0) return;
+      player.currentTime = (Number(seek.value) / 1000) * player.duration;
+      syncControls();
+    });
+
+    mute.addEventListener("click", () => {
+      player.muted = !player.muted;
+      syncControls();
+    });
+
+    const resizeObserver = new ResizeObserver(() => applyCrop());
+    resizeObserver.observe(viewport);
+
     player.src = source.href;
     player.addEventListener("loadedmetadata", () => {
-      notify("ready");
+      sourceWidth = Math.max(1, Number(player.videoWidth) || 1);
+      sourceHeight = Math.max(1, Number(player.videoHeight) || 1);
+      crop = defaultCrop();
+      applyCrop(crop);
+      reportLayout(crop, true);
+      syncControls();
       player.play().catch(() => notify("autoplay-blocked"));
     });
-    player.addEventListener("play", () => notify("play"));
-    player.addEventListener("pause", () => notify("pause"));
-    player.addEventListener("ended", () => notify("ended"));
+    player.addEventListener("loadeddata", () => {
+      collectFrameSample();
+      scheduleAnalysis();
+    });
+    player.addEventListener("play", () => {
+      syncControls();
+      scheduleAnalysis();
+      notify("play");
+    });
+    player.addEventListener("pause", () => {
+      syncControls();
+      notify("pause");
+    });
+    player.addEventListener("timeupdate", syncControls);
+    player.addEventListener("volumechange", syncControls);
+    player.addEventListener("ended", () => {
+      syncControls();
+      notify("ended");
+    });
     player.addEventListener("error", () => notify("error", { message: "De MP4 kon niet worden afgespeeld." }));
   })();
   </script>
