@@ -61,9 +61,14 @@
     target.innerHTML = `
       <form id="permissionTeamForm" class="unlock-card permission-auth-card" autocomplete="off">
         <h1>Team kiezen</h1>
-        <p>Vul je Team-ID in om de beveiligde startpagina te ontgrendelen.</p>
+        <p>Kies je Team-ID om de beveiligde startpagina te ontgrendelen.</p>
         <label for="permissionTeamInput">Team-ID</label>
-        <input id="permissionTeamInput" type="text" autocomplete="off" spellcheck="false" required>
+        <select id="permissionTeamInput" class="permission-auth-team-select" required>
+          <option value="" selected disabled>Kies je team…</option>
+          <option value="KCDTeam01">KCDTeam01</option>
+          <option value="KCDTeam02">KCDTeam02</option>
+          <option value="KCDTeam03">KCDTeam03</option>
+        </select>
         <button class="full-button" type="submit">Verder</button>
         <div id="permissionTeamError" class="permission-auth-error" aria-live="polite"></div>
       </form>`;
@@ -78,7 +83,7 @@
       error.textContent = "";
       const value = input?.value?.trim() || "";
       if (!value) {
-        error.textContent = "Vul eerst je Team-ID in.";
+        error.textContent = "Kies eerst je Team-ID.";
         input?.focus();
         return;
       }
