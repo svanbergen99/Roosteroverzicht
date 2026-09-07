@@ -7,7 +7,10 @@
   const CLOCK_ID = "startHeaderClock";
   const CLOCK_STYLE_ID = "startDigitalClockStyle";
   const TIME_ZONE = "Europe/Amsterdam";
+  const PRIVATE_SYNC_MAX = 80;
   let clockTimer = 0;
+  let privateSyncTimer = 0;
+  let privateSyncAttempts = 0;
 
   function privateGroups() {
     const groups = window.RoosterPrivateConfig?.externalSiteGroups;
@@ -44,7 +47,6 @@
     const groups = privateGroups();
     if (!groups.length) {
       section.hidden = true;
-      section.innerHTML = "";
       return section;
     }
 
@@ -288,13 +290,40 @@
     clockTimer = window.setInterval(updateDigitalClock, 1000);
   }
 
-  function start() {
+  function stopPrivateSync() {
+    if (!privateSyncTimer) return;
+    clearInterval(privateSyncTimer);
+    privateSyncTimer = 0;
+    privateSyncAttempts = 0;
+  }
+
+  function syncPrivateStart() {
+    const groups = privateGroups();
+    if (!groups.length) return false;
     const section = ensureSection();
     ensureDigitalClock(section);
+    window.dispatchEvent(new CustomEvent("external-sites-ready", {
+      detail: { groupCount: groups.length }
+    }));
+    return true;
+  }
+
+  function start() {
     startDigitalClock();
+    if (syncPrivateStart()) {
+      stopPrivateSync();
+      return;
+    }
+    if (privateSyncTimer) return;
+    privateSyncAttempts = 0;
+    privateSyncTimer = window.setInterval(() => {
+      privateSyncAttempts += 1;
+      if (syncPrivateStart() || privateSyncAttempts >= PRIVATE_SYNC_MAX) stopPrivateSync();
+    }, 125);
   }
 
   window.addEventListener("rooster-private-config-ready", start);
   window.addEventListener("rooster-unlocked", start);
-  if (!app.hidden) start();
+  window.addEventListener("rooster-start-ready", start);
+  if (window.RoosterPrivateConfig || !app.hidden) start();
 })();
