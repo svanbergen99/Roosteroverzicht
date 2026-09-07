@@ -6,6 +6,31 @@ function requestUrl(input) {
   return String(input?.url || "");
 }
 
+async function reportGitHubAccess() {
+  const token = String(process.env.GITHUB_TOKEN || "").trim();
+  const repo = String(process.env.GITHUB_REPO || "svanbergen99/Roosteroverzicht").trim();
+  if (!token || !repo) {
+    console.log("GitHub repo access: not configured");
+    return;
+  }
+
+  try {
+    const response = await nativeFetch(`https://api.github.com/repos/${repo}`, {
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "roosteroverzicht-rooster-bridge",
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+    const data = await response.json().catch(() => ({}));
+    console.log(`GitHub repo access: status=${response.status} pull=${Boolean(data?.permissions?.pull)} push=${Boolean(data?.permissions?.push)} admin=${Boolean(data?.permissions?.admin)}`);
+  } catch (error) {
+    console.log(`GitHub repo access check failed: ${error?.message || error}`);
+  }
+}
+
 globalThis.fetch = async function rosterBridgeFetch(input, init = {}) {
   const url = requestUrl(input);
   const response = await nativeFetch(input, init);
@@ -69,4 +94,5 @@ globalThis.fetch = async function rosterBridgeFetch(input, init = {}) {
   });
 };
 
+await reportGitHubAccess();
 await import("./server.js");
