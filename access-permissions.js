@@ -1,6 +1,7 @@
 (() => {
   "use strict";
 
+  const RAILWAY_API = "https://roosteroverzicht-rooster-bridge-production.up.railway.app";
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
   const permissions = [];
@@ -10,6 +11,8 @@
   let bypassNextPasswordSubmit = false;
   let permissionsLoading = null;
   let privateConfigLoaded = false;
+  let activeTeam = "";
+  let activePassword = "";
 
   function base64ToBytes(value) {
     const binary = atob(String(value || ""));
@@ -95,6 +98,28 @@
     }
   }
 
+  async function createPersonalScanJob(bindingId) {
+    const id = String(bindingId || "").trim();
+    if (!/^[A-Za-z0-9_-]{32,160}$/.test(id)) throw new Error("Deze browser is nog niet aan WFM gekoppeld.");
+    if (!activeTeam || !activePassword) throw new Error("Ontgrendel het rooster eerst opnieuw met Team-ID en Team Wachtwoord.");
+
+    const response = await fetch(`${RAILWAY_API}/api/personal-roster/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bindingId: id, team: activeTeam, password: activePassword }),
+      signal: AbortSignal.timeout(30000)
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(data?.message || `Railway HTTP ${response.status}`);
+    if (!data?.scanToken) throw new Error("Railway gaf geen persoonlijke scanopdracht terug.");
+    return data;
+  }
+
+  window.RoosterAccessSession = Object.freeze({
+    createPersonalScanJob,
+    hasCredentials: () => Boolean(activeTeam && activePassword)
+  });
+
   document.addEventListener("submit", async (event) => {
     const form = event.target;
     if (!(form instanceof HTMLFormElement) || form.id !== "permissionPasswordForm") return;
@@ -119,9 +144,13 @@
 
     try {
       await ensurePermissions(team, password);
+      activeTeam = team;
+      activePassword = password;
       bypassNextPasswordSubmit = true;
       form.requestSubmit();
     } catch (_) {
+      activeTeam = "";
+      activePassword = "";
       if (submitButton) submitButton.disabled = false;
       if (authError) authError.textContent = "Het Team Wachtwoord is niet juist voor het geselecteerde team.";
       if (passwordInput) {
