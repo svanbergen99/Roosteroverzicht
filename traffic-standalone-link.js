@@ -1,8 +1,8 @@
 (() => {
   "use strict";
 
-  if (window.__roosterTrafficStandaloneLinkV4) return;
-  window.__roosterTrafficStandaloneLinkV4 = true;
+  if (window.__roosterTrafficStandaloneLinkV5) return;
+  window.__roosterTrafficStandaloneLinkV5 = true;
 
   const PAGE_SOURCE = "roosteroverzicht-traffic-page";
   const EXTENSION_SOURCE = "roosteroverzicht-traffic-extension";
@@ -29,8 +29,8 @@
   function safePushUrl(value) {
     try {
       const parsed = new URL(String(value || "").trim());
-      if (parsed.protocol !== "https:") return "";
-      if (!/^roosteroverzicht-traffic-bridge-production(?:-[a-z0-9]+)?\.up\.railway\.app$/i.test(parsed.hostname)) return "";
+      const bridgeOrigin = new URL(String(window.RoosterTrafficLive?.getBridgeUrl?.() || "")).origin;
+      if (parsed.protocol !== "https:" || parsed.origin !== bridgeOrigin) return "";
       if (parsed.pathname !== "/api/traffic-push" || parsed.username || parsed.password) return "";
       parsed.search = "";
       parsed.hash = "";
