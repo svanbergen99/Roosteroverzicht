@@ -7,7 +7,9 @@ const SESSION_CONFIG_KEY = "trafficCollectorConfig";
 const SESSION_WINDOW_KEY = "trafficCollectorWindowId";
 const SESSION_TAB_KEY = "trafficCollectorTabId";
 const SESSION_FAKE_BOX_KEY = "trafficCollectorFakeBox";
+const SESSION_MONITOR_KEY = "trafficCollectorMonitorState";
 const CHAT_BOX_HOST = "kcd-chat-production.up.railway.app";
+const MAX_MONITOR_EVENTS = 80;
 
 let pushBusy = false;
 let pendingSnapshot = null;
@@ -18,6 +20,25 @@ let lastStatus = {
   message: "Collector staat klaar.",
   lastPushAt: null
 };
+
+let monitorState = {
+  collectorState: "idle",
+  startedAt: null,
+  sourceConnectedAt: null,
+  lastSnapshotAt: null,
+  lastDeliveryAt: null,
+  receiver: null,
+  chatBoxConfigured: false,
+  chatBoxAttempted: false,
+  fakeFallbackUsed: false,
+  snapshotSummary: null,
+  latestSnapshot: null,
+  events: []
+};
+
+function nowIso() {
+  return new Date().toISOString();
+}
 
 function isRosterSender(sender) {
   const url = String(sender?.tab?.url || sender?.url || "");
@@ -61,6 +82,60 @@ function normalizeConfig(value) {
   return config;
 }
 
+function rowsCount(value) {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function summarizeSnapshot(snapshot) {
+  const panels = snapshot?.panels && typeof snapshot.panels === "object" ? snapshot.panels : {};
+  const counts = {
+    telefonie: rowsCount(panels.telefonie),
+    webMessaging: rowsCount(panels.webMessaging),
+    webMessagingVandaag: rowsCount(panels.webMessagingVandaag),
+    queueStatus: rowsCount(panels.queueStatus),
+    email: rowsCount(panels.email)
+  };
+  return {
+    trafficHeader: String(snapshot?.trafficHeader || "Traffic Live"),
+    capturedAt: snapshot?.capturedAt || null,
+    source: snapshot?.source || "browser-collector",
+    panelCounts: counts,
+    totalRows: Object.values(counts).reduce((sum, count) => sum + count, 0)
+  };
+}
+
+async function saveMonitorState() {
+  try {
+    await chrome.storage.session.set({ [SESSION_MONITOR_KEY]: monitorState });
+  } catch (_) {}
+}
+
+async function broadcastMonitorState() {
+  const tabs = await chrome.tabs.query({ url: ROSTER_URL_PATTERN });
+  await Promise.allSettled(tabs.map((tab) => tab.id
+    ? chrome.tabs.sendMessage(tab.id, { type: "collector-monitor-state", state: monitorState })
+    : Promise.resolve()));
+}
+
+async function monitorEvent(step, status, message, extra = {}) {
+  const event = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    at: nowIso(),
+    step,
+    status,
+    message,
+    ...extra
+  };
+  monitorState = {
+    ...monitorState,
+    ...extra.monitorPatch,
+    events: [...monitorState.events, event].slice(-MAX_MONITOR_EVENTS)
+  };
+  delete event.monitorPatch;
+  await saveMonitorState();
+  await broadcastMonitorState();
+}
+
 async function getCollectorConfig() {
   const data = await chrome.storage.session.get(SESSION_CONFIG_KEY);
   return normalizeConfig(data[SESSION_CONFIG_KEY]);
@@ -75,6 +150,8 @@ async function isKibanaSender(sender) {
 
 async function broadcastStatus(status) {
   lastStatus = { ...lastStatus, ...status };
+  monitorState = { ...monitorState, collectorState: lastStatus.status || monitorState.collectorState };
+  await saveMonitorState();
   const tabs = await chrome.tabs.query({ url: ROSTER_URL_PATTERN });
   await Promise.allSettled(tabs.map((tab) => tab.id
     ? chrome.tabs.sendMessage(tab.id, { type: "collector-status", ...lastStatus })
@@ -137,9 +214,31 @@ async function startCollector(token, rawConfig) {
     return { ok: false, status: "error", message: "Beveiligde collectorconfiguratie ontbreekt of is ongeldig." };
   }
 
+  monitorState = {
+    collectorState: "starting",
+    startedAt: nowIso(),
+    sourceConnectedAt: null,
+    lastSnapshotAt: null,
+    lastDeliveryAt: null,
+    receiver: null,
+    chatBoxConfigured: Boolean(config.chatBoxUrl),
+    chatBoxAttempted: false,
+    fakeFallbackUsed: false,
+    snapshotSummary: null,
+    latestSnapshot: null,
+    events: []
+  };
+  await monitorEvent("collector-start", "running", "Collectorstart ontvangen. De echte Kibana-bron wordt geopend.");
+
   await saveRuntime(token, config);
   await broadcastStatus({ ok: true, status: "starting", message: "Traffic-bron wordt geminimaliseerd op de achtergrond gestart." });
   const result = await ensureCollectorWindow(config);
+  await monitorEvent(
+    "source-window",
+    "ok",
+    result.reused ? "Bestaand Kibana collectorvenster opnieuw gebruikt." : "Nieuw Kibana collectorvenster gestart.",
+    { monitorPatch: { collectorState: "waiting" } }
+  );
   await broadcastStatus({
     ok: true,
     status: "waiting",
@@ -157,6 +256,10 @@ function receivedAck() {
 
 async function sendToChatBox(snapshot, config) {
   if (!config.chatBoxUrl) throw new Error("ChatBox-ontvanger is nog niet gekoppeld.");
+
+  await monitorEvent("send-chatbox", "running", "Snapshot wordt met de echte ChatBox-verzendcode aangeboden.", {
+    monitorPatch: { chatBoxAttempted: true }
+  });
 
   const response = await fetch(config.chatBoxUrl, {
     method: "POST",
@@ -176,14 +279,23 @@ async function sendToChatBox(snapshot, config) {
     throw new Error(body?.message || `ChatBox gaf HTTP ${response.status}.`);
   }
 
+  const receivedAt = body?.receivedAt || nowIso();
+  await monitorEvent("chatbox-ack", "ok", "Ontvangstbevestiging van KCD Chat Box ontvangen.", {
+    monitorPatch: {
+      receiver: "ChatBox",
+      lastDeliveryAt: receivedAt,
+      fakeFallbackUsed: false
+    }
+  });
+
   return {
     ack: receivedAck(),
-    receivedAt: body?.receivedAt || new Date().toISOString()
+    receivedAt
   };
 }
 
-async function sendToFakeBox(snapshot) {
-  const receivedAt = new Date().toISOString();
+async function sendToFakeBox(snapshot, reason = "") {
+  const receivedAt = nowIso();
   latestFakeSnapshot = { receivedAt, snapshot };
   try {
     await chrome.storage.session.set({
@@ -192,6 +304,15 @@ async function sendToFakeBox(snapshot) {
   } catch (_) {
     // De in-memory Fake Box blijft de snapshot vasthouden zolang de service worker leeft.
   }
+
+  await monitorEvent("fake-box", "ok", "Fake KCD Chat Box heeft de snapshot ontvangen en geeft dezelfde echte ACK terug.", {
+    reason,
+    monitorPatch: {
+      receiver: "Fake",
+      lastDeliveryAt: receivedAt,
+      fakeFallbackUsed: true
+    }
+  });
 
   return {
     ack: receivedAck(),
@@ -203,8 +324,11 @@ async function deliverSnapshot(snapshot, config) {
   try {
     const result = await sendToChatBox(snapshot, config);
     return { ...result, receiver: "ChatBox" };
-  } catch (_) {
-    const result = await sendToFakeBox(snapshot);
+  } catch (error) {
+    await monitorEvent("chatbox-intercept", "fallback", "Echte ChatBox-route leverde geen ACK op; de Fake Box onderschept de levering.", {
+      reason: error?.message || "ChatBox niet bereikbaar"
+    });
+    const result = await sendToFakeBox(snapshot, error?.message || "ChatBox niet bereikbaar");
     return { ...result, receiver: "Fake" };
   }
 }
@@ -221,6 +345,7 @@ async function pushSnapshot(snapshot) {
       const config = await getCollectorConfig();
       if (!config) {
         await broadcastStatus({ ok: false, status: "error", message: "Collectorconfiguratie ontbreekt. Start Traffic opnieuw." });
+        await monitorEvent("config", "error", "Collectorconfiguratie ontbreekt; snapshot kan niet worden afgeleverd.");
         return;
       }
 
@@ -229,8 +354,17 @@ async function pushSnapshot(snapshot) {
       const delivery = await deliverSnapshot(next, config);
       if (!delivery.ack?.ok || delivery.ack?.status !== "received") {
         await broadcastStatus({ ok: false, status: "error", message: "Ontvanger gaf geen geldige ontvangstbevestiging." });
+        await monitorEvent("ack", "error", "Geen geldige received-ACK teruggekregen.");
         return;
       }
+
+      await monitorEvent("delivery-complete", "ok", `Collector kreeg ACK received terug. Werkelijke ontvanger voor de monitor: <${delivery.receiver}>.`, {
+        monitorPatch: {
+          collectorState: "active",
+          receiver: delivery.receiver,
+          lastDeliveryAt: delivery.receivedAt
+        }
+      });
 
       await broadcastStatus({
         ok: true,
@@ -241,6 +375,7 @@ async function pushSnapshot(snapshot) {
     }
   } catch (error) {
     await broadcastStatus({ ok: false, status: "error", message: error?.message || "Traffic-data kon niet worden afgeleverd." });
+    await monitorEvent("delivery-error", "error", error?.message || "Traffic-data kon niet worden afgeleverd.");
   } finally {
     pushBusy = false;
   }
@@ -258,9 +393,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return lastStatus;
     }
 
+    if (message?.type === "collector-monitor-request") {
+      if (!isRosterSender(sender)) return { ok: false, status: "error", message: "Onbekende monitorpagina." };
+      const stored = await chrome.storage.session.get(SESSION_MONITOR_KEY).catch(() => ({}));
+      const state = stored?.[SESSION_MONITOR_KEY] || monitorState;
+      return { ok: true, status: "monitor", state };
+    }
+
     if (message?.type === "kibana-content-ready") {
       if (!(await isKibanaSender(sender))) return { ok: false };
       const config = await getCollectorConfig();
+      const connectedAt = nowIso();
+      await monitorEvent("source-connected", "ok", "Kibana content script is verbonden; wachten op echte Traffic-data.", {
+        monitorPatch: { sourceConnectedAt: connectedAt, collectorState: "waiting" }
+      });
       await broadcastStatus({ ok: true, status: "waiting", message: "Traffic-bron is verbonden; wachten op de eerste live update…" });
       return { ok: true, config };
     }
@@ -268,6 +414,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === "traffic-snapshot") {
       if (!(await isKibanaSender(sender))) return { ok: false };
       if (!message.snapshot || typeof message.snapshot !== "object") return { ok: false };
+      const summary = summarizeSnapshot(message.snapshot);
+      const snapshotAt = nowIso();
+      monitorState = {
+        ...monitorState,
+        lastSnapshotAt: snapshotAt,
+        snapshotSummary: summary,
+        latestSnapshot: message.snapshot
+      };
+      await monitorEvent("snapshot-collected", "ok", `Echte snapshot verzameld: ${summary.totalRows} regels over ${Object.keys(summary.panelCounts).length} panelgroepen.`, {
+        summary,
+        monitorPatch: {
+          lastSnapshotAt: snapshotAt,
+          snapshotSummary: summary,
+          latestSnapshot: message.snapshot
+        }
+      });
       void pushSnapshot(message.snapshot);
       return { ok: true };
     }
@@ -283,5 +445,8 @@ chrome.windows.onRemoved.addListener(async (windowId) => {
   const state = await readSessionState();
   if (Number(state[SESSION_WINDOW_KEY]) !== windowId) return;
   await chrome.storage.session.remove([SESSION_WINDOW_KEY, SESSION_TAB_KEY]);
+  await monitorEvent("source-window", "stopped", "Het Kibana collectorvenster is gesloten.", {
+    monitorPatch: { collectorState: "stopped" }
+  });
   await broadcastStatus({ ok: false, status: "stopped", message: "Het Traffic-achtergrondvenster is gesloten. Start Traffic opnieuw." });
 });
