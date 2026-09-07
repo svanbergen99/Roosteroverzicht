@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20260907-156";
+  const VERSION = "20260907-157";
   const FILE_MONTHS = ["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
   const MONTH_FILE_RE = /^Roosterindex_(Januari|Februari|Maart|Mei|Juni|Juli|Augustus|September|Oktober|November|December|April)\.json$/i;
 
@@ -124,6 +124,7 @@
   loadStyle("start-weather.css");
   loadStyle("start-weather-layout-fix.css");
   loadStyle("occasion-auto.css");
+  loadStyle("adaptive-layout.css");
 
   loadScript("rooster-readiness.js");
   loadScript("access-permissions.js");
