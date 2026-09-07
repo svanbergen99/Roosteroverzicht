@@ -70,6 +70,17 @@ function validateText(value, label, max = 120) {
   return text;
 }
 
+function validMonthDay(value) {
+  const input = String(value || "").trim();
+  const match = input.match(/^(\d{2})-(\d{2})$/);
+  if (!match) return "";
+  const month = Number(match[1]);
+  const day = Number(match[2]);
+  const date = new Date(Date.UTC(2000, month - 1, day, 12));
+  if (date.getUTCMonth() + 1 !== month || date.getUTCDate() !== day) return "";
+  return input;
+}
+
 function birthdayFromDate(value) {
   const input = String(value || "").trim();
   const match = input.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -82,6 +93,12 @@ function birthdayFromDate(value) {
     throw appError("Geboortedatum is ongeldig.", "INVALID_BIRTH_DATE", 400);
   }
   return `${match[2]}-${match[3]}`;
+}
+
+function birthdayFromMonthDay(value) {
+  const birthday = validMonthDay(value);
+  if (!birthday) throw appError("Verjaardag is ongeldig.", "INVALID_BIRTHDAY", 400);
+  return birthday;
 }
 
 function normalizeUnlockType(value, legacyPin = "") {
@@ -317,6 +334,71 @@ async function saveProfile(body) {
   };
 }
 
+async function updateProfile(body) {
+  const browserId = validateBrowserId(body?.browserId);
+  const browserHash = opaqueHash("profile-browser", browserId);
+  const name = validateText(body?.name, "Naam", 120);
+  const location = validateText(body?.location, "Locatie", 120);
+  const birthday = birthdayFromMonthDay(body?.birthday);
+  const unlockAction = String(body?.unlockAction || "keep").trim().toLowerCase();
+  if (!["keep", "none", "pin", "password"].includes(unlockAction)) {
+    throw appError("Persoonlijke ontgrendeling is ongeldig.", "INVALID_UNLOCK_ACTION", 400);
+  }
+  const credential = body?.credential ?? "";
+  const now = new Date().toISOString();
+  let responseProfile = null;
+
+  const result = await mutateProfiles((data) => {
+    const match = findProfileEntry({ data }, browserHash);
+    if (!match) throw appError("Voor deze browser is nog geen collega-profiel opgeslagen.", "PROFILE_NOT_FOUND", 404);
+    const decoded = decodeEntry(match);
+    let verifier = storedVerifier(decoded);
+    if (unlockAction === "none") verifier = null;
+    else if (unlockAction === "pin" || unlockAction === "password") verifier = credentialVerifier(unlockAction, credential);
+
+    const nextDecoded = {
+      v: 1,
+      purpose: "colleague-profile",
+      name,
+      location,
+      birthday,
+      unlockVerifier: verifier,
+    };
+    const profileCipher = sealObject(nextDecoded);
+    const profiles = (Array.isArray(data?.profiles) ? data.profiles : [])
+      .filter(item => item?.browserHash !== browserHash);
+    profiles.push({
+      browserHash,
+      aaHash: String(match.aaHash || ""),
+      profileCipher,
+      updatedAt: now,
+    });
+    profiles.sort((a, b) => String(b?.updatedAt || "").localeCompare(String(a?.updatedAt || "")));
+    responseProfile = publicProfile(nextDecoded);
+    return { version: 1, profiles: profiles.slice(0, MAX_PROFILES) };
+  });
+
+  return { ok: true, profile: responseProfile, commit: result.commit };
+}
+
+async function deleteProfile(body) {
+  const browserId = validateBrowserId(body?.browserId);
+  const browserHash = opaqueHash("profile-browser", browserId);
+  let removed = false;
+
+  const result = await mutateProfiles((data) => {
+    const current = Array.isArray(data?.profiles) ? data.profiles : [];
+    removed = current.some(item => item?.browserHash === browserHash);
+    if (!removed) throw appError("Voor deze browser is nog geen collega-profiel opgeslagen.", "PROFILE_NOT_FOUND", 404);
+    return {
+      version: 1,
+      profiles: current.filter(item => item?.browserHash !== browserHash).slice(0, MAX_PROFILES),
+    };
+  });
+
+  return { ok: true, removed, commit: result.commit };
+}
+
 async function verifyProfileUnlock(body, legacyPinRoute = false) {
   const browserId = validateBrowserId(body?.browserId);
   const browserHash = opaqueHash("profile-browser", browserId);
@@ -340,6 +422,8 @@ http.createServer = function patchedCreateServer(listener) {
     const route = url.pathname;
     const isProfileRoute = route === "/api/colleague-profile/resolve" ||
       route === "/api/colleague-profile/save" ||
+      route === "/api/colleague-profile/update" ||
+      route === "/api/colleague-profile/delete" ||
       route === "/api/colleague-profile/verify-unlock" ||
       route === "/api/colleague-profile/verify-pin";
     if (!isProfileRoute) return listener(req, res);
@@ -370,6 +454,8 @@ http.createServer = function patchedCreateServer(listener) {
       const body = await readJson(req);
       let result;
       if (route.endsWith("/save")) result = await saveProfile(body);
+      else if (route.endsWith("/update")) result = await updateProfile(body);
+      else if (route.endsWith("/delete")) result = await deleteProfile(body);
       else if (route.endsWith("/verify-unlock")) result = await verifyProfileUnlock(body, false);
       else if (route.endsWith("/verify-pin")) result = await verifyProfileUnlock(body, true);
       else result = await resolveProfile(body);
