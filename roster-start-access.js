@@ -224,12 +224,39 @@
   }
 
   async function openRosterAccess() {
+    if (document.body.classList.contains("roster-access-active")) {
+      searchCard?.scrollIntoView({ behavior: "smooth", block: "start" });
+      requestAnimationFrame(() => document.getElementById("employeeName")?.focus());
+      return;
+    }
     if (authInProgress) return;
+    authInProgress = true;
+    if (rosterButton) rosterButton.disabled = true;
+    try {
+      await loadPrivateModules();
+      document.body.classList.remove("public-portal-mode", "permission-auth-enabled", "roster-person-selected", "roster-login-active");
+      document.body.classList.add("roster-access-active");
+      app.hidden = false;
+      authInProgress = false;
+      if (rosterButton) rosterButton.disabled = false;
 
-    const bridge = window.RoosterWfmBridge;
-    if (bridge?.openExternal?.()) return;
+      // Team-ID en Team Wachtwoord zijn al gecontroleerd op de startpagina.
+      // Open het bestaande rooster direct; WFM blijft los beschikbaar via WFM CONTROL.
+      window.dispatchEvent(new CustomEvent("rooster-unlocked", {
+        detail: { alreadyUnlocked: true }
+      }));
 
-    bridge?.showFallback?.();
+      requestAnimationFrame(() => {
+        searchCard?.scrollIntoView({ behavior: "smooth", block: "start" });
+        document.getElementById("employeeName")?.focus();
+      });
+    } catch (error) {
+      console.error(error);
+      authInProgress = false;
+      app.hidden = false;
+      document.body.classList.remove("roster-login-active");
+      if (rosterButton) rosterButton.disabled = false;
+    }
   }
 
   function activateRosterArea(event) {
