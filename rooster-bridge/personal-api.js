@@ -74,8 +74,16 @@ function openObject(token, code = "SCAN_TOKEN_INVALID") {
     return JSON.parse(Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8"));
   } catch (error) {
     if (error?.code && error?.status) throw error;
-    throw appError("De persoonlijke WFM-scanopdracht is ongeldig of verlopen.", code, 401);
+    throw appError("Beveiligde Railway-koppeling is ongeldig of verlopen.", code, 401);
   }
+}
+
+function openTeamSession(token) {
+  const data = openObject(token, "SESSION_INVALID");
+  if (data?.v !== 1 || !data?.team || !data?.password || Number(data?.exp) <= Date.now()) {
+    throw appError("De beveiligde Railway-koppeling is verlopen of ongeldig.", "SESSION_INVALID", 401);
+  }
+  return data;
 }
 
 function createScanToken(binding, team, password) {
@@ -150,7 +158,7 @@ async function putBindingsFile(data, sha) {
   return gh(`/contents/${encodeURIComponent(BINDINGS_PATH)}`, {
     method: "PUT",
     body: JSON.stringify({
-      message: "Update WFM browser AA binding",
+      message: "Update secure WFM browser binding",
       content: Buffer.from(`${JSON.stringify(data, null, 2)}\n`, "utf8").toString("base64"),
       branch: BRANCH,
       ...(sha ? { sha } : {}),
@@ -221,24 +229,59 @@ function canonicalName(names, rosterHash) {
   return (Array.isArray(names) ? names : []).find(name => sha256(nameSignature(name)) === rosterHash) || "";
 }
 
-async function findBinding(bindingId, team) {
+async function findBinding(bindingId, team = "") {
   const bindingHash = opaqueHash("binding", validateBindingId(bindingId));
-  const teamHash = opaqueHash("team", String(team || "").trim().toLocaleLowerCase("nl-NL"));
   const file = await getBindingsFile();
-  const binding = file.data.bindings.find(item => item?.bindingHash === bindingHash && item?.teamHash === teamHash);
+  let matches = file.data.bindings.filter(item => item?.bindingHash === bindingHash && item?.rosterHash);
+  if (team) {
+    const teamHash = opaqueHash("team", String(team).trim().toLocaleLowerCase("nl-NL"));
+    matches = matches.filter(item => item?.teamHash === teamHash);
+  }
+  matches.sort((a, b) => String(b?.updatedAt || b?.accessUpdatedAt || "").localeCompare(String(a?.updatedAt || a?.accessUpdatedAt || "")));
+  const binding = matches[0];
   if (!binding?.rosterHash) throw appError("Voor deze browser is nog geen WFM-persoon gekoppeld.", "IDENTITY_NOT_BOUND", 404);
   return { file, binding };
 }
 
+async function bindTeamAccess(body) {
+  const bindingId = validateBindingId(body?.bindingId);
+  const auth = openTeamSession(body?.sessionToken);
+  const { file, binding } = await findBinding(bindingId, auth.team);
+  const index = file.data.bindings.findIndex(item => item?.bindingHash === binding.bindingHash && item?.teamHash === binding.teamHash);
+  if (index < 0) throw appError("De browserkoppeling is niet meer geldig.", "IDENTITY_NOT_BOUND", 404);
+  file.data.bindings[index] = {
+    ...file.data.bindings[index],
+    accessCipher: sealObject({ v: 1, purpose: "team-access", team: auth.team, password: auth.password }),
+    accessUpdatedAt: new Date().toISOString(),
+  };
+  const result = await putBindingsFile(file.data, file.sha);
+  return { ok: true, commit: result?.commit?.sha || null };
+}
+
 async function startPersonalScan(body) {
   const bindingId = validateBindingId(body?.bindingId);
-  const team = String(body?.team || "").trim();
-  const password = String(body?.password || "");
-  if (!team || !password || team.length > 200 || password.length > 500) {
-    throw appError("Team-ID en Team Wachtwoord zijn nodig om een verse scanopdracht te maken.", "MISSING_CREDENTIALS", 400);
+  let team = String(body?.team || "").trim();
+  let password = String(body?.password || "");
+  let binding;
+
+  if (team && password) {
+    ({ binding } = await findBinding(bindingId, team));
+  } else {
+    ({ binding } = await findBinding(bindingId));
+    if (!binding?.accessCipher) {
+      throw appError("Deze browser heeft nog geen beveiligde Team-roostertoegang. Voer de Team Scanner nog één keer uit om de koppeling af te ronden.", "ACCESS_NOT_PAIRED", 409);
+    }
+    const access = openObject(binding.accessCipher, "ACCESS_NOT_PAIRED");
+    if (access?.v !== 1 || access?.purpose !== "team-access" || !access?.team || !access?.password) {
+      throw appError("De beveiligde Team-roostertoegang is ongeldig.", "ACCESS_NOT_PAIRED", 409);
+    }
+    team = String(access.team).trim();
+    password = String(access.password);
+    if (opaqueHash("team", team.toLocaleLowerCase("nl-NL")) !== binding.teamHash) {
+      throw appError("De Team-koppeling hoort niet bij deze browser.", "ACCESS_NOT_PAIRED", 409);
+    }
   }
 
-  const { binding } = await findBinding(bindingId, team);
   const prepared = await internalPost("/api/rooster/prepare", PUBLIC_ORIGIN, {
     team,
     password,
@@ -316,6 +359,7 @@ http.createServer = function patchedCreateServer(listener) {
     const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
     const routes = new Map([
       ["/api/personal-roster/start", PUBLIC_ORIGIN],
+      ["/api/personal-roster/access-bind", WFM_ORIGIN],
       ["/api/personal-roster/bootstrap", WFM_ORIGIN],
       ["/api/personal-roster/aa-bind", WFM_ORIGIN],
       ["/api/personal-roster/store", WFM_ORIGIN],
@@ -348,6 +392,7 @@ http.createServer = function patchedCreateServer(listener) {
       const body = await readJson(req);
       let result;
       if (url.pathname === "/api/personal-roster/start") result = await startPersonalScan(body);
+      else if (url.pathname === "/api/personal-roster/access-bind") result = await bindTeamAccess(body);
       else if (url.pathname === "/api/personal-roster/bootstrap") result = await bootstrapPersonalScan(body);
       else if (url.pathname === "/api/personal-roster/aa-bind") result = await bindAa(body);
       else result = await storePersonalScan(body);
