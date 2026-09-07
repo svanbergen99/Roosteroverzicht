@@ -1,18 +1,14 @@
 (() => {
   "use strict";
 
-  if (window.__roosterTrafficStandaloneLinkV5) return;
-  window.__roosterTrafficStandaloneLinkV5 = true;
+  if (window.__roosterTrafficStandaloneLinkV6) return;
+  window.__roosterTrafficStandaloneLinkV6 = true;
 
   const PAGE_SOURCE = "roosteroverzicht-traffic-page";
   const EXTENSION_SOURCE = "roosteroverzicht-traffic-extension";
   const COLLECTOR_WINDOW_NAMES = ["TrafficCollectorFinalV2", "TrafficCollectorFinalV1"];
   const LINK_HASH = "#traffic-collector-link";
   const RELAY_TIMEOUT_MS = 1800;
-  const AUTO_LINK_COOLDOWN_MS = 15000;
-
-  let autoLinkBusy = false;
-  let lastAutoLinkAt = 0;
 
   function resolveTargetOrigin(config) {
     try {
@@ -91,13 +87,6 @@
     return candidates;
   }
 
-  function hasKnownCollectorWindow() {
-    for (const name of COLLECTOR_WINDOW_NAMES) {
-      if (namedCollector(name)) return true;
-    }
-    return false;
-  }
-
   function acknowledge(requestId, ok, status, message) {
     if (!requestId) return;
     window.postMessage({
@@ -162,28 +151,6 @@
     return false;
   }
 
-  async function autoRelinkStandaloneCollector() {
-    const traffic = window.RoosterTrafficLive;
-    if (autoLinkBusy || !traffic || typeof traffic.startCollector !== "function" || !traffic.isAccessReady?.()) return;
-    if (Date.now() - lastAutoLinkAt < AUTO_LINK_COOLDOWN_MS) return;
-    if (!hasKnownCollectorWindow()) return;
-
-    autoLinkBusy = true;
-    lastAutoLinkAt = Date.now();
-    try {
-      await traffic.startCollector();
-    } catch (_) {
-    } finally {
-      autoLinkBusy = false;
-    }
-  }
-
-  function scheduleAutoRelink() {
-    for (const delay of [600, 1800, 4000, 8000]) {
-      window.setTimeout(() => void autoRelinkStandaloneCollector(), delay);
-    }
-  }
-
   window.addEventListener("message", async (event) => {
     if (event.source !== window || event.origin !== window.location.origin) return;
     const message = event.data;
@@ -199,13 +166,6 @@
       "Tijdelijke Railway-token en push-endpoint zijn bevestigd door de zelfstandige Traffic Collector. Wacht op Railway LIVE ✓."
     );
   });
-
-  window.addEventListener("rooster-private-config-ready", scheduleAutoRelink);
-  window.addEventListener("rooster-unlocked", scheduleAutoRelink);
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) scheduleAutoRelink();
-  });
-  scheduleAutoRelink();
 
   if (window.location.hash === LINK_HASH) {
     try { history.replaceState(null, "", `${location.pathname}${location.search}`); } catch (_) {}
