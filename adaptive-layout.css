@@ -1,12 +1,12 @@
-/* Volledig vloeiende startpagina-layout.
-   De beschikbare browserbreedte bepaalt continu hoeveel kolommen, ruimte en
-   schaal elk startonderdeel krijgt. Desktop blijft gecentreerd en begrensd. */
+/* Vaste compositie op iedere venstergrootte.
+   De onderdelen schalen mee, maar wisselen niet meer van plaats of kolom-aantal. */
 :root {
   --adaptive-page-max: 1180px;
-  --adaptive-page-pad: clamp(8px, 1.5vw, 20px);
-  --adaptive-gap: clamp(10px, 1.3vw, 18px);
-  --adaptive-control-height: clamp(66px, 5.2vw, 82px);
-  --adaptive-control-radius: clamp(12px, 1vw, 16px);
+  --adaptive-page-pad: clamp(8px, 1.2vw, 20px);
+  --adaptive-gap: clamp(8px, 1vw, 18px);
+  --adaptive-side-space: clamp(118px, 16vw, 250px);
+  --adaptive-control-rail: clamp(112px, 14vw, 236px);
+  --adaptive-control-height: clamp(54px, 4.8vw, 82px);
 }
 
 html,
@@ -35,107 +35,239 @@ canvas {
 
 body.public-portal-mode #app {
   width: 100%;
-  padding-top: clamp(22px, 3.2vw, 52px);
+  padding-top: clamp(24px, 3vw, 52px);
   padding-right: var(--adaptive-page-pad);
-  padding-bottom: clamp(24px, 3.2vw, 52px);
+  padding-bottom: clamp(28px, 3vw, 52px);
   padding-left: var(--adaptive-page-pad);
 }
 
-/* Hoofdknoppen: geen harde 3/2/1-stand meer. Het raster kiest zelf hoeveel
-   kolommen werkelijk passen in het venster. */
-.public-primary-actions {
-  width: min(var(--adaptive-page-max), 100%) !important;
-  grid-template-columns: repeat(auto-fit, minmax(min(310px, 100%), 1fr)) !important;
-  gap: var(--adaptive-gap) !important;
-  margin-right: auto;
-  margin-left: auto;
+/* De centrale inhoud houdt aan beide zijden ruimte vrij. Daardoor blijven de
+   rechter bedieningsknoppen los staan en blijft de pagina toch gecentreerd. */
+body.public-portal-mode .public-weather-bars,
+body.public-portal-mode .public-primary-actions {
+  width: min(
+    var(--adaptive-page-max),
+    calc(100vw - var(--adaptive-side-space) - var(--adaptive-side-space))
+  ) !important;
+  max-width: calc(100% - 2px) !important;
+  margin-right: auto !important;
+  margin-left: auto !important;
 }
 
-.public-primary-actions #publicSalaryButton,
-.public-primary-actions #intranetButton,
-.public-primary-actions #publicRosterButton,
-.public-primary-actions #publicPortalQuickActions button {
+/* Altijd twee weerkaarten naast elkaar. */
+body.public-portal-mode .public-weather-bars {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: var(--adaptive-gap) !important;
+}
+
+body.public-portal-mode .public-weather-card {
+  min-width: 0 !important;
+  padding: clamp(9px, .9vw, 14px) !important;
+  gap: clamp(7px, .8vw, 12px) !important;
+}
+
+body.public-portal-mode .public-weather-summary,
+body.public-portal-mode .public-weather-copy,
+body.public-portal-mode .public-weather-details,
+body.public-portal-mode .public-weather-detail {
+  min-width: 0 !important;
+}
+
+body.public-portal-mode .public-weather-temperature {
+  font-size: clamp(18px, 2vw, 25px) !important;
+}
+
+body.public-portal-mode .public-weather-condition,
+body.public-portal-mode .public-weather-location {
+  font-size: clamp(10px, 1vw, 13px) !important;
+}
+
+body.public-portal-mode .public-weather-icon,
+body.public-portal-mode .public-weather-icon img {
+  width: clamp(34px, 3.5vw, 52px) !important;
+  height: clamp(34px, 3.5vw, 52px) !important;
+}
+
+/* Altijd drie hoofdkolommen naast elkaar: salaris, intranet en de
+   Rooster/WFM/Mijn-profiel kolom. */
+body.public-portal-mode .public-primary-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: var(--adaptive-gap) !important;
+}
+
+body.public-portal-mode .public-primary-actions > * {
+  min-width: 0 !important;
+}
+
+body.public-portal-mode #publicPortalQuickActions {
+  min-width: 0 !important;
+  width: 100% !important;
+}
+
+body.public-portal-mode .public-primary-actions #publicSalaryButton,
+body.public-portal-mode .public-primary-actions #intranetButton,
+body.public-portal-mode .public-primary-actions #publicRosterButton,
+body.public-portal-mode .public-primary-actions #publicPortalQuickActions button {
+  width: 100% !important;
+  height: auto !important;
   min-height: var(--adaptive-control-height) !important;
+  padding: clamp(9px, 1vw, 14px) clamp(9px, 1.2vw, 18px) !important;
+}
+
+body.public-portal-mode .public-roster-button-copy strong,
+body.public-portal-mode .public-primary-actions button strong {
+  font-size: clamp(11px, 1.05vw, 17px) !important;
+}
+
+body.public-portal-mode .public-roster-button-copy small,
+body.public-portal-mode .public-primary-actions button small {
+  font-size: clamp(9px, .82vw, 12.5px) !important;
+}
+
+body.public-portal-mode .public-roster-button-icon {
+  width: clamp(28px, 2.5vw, 38px) !important;
+  height: clamp(28px, 2.5vw, 38px) !important;
+  font-size: clamp(14px, 1.3vw, 19px) !important;
+}
+
+/* Externe websites blijven rustig gecentreerd. */
+body.public-portal-mode .external-sites-card {
+  width: min(
+    820px,
+    calc(100vw - var(--adaptive-side-space) - var(--adaptive-side-space))
+  ) !important;
+  max-width: calc(100% - 2px) !important;
+}
+
+body.public-portal-mode .external-sites-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: clamp(7px, .8vw, 10px) !important;
+}
+
+body.public-portal-mode .external-site-link,
+body.public-portal-mode .external-site-dropdown-trigger {
+  min-height: clamp(58px, 5vw, 82px) !important;
   height: auto !important;
-  padding: clamp(11px, 1.15vw, 14px) clamp(13px, 1.4vw, 18px) !important;
-  border-radius: var(--adaptive-control-radius);
+  padding: clamp(9px, .9vw, 13px) clamp(9px, 1vw, 15px) !important;
 }
 
-.public-roster-button-copy strong,
-.public-primary-actions button strong {
-  font-size: clamp(14px, 1.15vw, 17px);
-}
-
-.public-roster-button-copy small,
-.public-primary-actions button small {
-  font-size: clamp(11px, .9vw, 12.5px);
-}
-
-.public-roster-button-icon {
-  width: clamp(32px, 2.6vw, 38px);
-  height: clamp(32px, 2.6vw, 38px);
-  font-size: clamp(16px, 1.35vw, 19px);
-}
-
-#publicPortalQuickActions {
-  min-width: 0;
-}
-
-/* Websiteknoppen schalen op dezelfde manier: 2 kolommen wanneer het past,
-   vanzelf 1 kolom wanneer het venster smaller wordt. */
-.external-sites-card {
-  width: min(820px, 100%) !important;
-}
-
-.external-sites-grid {
-  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)) !important;
-  gap: clamp(8px, 1vw, 10px) !important;
-}
-
-.external-site-link,
-.external-site-dropdown-trigger {
-  min-height: clamp(68px, 6vw, 82px) !important;
-  height: auto !important;
-  padding: clamp(10px, 1vw, 13px) clamp(11px, 1.2vw, 15px) !important;
-}
-
-.external-site-link strong {
-  font-size: clamp(13px, 1vw, 15px);
-}
-
-.external-site-meta,
-.external-site-warning {
-  font-size: clamp(11px, .85vw, 12.5px);
-}
-
-/* Weerkaarten en profielvelden gebruiken eveneens een automatisch raster. */
-.public-weather-bars,
-.colleague-profile-grid {
-  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)) !important;
-  gap: var(--adaptive-gap) !important;
-}
-
-.public-weather-card,
-.colleague-profile-card,
-.unlock-card {
-  max-width: 100%;
-}
-
-.vacation-leave-fields {
-  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)) !important;
-}
-
-/* De klok blijft centraal maar krimpt vloeiend met het venster. Zo blijft er
-   zolang mogelijk ruimte over voor de weerillustraties links en rechts. */
+/* Brede klok blijft altijd in het midden en laat links/rechts bewust ruimte
+   vrij voor de twee grote weerillustraties. */
 body.public-portal-mode #startHeaderClock.start-digital-clock {
-  width: min(760px, max(360px, calc(100vw - 320px))) !important;
-  max-width: calc(100% - 24px) !important;
-  min-height: clamp(108px, 10vw, 154px) !important;
-  padding: clamp(12px, 1.4vw, 18px) clamp(12px, 1.9vw, 24px) !important;
-  gap: clamp(8px, 1.2vw, 18px) !important;
+  width: clamp(220px, 58vw, 900px) !important;
+  max-width: calc(100vw - 44px) !important;
+  min-height: clamp(96px, 9vw, 154px) !important;
+  padding: clamp(10px, 1.2vw, 18px) clamp(10px, 1.6vw, 24px) !important;
+  gap: clamp(6px, 1vw, 18px) !important;
 }
 
-/* Dialogen/popups blijven altijd binnen de actuele viewport. */
+/* Alle vijf bedieningsknoppen blijven los van elkaar in dezelfde rechterkolom. */
+body.public-portal-mode .theme-toggle {
+  right: var(--adaptive-page-pad) !important;
+  width: var(--adaptive-control-rail) !important;
+  min-width: 0 !important;
+  padding: clamp(7px, .8vw, 9px) clamp(8px, 1vw, 13px) !important;
+  font-size: clamp(10px, .9vw, 13px) !important;
+  white-space: normal !important;
+}
+
+body.public-portal-mode .background-brightness-shell {
+  right: var(--adaptive-page-pad) !important;
+  width: var(--adaptive-control-rail) !important;
+  align-items: stretch !important;
+}
+
+body.public-portal-mode .background-brightness-shell > *,
+body.public-portal-mode .background-brightness-shell button,
+body.public-portal-mode .background-brightness-shell .theme-side-buttons,
+body.public-portal-mode .background-brightness-shell .brightness-effects-wrap,
+body.public-portal-mode .background-brightness-shell .weather-effects-wrap {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+body.public-portal-mode .background-brightness-shell button,
+body.public-portal-mode .theme-side-buttons .theme-customizer-button {
+  min-height: clamp(34px, 3vw, 40px) !important;
+  padding: clamp(7px, .75vw, 9px) clamp(7px, .85vw, 13px) !important;
+  font-size: clamp(9px, .9vw, 13px) !important;
+  line-height: 1.15 !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+}
+
+/* Bij compactere vensters blijft de kaart zelf naast zijn buur staan; alleen de
+   inhoud van iedere weerkaart wordt slimmer verdeeld. */
+@media (max-width: 1100px) {
+  body.public-portal-mode .public-weather-card {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    align-content: start;
+  }
+
+  body.public-portal-mode .public-weather-summary {
+    grid-column: 1;
+  }
+
+  body.public-portal-mode .public-weather-edit {
+    grid-column: 2;
+  }
+
+  body.public-portal-mode .public-weather-details,
+  body.public-portal-mode .public-weather-note {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+/* Op heel smalle vensters staan de losse bedieningsknoppen boven de inhoud.
+   De twee weerkaarten en drie hoofdkolommen blijven ook hier naast elkaar. */
+@media (max-width: 700px) {
+  :root {
+    --adaptive-side-space: 8px;
+    --adaptive-control-rail: clamp(112px, 34vw, 142px);
+  }
+
+  body.public-portal-mode #app {
+    padding-top: 300px !important;
+  }
+
+  body.public-portal-mode .theme-toggle {
+    top: 8px !important;
+  }
+
+  body.public-portal-mode .background-brightness-shell {
+    top: 50px !important;
+  }
+
+  body.public-portal-mode .public-weather-bars,
+  body.public-portal-mode .public-primary-actions,
+  body.public-portal-mode .external-sites-card {
+    width: calc(100vw - 16px) !important;
+  }
+
+  body.public-portal-mode .public-weather-card {
+    padding: 7px !important;
+    gap: 6px !important;
+  }
+
+  body.public-portal-mode .public-weather-details {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 4px !important;
+  }
+
+  body.public-portal-mode .public-weather-detail {
+    padding: 4px 5px !important;
+  }
+
+  body.public-portal-mode .public-weather-detail span {
+    font-size: 8px !important;
+  }
+
+  body.public-portal-mode .public-weather-detail strong {
+    font-size: 9px !important;
+  }
+}
+
 .overlay,
 .colleague-profile-overlay {
   padding-top: max(12px, env(safe-area-inset-top));
@@ -148,66 +280,4 @@ body.public-portal-mode #startHeaderClock.start-digital-clock {
 .unlock-card {
   max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   overflow: auto;
-}
-
-/* Vanaf een echt smal venster krijgen detailblokken één rustige kolom. */
-@media (max-width: 700px) {
-  .public-weather-card {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .public-weather-details,
-  .public-weather-note {
-    grid-column: 1 / -1;
-  }
-
-  .search-row,
-  .today-worker-row,
-  .schedule-head,
-  .activity,
-  .public-weather-details {
-    grid-template-columns: 1fr;
-  }
-
-  .today-worker-time,
-  .schedule-time,
-  .activity-time {
-    justify-self: start;
-  }
-
-  body.public-portal-mode #startHeaderClock.start-digital-clock {
-    width: min(520px, calc(100% - 20px)) !important;
-  }
-}
-
-@media (max-width: 560px) {
-  body {
-    background-attachment: scroll;
-  }
-
-  body.public-portal-mode #app,
-  #app {
-    padding-right: max(8px, env(safe-area-inset-right));
-    padding-left: max(8px, env(safe-area-inset-left));
-  }
-
-  .search-row button,
-  .today-workers-action button,
-  .roster-tools button,
-  .colleague-profile-actions button {
-    width: 100%;
-  }
-
-  .colleague-profile-actions {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 9px;
-  }
-
-  input,
-  select,
-  textarea,
-  button {
-    font-size: 16px;
-  }
 }

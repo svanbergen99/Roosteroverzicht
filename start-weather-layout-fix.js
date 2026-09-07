@@ -5,7 +5,7 @@
   const BODY_LOGIN_CLASS = "roster-login-active";
   const BODY_NO_ROOM_CLASS = "weather-scene-no-room";
   const GAP = 12;
-  const MIN_SIZE = 140;
+  const MIN_SIZE = 18;
   const WEATHER_TOP_OFFSET = 180;
   const HEADER_CLOCK_ID = "startHeaderClock";
   let normalizingScene = false;
@@ -175,9 +175,8 @@
     }
     if (noRoom) return;
 
-    // Gebruik de centrale klok als stabiel middenanker. Daardoor blijven de
-    // weerscènes op normale browserzoom zichtbaar, ook wanneer andere kaarten
-    // op de startpagina bijna de volledige breedte gebruiken.
+    // De centrale klok blijft het middenanker. De minimale zijruimte is bewust
+    // klein zodat beide grote weerillustraties ook in compacte vensters blijven.
     scene.style.left = "0px";
     scene.style.top = `${Math.max(0, Math.round(window.scrollY + anchorRect.top - WEATHER_TOP_OFFSET))}px`;
     scene.style.width = `${viewportWidth}px`;
