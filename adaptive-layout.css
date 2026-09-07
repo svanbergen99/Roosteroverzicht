@@ -1,9 +1,7 @@
-/* Adaptieve pagina-indeling: reageert uitsluitend op beschikbare vensterruimte. */
-html {
-  min-width: 0;
-  overflow-x: clip;
-}
-
+/* Responsieve vangnetten zonder de rustige desktopindeling te verbreden.
+   Desktop blijft gecentreerd zoals ontworpen; alleen bij echt smallere vensters
+   worden onderdelen netjes onder elkaar gezet. */
+html,
 body {
   min-width: 0;
   overflow-x: clip;
@@ -27,64 +25,6 @@ canvas {
   min-width: 0;
 }
 
-body.public-portal-mode #app {
-  padding-top: clamp(20px, 4vh, 52px);
-  padding-right: clamp(10px, 2.2vw, 28px);
-  padding-bottom: max(clamp(24px, 4vh, 52px), env(safe-area-inset-bottom));
-  padding-left: clamp(10px, 2.2vw, 28px);
-}
-
-.public-primary-actions,
-.public-weather-bars,
-body.public-portal-mode .external-sites-card {
-  width: min(1180px, 100%);
-}
-
-.public-primary-actions {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(12px, 1.5vw, 18px);
-}
-
-#publicPortalQuickActions {
-  min-width: 0;
-}
-
-body.public-portal-mode .external-sites-grid {
-  grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
-  gap: clamp(9px, 1vw, 13px);
-}
-
-body.public-portal-mode .external-sites-groups {
-  gap: clamp(14px, 1.8vw, 20px);
-}
-
-body.public-portal-mode .external-sites-head h1 {
-  font-size: clamp(24px, 2.2vw, 30px);
-}
-
-.public-weather-bars {
-  grid-template-columns: repeat(auto-fit, minmax(min(430px, 100%), 1fr));
-  gap: clamp(10px, 1.2vw, 14px);
-}
-
-.public-weather-card {
-  min-width: 0;
-}
-
-.search-card {
-  width: min(960px, 100%);
-}
-
-.search-row,
-.today-worker-row,
-.schedule-head,
-.activity,
-.public-weather-card,
-.public-weather-details,
-.vacation-leave-fields {
-  min-width: 0;
-}
-
 .overlay,
 .colleague-profile-overlay {
   padding-top: max(12px, env(safe-area-inset-top));
@@ -94,59 +34,31 @@ body.public-portal-mode .external-sites-head h1 {
 }
 
 .colleague-profile-card,
-.unlock-card,
-.welcome-card {
-  max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-}
-
-.colleague-profile-card,
 .unlock-card {
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   overflow: auto;
 }
 
-/* Half scherm, compacte laptopvensters en staande tablets. */
+/* Half scherm / compacte laptop: inhoud blijft gecentreerd en overzichtelijk. */
 @media (max-width: 980px) {
   .public-primary-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   #publicPortalQuickActions {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-  }
-
-  #publicPortalQuickActions > * {
     min-width: 0;
-    margin-top: 0 !important;
   }
 
   .vacation-leave-fields {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
-  .public-weather-card {
-    grid-template-columns: minmax(150px, .9fr) minmax(0, 1.35fr) auto;
-  }
 }
 
-/* Staand scherm of smaller browservenster. */
-@media (max-width: 760px), (orientation: portrait) and (max-width: 1100px) {
-  body.public-portal-mode #app {
-    padding-top: clamp(16px, 3vh, 28px);
-  }
-
-  .public-primary-actions {
-    grid-template-columns: 1fr;
-  }
-
-  #publicPortalQuickActions {
-    grid-column: auto;
-    grid-template-columns: 1fr;
-  }
-
-  .public-weather-bars {
+/* Smal of staand venster: één duidelijke kolom. */
+@media (max-width: 760px) {
+  .public-primary-actions,
+  .public-weather-bars,
+  .colleague-profile-grid {
     grid-template-columns: 1fr;
   }
 
@@ -158,23 +70,9 @@ body.public-portal-mode .external-sites-head h1 {
   .public-weather-note {
     grid-column: 1 / -1;
   }
-
-  body.public-portal-mode .external-sites-grid {
-    grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
-  }
-
-  .external-sites-head,
-  .today-workers-head,
-  .employee-head {
-    align-items: stretch;
-  }
-
-  .colleague-profile-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
-/* Mobiel en zeer smalle vensters. */
+/* Mobiel: compact, maar zonder de pagina visueel op te blazen. */
 @media (max-width: 560px) {
   body {
     background-attachment: scroll;
@@ -186,46 +84,19 @@ body.public-portal-mode .external-sites-head h1 {
     padding-left: max(8px, env(safe-area-inset-left));
   }
 
-  .search-card,
-  .external-sites-card,
-  .colleague-profile-card,
-  .unlock-card,
-  .welcome-card {
-    border-radius: 16px;
-  }
-
-  .search-card,
-  .search-card.has-roster,
-  .colleague-profile-card,
-  .unlock-card {
-    padding: 18px;
-  }
-
-  body.public-portal-mode .external-sites-grid,
+  .search-row,
+  .today-worker-row,
+  .schedule-head,
+  .activity,
   .vacation-leave-fields,
   .public-weather-details {
     grid-template-columns: 1fr;
   }
 
-  .public-weather-card {
-    padding: 11px;
-  }
-
-  .public-weather-summary {
-    align-items: flex-start;
-  }
-
-  .public-weather-mainline {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-  }
-
-  .search-row,
-  .today-worker-row,
-  .schedule-head,
-  .activity {
-    grid-template-columns: 1fr;
+  .today-worker-time,
+  .schedule-time,
+  .activity-time {
+    justify-self: start;
   }
 
   .search-row button,
@@ -235,14 +106,6 @@ body.public-portal-mode .external-sites-head h1 {
     width: 100%;
   }
 
-  .today-worker-time,
-  .schedule-time,
-  .activity-time {
-    justify-self: start;
-  }
-
-  .today-workers-action,
-  .roster-tools,
   .colleague-profile-actions {
     display: grid;
     grid-template-columns: 1fr;
@@ -254,43 +117,5 @@ body.public-portal-mode .external-sites-head h1 {
   textarea,
   button {
     font-size: 16px;
-  }
-
-  .background-brightness-shell {
-    right: max(8px, env(safe-area-inset-right));
-    max-width: calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right));
-  }
-}
-
-/* Brede maar lage vensters, bijvoorbeeld browser halfhoog of liggend mobiel/tablet. */
-@media (max-height: 700px) and (min-width: 700px) {
-  body.public-portal-mode #app {
-    padding-top: 16px;
-    padding-bottom: 22px;
-  }
-
-  .start-weather-scene-large {
-    display: none !important;
-  }
-
-  .overlay,
-  .colleague-profile-overlay {
-    place-items: start center;
-    overflow-y: auto;
-  }
-
-  .welcome-card {
-    min-height: 240px;
-  }
-}
-
-/* Extra brede desktopvensters houden de inhoud leesbaar maar benutten de ruimte beter. */
-@media (min-width: 1500px) and (min-height: 760px) {
-  body.public-portal-mode #app {
-    padding-top: 52px;
-  }
-
-  body.public-portal-mode .external-sites-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
