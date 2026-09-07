@@ -7,6 +7,7 @@
   const SECTION_ID = "videoLibraryPlayerSection";
   const STYLE_ID = "videoIframeTestStyle";
   const PLAYER_PAGE = "video-iframe-player.html";
+  const CLOCK_ID = "startHeaderClock";
 
   let section = null;
   let frame = null;
@@ -40,17 +41,28 @@
     const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = `
+      #${SECTION_ID}.video-library-iframe-test {
+        width: min(760px, calc(100% - 24px));
+        margin: 0 auto 24px;
+        padding: 12px;
+      }
       #${SECTION_ID}.video-library-iframe-test > iframe.video-library-player {
         width: 100%;
-        height: min(66vw, 70vh);
-        min-height: 320px;
+        height: auto;
+        min-height: 0;
+        aspect-ratio: 16 / 9;
         border: 0;
+        border-radius: 12px;
         background: #000;
       }
+      #${SECTION_ID}.video-library-iframe-test .video-library-fullscreen-effects {
+        display: none !important;
+      }
       @media (max-width: 620px) {
-        #${SECTION_ID}.video-library-iframe-test > iframe.video-library-player {
-          min-height: 220px;
-          height: 56vw;
+        #${SECTION_ID}.video-library-iframe-test {
+          width: 100%;
+          margin-bottom: 18px;
+          padding: 9px;
         }
       }
     `;
@@ -64,8 +76,31 @@
     button?.setAttribute("aria-expanded", "false");
   }
 
+  function placeSection() {
+    if (!section?.isConnected) return;
+    const app = document.getElementById("app");
+    if (!app) return;
+
+    const clock = document.getElementById(CLOCK_ID);
+    if (clock?.parentElement === app) {
+      if (clock.nextElementSibling !== section) clock.after(section);
+      return;
+    }
+
+    const primary = document.getElementById("publicPrimaryActions");
+    if (primary?.parentElement === app) {
+      if (primary.nextElementSibling !== section) primary.after(section);
+      return;
+    }
+
+    if (section.parentElement !== app) app.prepend(section);
+  }
+
   function ensureSection() {
-    if (section?.isConnected) return section;
+    if (section?.isConnected) {
+      placeSection();
+      return section;
+    }
 
     const existing = document.getElementById(SECTION_ID);
     if (existing) existing.remove();
@@ -81,20 +116,18 @@
     section.innerHTML = `
       <div class="video-library-player-head">
         <div class="video-library-player-title-wrap">
-          <span>Video · iframe test</span>
+          <span>Video</span>
           <strong id="videoLibraryTitle">Video</strong>
         </div>
         <button class="video-library-close" type="button" data-video-close aria-label="Video sluiten">×</button>
       </div>
       <iframe class="video-library-player"
-              title="MP4 iframe-player"
-              allow="autoplay; fullscreen; picture-in-picture"
-              allowfullscreen
+              title="Video"
+              allow="autoplay; picture-in-picture"
               referrerpolicy="same-origin"></iframe>`;
 
-    const primary = document.getElementById("publicPrimaryActions");
-    if (primary?.parentElement === app) primary.after(section);
-    else app.prepend(section);
+    app.appendChild(section);
+    placeSection();
 
     frame = section.querySelector("iframe.video-library-player");
     title = section.querySelector("#videoLibraryTitle");
@@ -134,16 +167,15 @@
 
     frame.src = playerUrl.href;
     target.hidden = false;
+    placeSection();
 
     requestAnimationFrame(() => {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-      try { window.RoosterVideoEffectFullscreen?.enter?.(); } catch (_) {}
+      target.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
   }
 
   function closeVideo() {
     if (!section || !frame) return;
-    try { window.RoosterVideoEffectFullscreen?.exit?.(); } catch (_) {}
     frame.src = "about:blank";
     section.hidden = true;
     currentPath = "";
@@ -167,7 +199,6 @@
 
     if (data.event === "play") {
       startLinkedEffects(String(data.source || mediaUrl(currentPath)));
-      try { window.RoosterVideoEffectFullscreen?.enter?.(); } catch (_) {}
       return;
     }
 

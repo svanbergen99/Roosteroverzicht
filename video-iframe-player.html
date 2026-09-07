@@ -8,11 +8,12 @@
     html,body{width:100%;height:100%;margin:0;background:#000;overflow:hidden}
     body{display:grid;place-items:center}
     video{display:block;width:100%;height:100%;object-fit:contain;background:#000}
+    video::-webkit-media-controls-fullscreen-button{display:none!important}
     .error{box-sizing:border-box;width:min(720px,calc(100% - 32px));padding:18px;border:1px solid #5b2222;border-radius:12px;background:#241010;color:#fff;font:600 14px/1.45 "Segoe UI",Arial,sans-serif}
   </style>
 </head>
 <body>
-  <video id="player" controls autoplay playsinline preload="auto"></video>
+  <video id="player" controls controlslist="nofullscreen" autoplay playsinline preload="auto"></video>
   <script>
   (() => {
     "use strict";
@@ -20,6 +21,12 @@
     const player = document.getElementById("player");
     const params = new URLSearchParams(location.search);
     const rawSource = params.get("src") || "";
+
+    try { player.controlsList?.add?.("nofullscreen"); } catch (_) {}
+    player.addEventListener("dblclick", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
 
     function notify(eventName, extra = {}) {
       try {
