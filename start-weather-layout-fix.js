@@ -5,7 +5,7 @@
   const BODY_LOGIN_CLASS = "roster-login-active";
   const BODY_NO_ROOM_CLASS = "weather-scene-no-room";
   const GAP = 12;
-  const MIN_SIZE = 220;
+  const MIN_SIZE = 140;
   const WEATHER_TOP_OFFSET = 180;
   const HEADER_CLOCK_ID = "startHeaderClock";
   let normalizingScene = false;
@@ -141,14 +141,14 @@
   }
 
   function weatherAnchor() {
-    const externalSites = document.getElementById("externalSitesSection");
-    if (visibleAnchor(externalSites)) return externalSites;
-
     const clock = document.getElementById(HEADER_CLOCK_ID);
     if (visibleAnchor(clock)) return clock;
 
     const primaryActions = document.getElementById("publicPrimaryActions");
     if (visibleAnchor(primaryActions)) return primaryActions;
+
+    const externalSites = document.getElementById("externalSitesSection");
+    if (visibleAnchor(externalSites)) return externalSites;
     return null;
   }
 
@@ -175,9 +175,9 @@
     }
     if (noRoom) return;
 
-    // De weerscènes volgen bij voorkeur Externe Websites. Als die kaart nog
-    // wordt opgebouwd, gebruiken we de klok als stabiel middenanker zodat
-    // de weerscènes aan de zijkanten niet verdwijnen.
+    // Gebruik de centrale klok als stabiel middenanker. Daardoor blijven de
+    // weerscènes op normale browserzoom zichtbaar, ook wanneer andere kaarten
+    // op de startpagina bijna de volledige breedte gebruiken.
     scene.style.left = "0px";
     scene.style.top = `${Math.max(0, Math.round(window.scrollY + anchorRect.top - WEATHER_TOP_OFFSET))}px`;
     scene.style.width = `${viewportWidth}px`;
