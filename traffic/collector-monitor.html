@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>Traffic Collector Monitor</title>
+  <link rel="stylesheet" href="collector-monitor.css?v=1">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">TRAFFIC MAP · LIVE TEST</div>
+        <h1>Traffic Collector Monitor</h1>
+        <p>Hier zie je wat de Collector werkelijk verzamelt, verstuurt en als ontvangstbevestiging terugkrijgt.</p>
+      </div>
+      <div class="connection" id="extensionConnection" data-state="waiting">
+        <span class="dot"></span>
+        <span id="extensionConnectionText">Extensie zoeken…</span>
+      </div>
+    </header>
+
+    <section class="flow" aria-label="Collector flow">
+      <article class="flow-card" id="flowSource" data-state="waiting">
+        <span class="step-number">1</span>
+        <div class="flow-copy">
+          <small>BRON</small>
+          <strong>Kibana Traffic</strong>
+          <span id="sourceFlowText">Wachten op verbinding</span>
+        </div>
+      </article>
+      <div class="arrow">→</div>
+      <article class="flow-card" id="flowCollect" data-state="waiting">
+        <span class="step-number">2</span>
+        <div class="flow-copy">
+          <small>VERZAMELEN</small>
+          <strong>Echte snapshot</strong>
+          <span id="collectFlowText">Nog niets verzameld</span>
+        </div>
+      </article>
+      <div class="arrow">→</div>
+      <article class="flow-card" id="flowReceiver" data-state="waiting">
+        <span class="step-number">3</span>
+        <div class="flow-copy">
+          <small>ONTVANGER</small>
+          <strong class="receiver-url">KCD Chat Box <em id="fakeUrlTag">(Fake)</em></strong>
+          <span id="receiverFlowText">Wachten op verzending</span>
+        </div>
+      </article>
+      <div class="arrow">→</div>
+      <article class="flow-card" id="flowAck" data-state="waiting">
+        <span class="step-number">4</span>
+        <div class="flow-copy">
+          <small>ACK</small>
+          <strong>received ✓</strong>
+          <span id="ackFlowText">Nog geen ACK</span>
+        </div>
+      </article>
+    </section>
+
+    <section class="status-grid">
+      <article class="status-card">
+        <span>Collector</span>
+        <strong id="collectorState">Idle</strong>
+        <small id="collectorStarted">Nog niet gestart</small>
+      </article>
+      <article class="status-card">
+        <span>Bron</span>
+        <strong id="sourceState">Niet verbonden</strong>
+        <small id="sourceTime">—</small>
+      </article>
+      <article class="status-card">
+        <span>Laatste snapshot</span>
+        <strong id="snapshotRows">0 regels</strong>
+        <small id="snapshotTime">—</small>
+      </article>
+      <article class="status-card receiver-card">
+        <span>Werkelijke ontvanger</span>
+        <strong id="actualReceiver">Nog geen</strong>
+        <small id="deliveryTime">—</small>
+      </article>
+    </section>
+
+    <section class="layout-two">
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <div class="eyebrow">VERZAMELD</div>
+            <h2>Traffic onderdelen</h2>
+          </div>
+          <span class="badge" id="snapshotBadge">Geen snapshot</span>
+        </div>
+        <div class="collection-list">
+          <div><span>Telefonie</span><strong id="countTelefonie">0</strong></div>
+          <div><span>Web Messaging · nu</span><strong id="countWebMessaging">0</strong></div>
+          <div><span>Web Messaging · vandaag</span><strong id="countWebMessagingVandaag">0</strong></div>
+          <div><span>Queue Status</span><strong id="countQueueStatus">0</strong></div>
+          <div><span>E-mail</span><strong id="countEmail">0</strong></div>
+        </div>
+        <div class="snapshot-meta">
+          <span>Header</span>
+          <strong id="trafficHeader">—</strong>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <div class="eyebrow">TRANSPORT</div>
+            <h2>Chat Box route</h2>
+          </div>
+        </div>
+        <div class="route-box">
+          <div class="route-label">Wat de Collector gebruikt</div>
+          <code>https://kcd-chat-production.up.railway.app/</code>
+          <div class="route-label monitor-label">Wat jij in deze test ziet</div>
+          <div class="fake-link">
+            <code>https://kcd-chat-production.up.railway.app/</code>
+            <span>(Fake)</span>
+          </div>
+          <p>De grijze <b>(Fake)</b> is alleen monitorinformatie. De Collector krijgt geen fake/test-vlag terug; hij ontvangt alleen de normale <code>received</code>-ACK.</p>
+        </div>
+        <div class="route-statuses">
+          <div><span>Echte Chat Box ingesteld</span><strong id="chatBoxConfigured">Nee</strong></div>
+          <div><span>Echte route geprobeerd</span><strong id="chatBoxAttempted">Nee</strong></div>
+          <div><span>Fake storing gebruikt</span><strong id="fakeFallbackUsed">Nee</strong></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="layout-two lower">
+      <article class="panel timeline-panel">
+        <div class="panel-head">
+          <div>
+            <div class="eyebrow">LIVE LOG</div>
+            <h2>Wat de Collector doet</h2>
+          </div>
+          <button id="refreshButton" type="button">Ververs status</button>
+        </div>
+        <div class="timeline" id="timeline">
+          <div class="empty">Wachten op Collector-events…</div>
+        </div>
+      </article>
+
+      <article class="panel raw-panel">
+        <div class="panel-head">
+          <div>
+            <div class="eyebrow">RUWE DATA</div>
+            <h2>Laatste snapshot</h2>
+          </div>
+          <button id="copyRawButton" type="button">Kopieer JSON</button>
+        </div>
+        <pre id="rawSnapshot">Nog geen snapshot ontvangen.</pre>
+      </article>
+    </section>
+
+    <footer>
+      Deze monitor leest alleen lokale Collector-status via de Edge-extensie. Zonder extensie of snapshot staat hier geen Traffic-data.
+    </footer>
+  </main>
+
+  <script src="collector-monitor.js?v=1"></script>
+</body>
+</html>
