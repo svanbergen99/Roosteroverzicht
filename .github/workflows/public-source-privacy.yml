@@ -30,6 +30,7 @@ jobs:
               Path('Roosterindex_September_2026.json'),
               Path('Roosterindex_Oktober_2026.json'),
               Path('traffic-access.json'),
+              Path('colleague-profiles-secure.json'),
           }
           findings = []
 
@@ -50,6 +51,7 @@ jobs:
               'cdn.jsdelivr.net',
               'geocoding-api.open-meteo.com',
               'api.open-meteo.com',
+              'roosteroverzicht-rooster-bridge-production.up.railway.app',
               'localhost',
               '127.0.0.1',
               'example.invalid',

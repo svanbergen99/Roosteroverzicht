@@ -99,4 +99,5 @@ await import("./team-api.js");
 await import("./team-session-api.js");
 await import("./identity-api.js");
 await import("./personal-api.js");
+await import("./colleague-profile-api.js");
 await import("./server.js");
