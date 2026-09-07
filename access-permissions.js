@@ -101,12 +101,17 @@
   async function createPersonalScanJob(bindingId) {
     const id = String(bindingId || "").trim();
     if (!/^[A-Za-z0-9_-]{32,160}$/.test(id)) throw new Error("Deze browser is nog niet aan WFM gekoppeld.");
-    if (!activeTeam || !activePassword) throw new Error("Ontgrendel het rooster eerst opnieuw met Team-ID en Team Wachtwoord.");
+
+    const body = { bindingId: id };
+    if (activeTeam && activePassword) {
+      body.team = activeTeam;
+      body.password = activePassword;
+    }
 
     const response = await fetch(`${RAILWAY_API}/api/personal-roster/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bindingId: id, team: activeTeam, password: activePassword }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(30000)
     });
     const data = await response.json().catch(() => null);
