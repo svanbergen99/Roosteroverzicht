@@ -12,6 +12,7 @@
   let scannerBookmarklet = "";
   let scannerLabel = "WFM Rooster Scanner";
   let pendingPersonalJob = null;
+  let freshViewPromise = null;
 
   function loginUrl() {
     return String(window.RoosterPrivateConfig?.wfm?.loginUrl || "").trim();
@@ -20,6 +21,26 @@
   function browserBindingId() {
     try { return localStorage.getItem(BINDING_KEY) || ""; }
     catch (_) { return ""; }
+  }
+
+  function ensureFreshView() {
+    if (window.RoosterFreshPersonalView) return Promise.resolve(window.RoosterFreshPersonalView);
+    if (freshViewPromise) return freshViewPromise;
+    freshViewPromise = new Promise((resolve, reject) => {
+      const existing = [...document.querySelectorAll("script[src]")].find(script => /fresh-personal-view\.js/i.test(script.src));
+      if (existing) {
+        existing.addEventListener("load", () => resolve(window.RoosterFreshPersonalView), { once: true });
+        existing.addEventListener("error", () => reject(new Error("De verse persoonlijke roosterweergave kon niet worden geladen.")), { once: true });
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = `fresh-personal-view.js?v=20260907-1-${Date.now()}`;
+      script.async = false;
+      script.addEventListener("load", () => resolve(window.RoosterFreshPersonalView), { once: true });
+      script.addEventListener("error", () => reject(new Error("De verse persoonlijke roosterweergave kon niet worden geladen.")), { once: true });
+      document.body.appendChild(script);
+    }).finally(() => { freshViewPromise = null; });
+    return freshViewPromise;
   }
 
   function popupFeatures(width = 560, height = 720) {
@@ -314,14 +335,19 @@
     if (data.type === "rooster-personal-scan-complete") {
       pendingPersonalJob = null;
       renderProgress({ open:"done", login:"done", schedule:"done", scan:"done", railway:"done", repo:"done", done:"done" }, data.storedAt || new Date().toISOString());
-      window.dispatchEvent(new CustomEvent("rooster-personal-fresh-ready", { detail: data }));
-      setTimeout(() => {
+      setTimeout(async () => {
         closePersonalStatus();
-        const continueButton = document.getElementById("continueButton");
-        if (continueButton) continueButton.click();
-      }, 1800);
+        try {
+          await ensureFreshView();
+          window.dispatchEvent(new CustomEvent("rooster-personal-fresh-ready", { detail: data }));
+        } catch (error) {
+          showPersonalStatus("Verse scan is opgeslagen", error?.message || "De verse persoonlijke roosterweergave kon niet worden geopend.", "error");
+        }
+      }, 1400);
     }
   });
+
+  ensureFreshView().catch(() => {});
 
   window.addEventListener("rooster-private-config-ready", () => requestAnimationFrame(ensureScannerInstallButton));
   window.addEventListener("rooster-unlocked", () => requestAnimationFrame(ensureScannerInstallButton));
