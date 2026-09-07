@@ -1,17 +1,102 @@
 (() => {
   "use strict";
 
-  if (window.__roosterTrafficStandaloneLinkV6) return;
-  window.__roosterTrafficStandaloneLinkV6 = true;
+  if (window.__roosterTrafficStandaloneLinkV7) return;
+  window.__roosterTrafficStandaloneLinkV7 = true;
 
   const PAGE_SOURCE = "roosteroverzicht-traffic-page";
   const EXTENSION_SOURCE = "roosteroverzicht-traffic-extension";
   const COLLECTOR_WINDOW_NAMES = ["TrafficCollectorFinalV2", "TrafficCollectorFinalV1"];
   const LINK_HASH = "#traffic-collector-link";
   const RELAY_TIMEOUT_MS = 1800;
+  const GATEWAY_TIMEOUT_MS = 3200;
 
   // Bewaard voor herstel/reference, maar de oude standalone Railway/push-route is bewust 0.0 actief.
   const LEGACY_STANDALONE_RELAY_ENABLED = false;
+  let gatewayStartBusy = false;
+
+  function privateCollectorConfig() {
+    const traffic = window.RoosterPrivateConfig?.traffic;
+    const config = traffic?.collector;
+    if (!config || typeof config !== "object") return null;
+
+    const safe = {
+      kibanaOrigin: String(config.kibanaOrigin || "").trim(),
+      dashboardUrl: String(config.dashboardUrl || "").trim(),
+      space: String(config.space || "").trim(),
+      dashboardId: String(config.dashboardId || "").trim(),
+      dashboardVersion: Number(config.dashboardVersion) || 0,
+      trafficPanelId: String(config.trafficPanelId || "").trim(),
+      chatBoxUrl: String(config.chatBoxUrl || traffic?.chatBoxUrl || "").trim(),
+      // Alleen bewaren voor herstel/reference; de nieuwe collectorroute gebruikt dit veld niet.
+      pushUrl: String(config.pushUrl || "").trim()
+    };
+
+    return safe.kibanaOrigin && safe.dashboardUrl && safe.space && safe.dashboardId && safe.dashboardVersion && safe.trafficPanelId
+      ? safe
+      : null;
+  }
+
+  function startCollectorThroughGateway(button) {
+    if (gatewayStartBusy) return;
+    const config = privateCollectorConfig();
+    if (!config) {
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Test Traffic";
+      }
+      return;
+    }
+
+    gatewayStartBusy = true;
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Traffic starten…";
+    }
+
+    const requestId = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+    let settled = false;
+
+    const finish = (ok) => {
+      if (settled) return;
+      settled = true;
+      gatewayStartBusy = false;
+      window.removeEventListener("message", onResponse);
+      window.clearTimeout(timer);
+      if (!ok && button) {
+        button.disabled = false;
+        button.textContent = "Test Traffic";
+      }
+    };
+
+    const onResponse = (event) => {
+      if (event.source !== window || event.origin !== window.location.origin) return;
+      const message = event.data;
+      if (!message || message.source !== EXTENSION_SOURCE || message.type !== "collector-response" || message.requestId !== requestId) return;
+      finish(Boolean(message.ok));
+    };
+
+    const timer = window.setTimeout(() => finish(false), GATEWAY_TIMEOUT_MS);
+    window.addEventListener("message", onResponse);
+
+    // Nieuwe start: geen Railway-token, geen legacy push-endpoint. Alleen collectorconfig + ChatBox/Fake Box gateway.
+    window.postMessage({
+      source: PAGE_SOURCE,
+      type: "collector-start",
+      requestId,
+      token: "",
+      config
+    }, window.location.origin);
+  }
+
+  // Vang de expliciete Test Traffic-klik vóór traffic-live.js hem via de oude tokenroute kan afhandelen.
+  window.addEventListener("click", (event) => {
+    const button = event.target?.closest?.("#trafficCollectorTestButton");
+    if (!button) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    startCollectorThroughGateway(button);
+  }, true);
 
   function resolveTargetOrigin(config) {
     try {
