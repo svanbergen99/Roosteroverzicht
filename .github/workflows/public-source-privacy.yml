@@ -43,6 +43,7 @@ jobs:
               },
               Path('traffic-collector-extension/manifest.json'): {
                   'achmea-production-1-a3srealtime-eu-west-1-prod.kb.eu-west-1.aws.found.io',
+                  'roosteroverzicht-traffic-bridge-production.up.railway.app',
               },
               Path('bridge/handoff-proxy.js'): {
                   'achmea-production-1-a3srealtime-eu-west-1-prod.kb.eu-west-1.aws.found.io',
