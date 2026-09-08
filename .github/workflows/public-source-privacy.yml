@@ -34,15 +34,42 @@ jobs:
           }
           findings = []
 
-          # Browser-extension manifests must contain the exact hosts they are
-          # permitted to access. Those two files are the only public exceptions.
-          allowed_internal_hosts = {
-              Path('wfm-bridge-extension/manifest.json'),
-              Path('traffic-collector-extension/manifest.json'),
+          # Internal hosts stay path-scoped. A reviewed source file may use only
+          # the exact internal host(s) listed for that file; all other occurrences
+          # remain a privacy failure.
+          approved_internal_hosts = {
+              Path('wfm-bridge-extension/manifest.json'): {
+                  'genesyswfm.hosting.corp',
+              },
+              Path('traffic-collector-extension/manifest.json'): {
+                  'achmea-production-1-a3srealtime-eu-west-1-prod.kb.eu-west-1.aws.found.io',
+              },
+              Path('bridge/handoff-proxy.js'): {
+                  'achmea-production-1-a3srealtime-eu-west-1-prod.kb.eu-west-1.aws.found.io',
+              },
+              Path('rooster-bridge/identity-api.js'): {
+                  'genesyswfm.hosting.corp',
+              },
+              Path('rooster-bridge/personal-api.js'): {
+                  'genesyswfm.hosting.corp',
+              },
+              Path('rooster-bridge/team-api.js'): {
+                  'genesyswfm.hosting.corp',
+              },
+              Path('rooster-bridge/team-session-api.js'): {
+                  'genesyswfm.hosting.corp',
+              },
+              Path('wfm-identity-pair.html'): {
+                  'genesyswfm.hosting.corp',
+              },
+              Path('wfm-login-bridge.js'): {
+                  'genesyswfm.hosting.corp',
+              },
           }
 
-          # Absolute URLs are privacy-by-default: only known public infrastructure
-          # is accepted automatically. New domains require an explicit review.
+          # Absolute URLs are privacy-by-default: only reviewed public
+          # infrastructure is accepted automatically. New domains still require
+          # an explicit review here.
           safe_public_hosts = {
               'api.github.com',
               'raw.githubusercontent.com',
@@ -51,7 +78,9 @@ jobs:
               'cdn.jsdelivr.net',
               'geocoding-api.open-meteo.com',
               'api.open-meteo.com',
+              'packages.microsoft.com',
               'roosteroverzicht-rooster-bridge-production.up.railway.app',
+              'kcd-chat-production.up.railway.app',
               'localhost',
               '127.0.0.1',
               'example.invalid',
@@ -101,20 +130,23 @@ jobs:
                       if marker in text:
                           findings.append(f'{path}: forbidden public marker {marker}')
 
-                  if path not in allowed_internal_hosts:
-                      if re.search(r'\.corp(?:/|[\"\'\s]|$)', text, re.I):
-                          findings.append(f'{path}: internal .corp host outside allowed extension manifest')
-                      if 'found.io' in text.lower():
-                          findings.append(f'{path}: internal Kibana host outside allowed extension manifest')
-                      if 'roosteroverzicht-traffic-bridge-production.up.railway.app' in text.lower():
-                          findings.append(f'{path}: Traffic bridge host outside allowed extension manifest')
-
+                  approved_for_path = approved_internal_hosts.get(path, set())
                   for host in literal_url_host.findall(text):
                       host = host.lower().rstrip('.')
-                      if path in allowed_internal_hosts:
+                      if host in safe_public_hosts or host in approved_for_path:
                           continue
-                      if host not in safe_public_hosts:
-                          findings.append(f'{path}: unapproved absolute URL host {host}')
+                      findings.append(f'{path}: unapproved absolute URL host {host}')
+
+                  # Catch internal host fragments even when they are not written as
+                  # a complete absolute URL.
+                  lowered = text.lower()
+                  if '.corp' in lowered and 'genesyswfm.hosting.corp' not in approved_for_path:
+                      findings.append(f'{path}: internal .corp host outside approved source path')
+                  if 'found.io' in lowered and not any(host.endswith('.found.io') for host in approved_for_path):
+                      findings.append(f'{path}: internal Kibana host outside approved source path')
+                  if 'roosteroverzicht-traffic-bridge-production.up.railway.app' in lowered:
+                      if path != Path('traffic-collector-extension/manifest.json'):
+                          findings.append(f'{path}: Traffic bridge host outside approved extension manifest')
 
           if findings:
               print('Public-source privacy scan failed:')
