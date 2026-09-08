@@ -12,7 +12,7 @@
   "forwardPorts": [8787, 6080],
   "portsAttributes": {
     "8787": {
-      "label": "Traffic Bridge",
+      "label": "Traffic Bridge + Tab Handoff",
       "onAutoForward": "notify"
     },
     "6080": {
@@ -21,7 +21,7 @@
     }
   },
   "postCreateCommand": "bash -lc 'set -e; cd bridge && npm install; sudo apt-get update; sudo DEBIAN_FRONTEND=noninteractive apt-get install -y curl ca-certificates gnupg; sudo install -m 0755 -d /etc/apt/keyrings; curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor | sudo tee /etc/apt/keyrings/microsoft-edge.gpg >/dev/null; sudo chmod a+r /etc/apt/keyrings/microsoft-edge.gpg; echo \"deb [arch=amd64 signed-by=/etc/apt/keyrings/microsoft-edge.gpg] https://packages.microsoft.com/repos/edge stable main\" | sudo tee /etc/apt/sources.list.d/microsoft-edge-stable.list >/dev/null; sudo apt-get update; sudo DEBIAN_FRONTEND=noninteractive apt-get install -y microsoft-edge-stable'",
-  "postStartCommand": "bash -lc 'if ! curl -fsS http://127.0.0.1:8787/api/health >/dev/null 2>&1; then nohup npm --prefix bridge start >/tmp/traffic-bridge.log 2>&1 & fi; sleep 2; if command -v gh >/dev/null 2>&1 && [ -n \"$CODESPACE_NAME\" ]; then gh codespace ports visibility 8787:public -c \"$CODESPACE_NAME\" || true; fi'",
+  "postStartCommand": "bash -lc 'if ! curl -fsS http://127.0.0.1:8787/api/health >/dev/null 2>&1; then nohup env PORT=8786 npm --prefix bridge start >/tmp/traffic-bridge.log 2>&1 & sleep 2; nohup env HANDOFF_PROXY_PORT=8787 TRAFFIC_BRIDGE_UPSTREAM_PORT=8786 node bridge/handoff-proxy.js >/tmp/traffic-handoff-proxy.log 2>&1 & fi; sleep 2; if command -v gh >/dev/null 2>&1 && [ -n \"$CODESPACE_NAME\" ]; then gh codespace ports visibility 8787:public -c \"$CODESPACE_NAME\" || true; fi'",
   "remoteEnv": {
     "PORT": "8787"
   }
