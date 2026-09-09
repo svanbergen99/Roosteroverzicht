@@ -11,6 +11,9 @@ const ALLOWED_ORIGIN = String(
     "https://achmea-production-1-a3srealtime-eu-west-1-prod.kb.eu-west-1.aws.found.io"
 ).trim();
 const MAX_BODY_BYTES = 8 * 1024;
+const REQUEST_WINDOW_MS = 60 * 1000;
+const MAX_REQUESTS_PER_WINDOW = 30;
+const requestWindows = new Map();
 
 function readEnv(name) {
   return String(process.env[name] || "").trim();
@@ -30,15 +33,47 @@ function corsHeaders(origin) {
   };
 }
 
+function securityHeaders() {
+  return {
+    "cache-control": "no-store",
+    "content-security-policy": "default-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+    "cross-origin-resource-policy": "same-origin",
+    "referrer-policy": "no-referrer",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY"
+  };
+}
+
 function json(res, status, body, origin = "") {
   res.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
-    "cache-control": "no-store",
-    "x-content-type-options": "nosniff",
-    "referrer-policy": "no-referrer",
+    ...securityHeaders(),
     ...corsHeaders(origin)
   });
   res.end(JSON.stringify(body));
+}
+
+function isJsonContentType(req) {
+  const contentType = String(req.headers["content-type"] || "").toLowerCase();
+  return contentType === "application/json" || contentType.startsWith("application/json;");
+}
+
+function allowRequest(req) {
+  const forwarded = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  const key = forwarded || String(req.socket.remoteAddress || "unknown");
+  const now = Date.now();
+  const current = requestWindows.get(key);
+  const active = current && now - current.startedAt < REQUEST_WINDOW_MS
+    ? current
+    : { startedAt: now, count: 0 };
+  active.count += 1;
+  requestWindows.set(key, active);
+  if (requestWindows.size > 500) {
+    for (const [entryKey, entry] of requestWindows) {
+      if (now - entry.startedAt >= REQUEST_WINDOW_MS) requestWindows.delete(entryKey);
+    }
+  }
+  return active.count <= MAX_REQUESTS_PER_WINDOW;
 }
 
 function readJsonBody(req) {
@@ -140,6 +175,11 @@ const server = http.createServer(async (req, res) => {
   const origin = String(req.headers.origin || "");
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
 
+  if (!allowRequest(req)) {
+    json(res, 429, { ok: false, status: "rate-limited" }, origin);
+    return;
+  }
+
   if (url.pathname !== "/api/open-tab") {
     proxyToTrafficBridge(req, res);
     return;
@@ -147,12 +187,13 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === "OPTIONS") {
     if (origin !== ALLOWED_ORIGIN) {
-      res.writeHead(403);
+      res.writeHead(403, securityHeaders());
       res.end();
       return;
     }
 
     res.writeHead(204, {
+      ...securityHeaders(),
       ...corsHeaders(origin),
       "access-control-allow-methods": "POST, OPTIONS",
       "access-control-allow-headers": "content-type, x-traffic-tab-key",
@@ -164,6 +205,11 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method !== "POST") {
     json(res, 405, { ok: false, status: "method-not-allowed" }, origin);
+    return;
+  }
+
+  if (!isJsonContentType(req)) {
+    json(res, 415, { ok: false, status: "content-type-required" }, origin);
     return;
   }
 
