@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "20260910-public";
+  const VERSION = "20260910-open-ui";
 
   function hasAsset(selector, baseName, attribute) {
     return [...document.querySelectorAll(selector)].some((element) => {
