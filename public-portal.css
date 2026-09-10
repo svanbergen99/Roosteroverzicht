@@ -1,5 +1,4 @@
-/* Openbare startpagina: alleen algemene websites en visuele instellingen zijn zichtbaar. */
-body.public-portal-mode #unlockOverlay,
+/* Openbare startpagina: er is geen roosterlogin of roosterweergave meer. */
 body.public-portal-mode .search-card {
   display: none !important;
 }
@@ -17,8 +16,7 @@ body.public-portal-mode #welcomeOverlay {
   background: transparent !important;
 }
 
-/* KCD-branding op de openbare welkomstpagina. Dit bevat geen rooster- of
-   personeelsgegevens; de beveiligde Team-login blijft ongewijzigd. */
+/* KCD-branding op de openbare welkomstpagina. */
 body.public-portal-mode #welcomeOverlay.welcome-with-kernwaarde {
   display: flex;
   flex-direction: column;
@@ -50,7 +48,8 @@ body.public-portal-mode .welcome-kernwaarde-image {
   box-shadow: 0 28px 80px rgba(0, 0, 0, .30);
 }
 
-/* Extra vangnet: rooster-/personeelsblokken blijven verborgen als oude markup nog in de pagina staat. */
+/* Vangnet voor oude rooster-/personeelsblokken die mogelijk nog door
+   niet-opgeschoonde losse scripts worden aangemaakt. */
 body.public-portal-mode .traffic-today-bar,
 body.public-portal-mode .next-salary-payment-bar,
 body.public-portal-mode .team-contacts-bar,
