@@ -1,4 +1,5 @@
 import http from "node:http";
+import { requestUrl, serverLimits, limitConnections } from "./request-security.js";
 import { spawn } from "node:child_process";
 import { timingSafeEqual } from "node:crypto";
 
@@ -136,9 +137,15 @@ function proxyToTrafficBridge(req, res) {
   req.pipe(upstream);
 }
 
-const server = http.createServer(async (req, res) => {
+const server = http.createServer(serverLimits, async (req, res) => {
   const origin = String(req.headers.origin || "");
-  const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+  let url;
+  try {
+    url = requestUrl(req);
+  } catch {
+    json(res, 400, { ok: false, status: "invalid-request" }, origin);
+    return;
+  }
 
   if (url.pathname !== "/api/open-tab") {
     proxyToTrafficBridge(req, res);
@@ -195,6 +202,7 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+limitConnections(server);
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Traffic handoff proxy luistert op poort ${PORT}; bridge upstream ${UPSTREAM_PORT}`);
 });

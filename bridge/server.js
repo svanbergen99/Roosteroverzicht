@@ -1,5 +1,6 @@
 import http from "node:http";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { requestUrl, serverLimits, limitConnections } from "./request-security.js";
 
 const PORT = Number(process.env.PORT || 8787);
 const ALLOWED_ORIGIN = String(process.env.ALLOWED_ORIGIN || "https://svanbergen99.github.io").trim();
@@ -344,14 +345,20 @@ function getPushOrigin() {
   }
 }
 
-const server = http.createServer(async (req, res) => {
+const server = http.createServer(serverLimits, async (req, res) => {
   const origin = req.headers.origin || "";
-  const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+  let url;
+  try {
+    url = requestUrl(req);
+  } catch {
+    json(res, 400, { ok: false, code: "INVALID_REQUEST", message: "Ongeldig HTTP-verzoek." }, origin);
+    return;
+  }
   const pushOrigin = getPushOrigin();
 
   if (req.method === "OPTIONS") {
     const isPush = url.pathname === "/api/traffic-push";
-    const isLiveRead = url.pathname === "/api/traffic-live";
+    const isLiveRead = url.pathname === "/api/traffic-live" || url.pathname === "/api/traffic-header";
     const isCollectorToken = url.pathname === "/api/traffic-collector-token";
     const pushOriginAllowed = isPush && (allowedCorsOrigin(origin, pushOrigin) || isExtensionOrigin(origin));
     const regularOriginAllowed = (isLiveRead || isCollectorToken) && allowedCorsOrigin(origin, ALLOWED_ORIGIN);
@@ -502,7 +509,8 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === "GET" && url.pathname === "/api/traffic-live") {
+  // CORS is a browser response policy; every data read also needs authentication.
+  if (url.pathname === "/api/traffic-live" || url.pathname === "/api/traffic-header") {
     if (!hasReadConfig()) {
       json(res, 503, {
         ok: false,
@@ -521,9 +529,8 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    const browserReadAllowed = allowedCorsOrigin(origin, ALLOWED_ORIGIN);
     const suppliedReadKey = req.headers["x-traffic-read-key"];
-    if (!browserReadAllowed && !safeSecretEqual(readEnv("TRAFFIC_READ_KEY"), suppliedReadKey)) {
+    if (!safeSecretEqual(readEnv("TRAFFIC_READ_KEY"), suppliedReadKey)) {
       json(res, 401, {
         ok: false,
         code: "INVALID_READ_KEY",
@@ -531,7 +538,9 @@ const server = http.createServer(async (req, res) => {
       }, origin);
       return;
     }
+  }
 
+  if (req.method === "GET" && url.pathname === "/api/traffic-live") {
     if (!latestTrafficSnapshot) {
       json(res, 503, {
         ok: false,
@@ -569,6 +578,7 @@ const server = http.createServer(async (req, res) => {
   json(res, 404, { ok: false, message: "Niet gevonden" }, origin);
 });
 
+limitConnections(server);
 server.listen(PORT, () => {
   console.log(`Traffic bridge luistert op poort ${PORT}`);
 });

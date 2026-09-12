@@ -52,3 +52,9 @@ Zonder de vereiste Codespaces Secrets blijft de bridge bewust in veilige niet-ge
 ## Volgende stap
 
 Zodra een officieel goedgekeurde read-only backend-identiteit beschikbaar is, zet je die uitsluitend als `KIBANA_AUTHORIZATION` in Codespaces Secrets. Daarna kan de bridge de officiële header live synchroniseren. Dezelfde beveiligingsopzet kan later worden uitgebreid naar de live Traffic-metrics.
+
+## Beveiliging van HTTP-toegang
+
+Beide gegevensroutes (`/api/traffic-live` en `/api/traffic-header`) vereisen bij elk verzoek de `x-traffic-read-key`-header. Een toegestane browser-origin vervangt authenticatie niet. Ontbrekende configuratie weigert toegang. Bewaar deze sleutel in een vertrouwde server of persoonlijke beveiligde clientsessie; zet hem nooit in openbare broncode of een openbaar configuratiebestand. Bestaande serverconsumenten sturen deze header al mee.
+
+Ongeldige HTTP-targets en Host-headers leveren 400 op. Headers, requestduur en verbindingen hebben vaste limieten. Voer `node bridge/security.test.mjs` uit voor de regressietests; deze gebruiken uitsluitend synthetische gegevens en bootsen alle upstreamverzoeken na.
