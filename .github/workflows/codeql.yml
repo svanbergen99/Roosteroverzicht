@@ -1,0 +1,63 @@
+name: CodeQL
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '23 4 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  analyze:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, actions]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          queries: security-extended
+      - uses: github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
+        with:
+          category: /language:${{ matrix.language }}
+          output: ${{ runner.temp }}/codeql-results
+      - name: Block unresolved medium or higher security findings
+        env:
+          SARIF_DIR: ${{ runner.temp }}/codeql-results
+        shell: bash
+        run: |
+          python - <<'PYCODEQL'
+          import json, os, pathlib, sys
+          files = list(pathlib.Path(os.environ['SARIF_DIR']).glob('*.sarif'))
+          if not files:
+              sys.exit('CodeQL did not produce a SARIF report')
+          blocked = []
+          for path in files:
+              for run in json.loads(path.read_text()).get('runs', []):
+                  rules = {r['id']: r for r in run.get('tool', {}).get('driver', {}).get('rules', [])}
+                  for result in run.get('results', []):
+                      rule = rules.get(result.get('ruleId'), {})
+                      severity = float(rule.get('properties', {}).get('security-severity', 0))
+                      if severity >= 4 or result.get('level') == 'error':
+                          blocked.append((result.get('ruleId', 'unknown'), severity))
+          for rule, severity in blocked:
+              print(f'Unresolved CodeQL finding: {rule}, security severity {severity}')
+          print(f'CodeQL gate: {len(blocked)} blocking findings')
+          sys.exit(bool(blocked))
+          PYCODEQL
